@@ -10,12 +10,13 @@
 ## 1. Estado Atual do Projeto
 
 - **Nome:** Livestock Control — Gestão Agropecuária (Rebanho + Compliance + Financeiro)
-- **Fase:** Fase 0 (Setup do projeto) — em andamento. Feito: repositório Git (GitHub,
-  `DMZ-Digital-Access/rural-prod`, branch `main`), scaffold React+TS+Vite com Tailwind v4 +
-  shadcn/ui, libs da stack instaladas (router, react-query, react-hook-form+zod, supabase-js,
-  sonner, lucide-react, recharts), CI básico (GitHub Actions: lint+build). Pendente: linkar o
-  projeto Supabase via CLI (ver Bloqueios, seção 4) e estruturar convenções adicionais do
-  repositório (padrão de commits formal, se necessário).
+- **Fase:** Fase 0 (Setup do projeto) — praticamente concluída. Feito: repositório Git
+  (GitHub, `DMZ-Digital-Access/rural-prod`, branch `main`), scaffold React+TS+Vite com
+  Tailwind v4 + shadcn/ui, libs da stack instaladas, CI básico (GitHub Actions: lint+build),
+  projeto Supabase criado (conta Dmz Labs 06, ref `bsoofshttpboaaokejwt`) e linkado ao repo
+  local (`supabase/config.toml` versionado, banco confirmado limpo). Falta só: convenções
+  adicionais de repositório, se necessário (padrão de commit formal — não bloqueante).
+  Próximo passo real do plano: **Fase 1** (autenticação + shell da aplicação).
 - **Repositório:** criado — `https://github.com/DMZ-Digital-Access/rural-prod` (branch `main`)
 - **Stack confirmada:** React 18 + TypeScript + Vite, Tailwind + shadcn/ui, react-hook-form +
   zod, @tanstack/react-query, Supabase (Postgres + Auth + Storage), sonner, recharts
@@ -86,18 +87,42 @@ Pendência residual (não bloqueante, não fazia parte das 5 originais): faixa e
 subtipos de Aves além de Frango de Corte (Matriz, Poedeira, Peru, Codorna, Avestruz) — segue
 sem padrão definido, seguir o mesmo tratamento estrutural (sem seed até validação).
 
-**Novo bloqueio (2026-07-16):** o projeto Supabase do produto (`bsoofshttpboaaokejwt`, ver
-`.env`) foi criado por JP na conta **Dmz Labs 06** — diferente da conta "DMZ Devops 01" com a
-qual a Supabase CLI local está autenticada (essa só enxerga `oddra-dev` e um `rural-prod`
-distinto, ref `salvrbdjyxontsjpfjyp`, que **não é** o projeto do produto). Para rodar
-`supabase link`/migrations via CLI sem alterar o login global (usado por outros projetos),
-falta um **Personal Access Token da conta Dmz Labs 06** (gerado em
-supabase.com/dashboard/account/tokens), a ser adicionado em `.env` como
-`SUPABASE_ACCESS_TOKEN`. Bloqueia: linkar o schema local ao projeto remoto (Fase 0/3).
+Nenhum bloqueio aberto no momento. O bloqueio do link do Supabase (projeto criado na conta
+Dmz Labs 06, diferente da conta autenticada na CLI local) foi resolvido em 2026-07-16 — ver
+seção 5 e o log `2026-07-16-orchestrator-fase0-scaffold.md`.
+
+**Pendência de decisão (não bloqueante, achado ao linkar):** o projeto Supabase remoto já
+vem com defaults de auth diferentes do `supabase/config.toml` gerado localmente —
+`enable_confirmations = true` (confirmação de email obrigatória), `otp_length = 8`,
+`max_frequency = "1m0s"`, MFA TOTP habilitado. Ninguém decidiu isso explicitamente ainda
+(são os defaults do Supabase para projetos novos, não uma escolha do time). `cyber_chief`
+(Constantine) revisa e alinha `config.toml` com o que for decidido na Fase 1 (provisionamento
+de conta / auth).
 
 ---
 
 ## 5. Histórico de Tarefas Complexas (mais recente primeiro)
+
+### 2026-07-16 — Fase 0: link do projeto Supabase — `orchestrator` (via Claude/Cowork)
+
+- **O que foi feito:** resolvido o bloqueio da tarefa anterior. JP gerou um Personal Access
+  Token na conta Supabase "Dmz Labs 06" (`SUPABASE_ACCESS_TOKEN` no `.env`) e a senha do
+  banco (`SUPABASE_DB_PASSWORD`, resetada via dashboard). Com os dois, `supabase link
+  --project-ref bsoofshttpboaaokejwt --password <senha>` funcionou (via env var, sem alterar
+  o login global da CLI). Rodado também `supabase init` (não existia `supabase/config.toml`
+  local ainda) e confirmado `supabase migration list`: banco remoto limpo, sem migrations —
+  esperado, projeto novo.
+- **Achado (não decisão, só observação):** o config remoto já vem com
+  `enable_confirmations = true`, `otp_length = 8`, MFA TOTP habilitado — defaults do Supabase
+  para projeto novo, diferentes do `config.toml` local gerado pelo CLI. Registrado como
+  pendência de decisão não bloqueante (seção 4) para `cyber_chief` revisar na Fase 1.
+- **Mudanças de arquivo:** `supabase/config.toml` e `supabase/.gitignore` versionados
+  (commit `744e633`); `.env` ganhou `SUPABASE_ACCESS_TOKEN` e `SUPABASE_DB_PASSWORD`
+  (gitignored, não versionados).
+- **Pendências:** nenhuma bloqueante. Próximo passo real: Fase 1 (autenticação e shell da
+  aplicação) — ver seção 5 de `multi-agent-workflow.md`.
+- **Log completo:** `.agents/memory/log/2026-07-16-orchestrator-fase0-scaffold.md` (mesma
+  entrada da tarefa anterior, atualizada com esta seção)
 
 ### 2026-07-16 — Fase 0: repositório + scaffold do projeto — `orchestrator` (via Claude/Cowork)
 
