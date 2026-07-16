@@ -10,8 +10,13 @@
 ## 1. Estado Atual do Projeto
 
 - **Nome:** Livestock Control — Gestão Agropecuária (Rebanho + Compliance + Financeiro)
-- **Fase:** Fase 0 (Setup do projeto) — ainda não iniciada
-- **Repositório:** ainda não criado (projeto novo, greenfield — ver seção 10 da spec)
+- **Fase:** Fase 0 (Setup do projeto) — em andamento. Feito: repositório Git (GitHub,
+  `DMZ-Digital-Access/rural-prod`, branch `main`), scaffold React+TS+Vite com Tailwind v4 +
+  shadcn/ui, libs da stack instaladas (router, react-query, react-hook-form+zod, supabase-js,
+  sonner, lucide-react, recharts), CI básico (GitHub Actions: lint+build). Pendente: linkar o
+  projeto Supabase via CLI (ver Bloqueios, seção 4) e estruturar convenções adicionais do
+  repositório (padrão de commits formal, se necessário).
+- **Repositório:** criado — `https://github.com/DMZ-Digital-Access/rural-prod` (branch `main`)
 - **Stack confirmada:** React 18 + TypeScript + Vite, Tailwind + shadcn/ui, react-hook-form +
   zod, @tanstack/react-query, Supabase (Postgres + Auth + Storage), sonner, recharts
   (roadmap). Hospedagem: Vercel/Netlify (frontend) + Supabase (backend gerenciado).
@@ -81,9 +86,37 @@ Pendência residual (não bloqueante, não fazia parte das 5 originais): faixa e
 subtipos de Aves além de Frango de Corte (Matriz, Poedeira, Peru, Codorna, Avestruz) — segue
 sem padrão definido, seguir o mesmo tratamento estrutural (sem seed até validação).
 
+**Novo bloqueio (2026-07-16):** o projeto Supabase do produto (`bsoofshttpboaaokejwt`, ver
+`.env`) foi criado por JP na conta **Dmz Labs 06** — diferente da conta "DMZ Devops 01" com a
+qual a Supabase CLI local está autenticada (essa só enxerga `oddra-dev` e um `rural-prod`
+distinto, ref `salvrbdjyxontsjpfjyp`, que **não é** o projeto do produto). Para rodar
+`supabase link`/migrations via CLI sem alterar o login global (usado por outros projetos),
+falta um **Personal Access Token da conta Dmz Labs 06** (gerado em
+supabase.com/dashboard/account/tokens), a ser adicionado em `.env` como
+`SUPABASE_ACCESS_TOKEN`. Bloqueia: linkar o schema local ao projeto remoto (Fase 0/3).
+
 ---
 
 ## 5. Histórico de Tarefas Complexas (mais recente primeiro)
+
+### 2026-07-16 — Fase 0: repositório + scaffold do projeto — `orchestrator` (via Claude/Cowork)
+
+- **O que foi feito:** criado o repositório Git novo (`DMZ-Digital-Access/rural-prod`,
+  branch `main`) e feito o primeiro push; scaffold do projeto React 18 + TypeScript + Vite
+  (template react-ts), Tailwind CSS v4 + shadcn/ui inicializado, path alias `@/*`, todas as
+  libs da stack instaladas (react-router-dom, @tanstack/react-query, react-hook-form + zod,
+  @supabase/supabase-js, sonner, lucide-react, recharts). Cliente Supabase básico em
+  `src/lib/supabase.ts`, `.env.example` como convenção, CI básico (GitHub Actions: lint +
+  build) em `.github/workflows/ci.yml`. Build e lint validados localmente (`npm run build`,
+  `npm run lint`) antes do commit.
+- **Decisões:** nenhuma nova (execução do que já estava decidido na spec, seção 10, Fase 0).
+- **Bloqueio encontrado:** projeto Supabase do produto está em conta diferente da que a CLI
+  local usa — ver seção 4 (Bloqueios), novo item.
+- **Mudanças de arquivo:** scaffold completo do app na raiz do repo (ver commit
+  `ee7e657`); `.env` ganhou `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` (duplicando as
+  versões sem prefixo, necessárias para o client Vite expor a variável ao browser).
+- **Pendências:** obter `SUPABASE_ACCESS_TOKEN` da conta Dmz Labs 06 para linkar o projeto.
+- **Log completo:** `.agents/memory/log/2026-07-16-orchestrator-fase0-scaffold.md`
 
 ### 2026-07-16 — Resolução das 5 pendências de modelagem — `orchestrator` (via Claude/Cowork)
 
