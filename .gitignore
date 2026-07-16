@@ -1,0 +1,21 @@
+# Python (scripts/)
+__pycache__/
+*.pyc
+
+# Node / futura app React+Vite (Fase 0 da especificação)
+node_modules/
+dist/
+build/
+.env
+.env.local
+!.env.example
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Dropbox (evita subir arquivos de conflito de sincronização)
+*.dropbox.attr
+*.tmp
