@@ -108,14 +108,17 @@ Fase 0 — Setup             → tools_orchestrator (MCPs), devops (CI/CD), arch
 Fase 1 — Fundação (Auth)   → architect (ADR de provisionamento via trigger) → developer → qa
                                → cyber_chief (gate: RLS e auth revisados antes de avançar)
 Fase 2 — Eixo 1 (individual)→ clara/po (stories) → developer → qa (fórmula de GMD correta)
-Fase 3 — Eixo 2 dados       → architect + db_sage (schema completo: especies, gtas,
-                               transacoes, saldo, financeiro) → qa (saldo validado contra
-                               os números reais dos prints de referência, conforme item 12
-                               da seção 10 da spec) → 🔒 CHECKPOINT DE VALIDAÇÃO DE SALDO
-                               (ver abaixo) → só então segue para a Fase 4
+Fase 3 — Eixo 2 dados       → architect (ADR da Opção B — vínculo transacoes_animais, ver
+                               spec seção 3.3) + db_sage (schema completo: especies, gtas,
+                               transacoes, transacoes_detalhe, transacoes_animais, saldo,
+                               financeiro) → qa (saldo validado contra os números reais dos
+                               prints de referência, conforme item 12 da seção 10 da spec)
+                               → 🔒 CHECKPOINT DE VALIDAÇÃO DE SALDO (ver abaixo) → só então
+                               segue para a Fase 4
 Fase 4 — Eixo 2 telas       → po (prioriza módulos: Transações → Saldo → GTAs → Financeiro
-                               → Declarações → Painel) → ux (navegação/hierarquia) →
-                               developer → qa
+                               → Declarações → Painel) → ux (navegação/hierarquia, incluindo
+                               o passo de seleção de animais individuais no cadastro de
+                               transação — Opção B) → developer → qa
 Fase 5 — Qualidade/Produção → qa (suite completa) → devops (Sentry, deploy) → cyber_chief +
                                legal_chief (gate final antes de produção)
 Fase 6 — Roadmap futuro     → pm/po decidem quando entra no backlog (não é bloqueio de
@@ -149,19 +152,21 @@ fluxo (onde Emma aprova tecnicamente e segue), a saída da Fase 3 exige:
 
 ## 6. Pontos em aberto da especificação — não decidir sozinho, perguntar ao usuário
 
-A spec já marca isso explicitamente (⚠️ na seção 3.2 e nota na seção 3.3/10) — reforçando
-aqui porque são decisões que travam código se erradas:
+As 5 pendências que a spec original marcava como "validar com o cliente" foram **todas
+resolvidas por JP em 2026-07-16** (ver `.agents/memory/PROJECT_CONTEXT.md` seções 2 e 4, e
+o log `.agents/memory/log/2026-07-16-orchestrator-resolucao-pendencias.md`):
 
-- Unidade de idade para Aves (dias/semanas/meses) — `architect`/`clara` validam com o
-  usuário antes de modelar `agrupamentos_etarios` para essa espécie.
-- Distinção prática entre Burro e Jumento (subtipo único ou separado) — `clara` confirma.
-- Reconciliação Eixo 1 ↔ Eixo 2 (Opção A recomendada, mas precisa confirmação antes da
-  Fase 3) — `architect` traz a decisão em formato de ADR para o usuário aprovar.
-- Supabase: projeto novo ou reaproveitar o existente do protótipo — `devops`/`tools_orchestrator`
-  perguntam antes da Fase 0, item 2.
+- Unidade de idade para Aves → **semanas**, mas faixas confirmadas só para Frango de Corte.
+- Burro e Jumento → **subtipo único** de Muares.
+- Reconciliação Eixo 1 ↔ Eixo 2 → **Opção B** (vinculada), não mais a Opção A recomendada
+  pela spec — `architect` ainda formaliza o ADR na Fase 3, mas a direção já está decidida.
+- Supabase → **projeto novo**.
+- Faixas etárias de Caprino, Suíno, Muar e Aves-Frango de Corte → seed completo, ver spec
+  seção 3.2.
 
-Ver `.agents/memory/PROJECT_CONTEXT.md` seção 4 (Bloqueios) para o estado atual dessas
-pendências.
+Pendência residual, não bloqueante: faixa etária dos demais subtipos de Aves (Matriz,
+Poedeira, Peru, Codorna, Avestruz) — `clara` confirma quando for modelar esses subtipos
+especificamente, sem travar a Fase 3.
 
 ## 7. Memória persistente
 
