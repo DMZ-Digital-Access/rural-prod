@@ -10,20 +10,27 @@
 ## 1. Estado Atual do Projeto
 
 - **Nome:** Livestock Control — Gestão Agropecuária (Rebanho + Compliance + Financeiro)
-- **Fase:** Fase 0 (Setup do projeto) — praticamente concluída. Feito: repositório Git
-  (GitHub, `DMZ-Digital-Access/rural-prod`, branch `main`), scaffold React+TS+Vite com
-  Tailwind v4 + shadcn/ui, libs da stack instaladas, CI básico (GitHub Actions: lint+build),
-  projeto Supabase criado (conta Dmz Labs 06, ref `bsoofshttpboaaokejwt`) e linkado ao repo
-  local (`supabase/config.toml` versionado, banco confirmado limpo). Falta só: convenções
-  adicionais de repositório, se necessário (padrão de commit formal — não bloqueante).
-  Próximo passo real do plano: **Fase 1** (autenticação + shell da aplicação).
+- **Fase:** Fase 0 concluída. **Fase 1 (Fundação: Autenticação) em andamento** — feito até
+  aqui: ADR-0001 (provisionamento via trigger de banco), migration
+  `20260716171522_fase1_usuarios_fazendas.sql` escrita por `db_sage`, revisada e corrigida por
+  `cyber_chief` (gate de segurança 🟢, ver log), **aplicada no banco remoto** (`supabase db
+  push` confirmado, `supabase migration list` mostra local=remote). Schema no ar: `usuarios`,
+  `fazendas`, `usuarios_fazendas` (com `papel`), função `handle_new_user()` +
+  trigger `on_auth_user_created`, RLS habilitada (SELECT/UPDATE restritos, sem INSERT/DELETE
+  client-side, com triggers de imutabilidade de coluna). Falta da Fase 1: formulário de
+  signup/login no frontend (populando `options.data.nome_fazenda`/`nome` no `signUp()`), shell
+  da aplicação com roteamento real (react-router-dom, rotas da seção 8 da spec), e testes de
+  RLS pelo `qa` (Emma) — recomendados pelo próprio `cyber_chief`.
 - **Repositório:** criado — `https://github.com/DMZ-Digital-Access/rural-prod` (branch `main`)
 - **Stack confirmada:** React 18 + TypeScript + Vite, Tailwind + shadcn/ui, react-hook-form +
   zod, @tanstack/react-query, Supabase (Postgres + Auth + Storage), sonner, recharts
   (roadmap). Hospedagem: Vercel/Netlify (frontend) + Supabase (backend gerenciado).
-- **Última entrega:** nenhuma ainda
-- **Em andamento agora:** nada em código ainda — todas as 5 pendências de modelagem que bloqueavam o início da Fase 0/3 foram resolvidas com JP em 2026-07-16; próximo passo real é iniciar a Fase 0 (criar repositório, inicializar projeto, criar Supabase novo)
-- **Última atualização:** 2026-07-16 — pendências de modelagem resolvidas (ver seção 2); escopo da Fase 3/4 cresceu por causa da Opção B de reconciliação (não é mais roadmap, é entrega inicial)
+- **Última entrega:** migration `20260716171522_fase1_usuarios_fazendas.sql` aplicada no banco
+  Supabase remoto (schema de autenticação/fundação da Fase 1)
+- **Em andamento agora:** Fase 1 — falta o formulário de signup/login e o shell de roteamento
+  no frontend, e os testes de RLS pelo `qa`
+- **Última atualização:** 2026-07-16 — migration da Fase 1 aplicada no banco remoto, após gate
+  de segurança do `cyber_chief` (🟢)
 
 ---
 
@@ -88,10 +95,6 @@ Pendência residual (não bloqueante, não fazia parte das 5 originais): faixa e
 subtipos de Aves além de Frango de Corte (Matriz, Poedeira, Peru, Codorna, Avestruz) — segue
 sem padrão definido, seguir o mesmo tratamento estrutural (sem seed até validação).
 
-Nenhum bloqueio aberto no momento. O bloqueio do link do Supabase (projeto criado na conta
-Dmz Labs 06, diferente da conta autenticada na CLI local) foi resolvido em 2026-07-16 — ver
-seção 5 e o log `2026-07-16-orchestrator-fase0-scaffold.md`.
-
 **Pendência de decisão (não bloqueante, achado ao linkar):** o projeto Supabase remoto já
 vem com defaults de auth diferentes do `supabase/config.toml` gerado localmente —
 `enable_confirmations = true` (confirmação de email obrigatória), `otp_length = 8`,
@@ -100,9 +103,100 @@ vem com defaults de auth diferentes do `supabase/config.toml` gerado localmente 
 (Constantine) revisa e alinha `config.toml` com o que for decidido na Fase 1 (provisionamento
 de conta / auth).
 
+**Pendência de trabalho (não bloqueante):** `qa` (Emma) ainda não escreveu os testes
+automatizados de RLS recomendados pelo `cyber_chief` no gate da Fase 1 (insert client-side
+falha nas 3 tabelas; update de colunas imutáveis falha mesmo pelo dono da linha; update em
+`usuarios_fazendas` falha sempre). Não bloqueia seguir com o frontend, mas deve entrar antes
+do fim da Fase 1.
+
 ---
 
 ## 5. Histórico de Tarefas Complexas (mais recente primeiro)
+
+### 2026-07-16 — Aplicação da migration da Fase 1 no banco remoto — `orchestrator` (via Claude)
+
+- **O que foi feito:** após o gate 🟢 do `cyber_chief`, revisado o SQL final linha a linha
+  (checagem de sintaxe, ordem de triggers `BEFORE UPDATE`, `search_path` vazio combinado com
+  chamadas schema-qualificadas) e aplicado com `supabase db push --password <SUPABASE_DB_PASSWORD>`
+  no projeto remoto (`bsoofshttpboaaokejwt`, conta Dmz Labs 06). Confirmado com
+  `supabase migration list`: local `20260716171522` = remote `20260716171522`.
+- **Decisões:** nenhuma nova — execução da migration já revisada e liberada pelas duas tarefas
+  anteriores (db_sage + cyber_chief).
+- **Mudanças de arquivo:** nenhuma no repo além desta entrada de memória — a mudança real foi
+  no banco remoto (schema `usuarios`/`fazendas`/`usuarios_fazendas` + trigger + RLS agora ao
+  vivo no Supabase).
+- **Pendências:** ver seção 4 (testes de RLS do `qa`) e seção 1 (falta frontend de
+  signup/login e shell de roteamento para a Fase 1 fechar).
+- **Log completo:** esta própria entrada — tarefa de execução simples, sem log próprio (não
+  gerou decisão nova nem achado a documentar além do que já está nos logs de db_sage/cyber_chief).
+
+### 2026-07-16 — Security review (gate RLS/auth) da migration da Fase 1 — `cyber_chief` (CONSTANTINE, via Claude)
+
+- **Veredito: 🟢 Seguro — migration LIBERADA para aplicação** (`supabase db push`), decisão de
+  quando aplicar continua humana/orchestrator, fora do escopo deste gate.
+- **O que foi feito:** security review formal (protocolo `[SECURITY ANALYSIS]`) de
+  `supabase/migrations/20260716171522_fase1_usuarios_fazendas.sql`, gate atribuído a
+  `cyber_chief` na Fase 1 (`.agents/rules/multi-agent-workflow.md` seção 5). Ponto levantado
+  pelo squad confirmado como risco real (embora hoje inerte): a policy
+  `usuarios_fazendas_update_own` permitia UPDATE sem restrição de coluna no próprio vínculo,
+  incluindo `papel` — inofensivo hoje só porque a `CHECK` constraint aceita exclusivamente
+  `'dono'`, mas se tornaria uma escalação de privilégio horizontal→vertical completa (STRIDE:
+  Elevation of Privilege) no dia em que a Fase 6 estender essa constraint para incluir
+  `'financeiro'` (papel de consulta restrita, spec seção 5.4) sem revisitar esta policy —
+  cenário já mapeado no próprio ADR-0001 (critério de revisão nº 1), não hipotético. Revisão
+  também identificou dois achados adicionais de menor severidade (colunas `usuario_id` em
+  `fazendas` e `email` em `usuarios` reescrevíveis sem restrição, sem exploração ativa hoje
+  mas sem justificativa para ficarem abertas) e um item de hardening (`search_path` não fixado
+  em `trigger_set_updated_at()` / `set search_path = public` menos restritivo que necessário
+  em `handle_new_user()`).
+- **Decisões:** corrigir tudo diretamente no arquivo da migration (ainda não aplicada a
+  nenhum banco), não como migration de correção separada. Para `usuarios_fazendas`: policy de
+  UPDATE removida por completo (não restringida coluna a coluna) — não há hoje nem está
+  previsto nenhum campo do vínculo que o próprio usuário deva editar; mudança de papel é
+  sempre fluxo administrativo/de convite (Fase 6). Para `usuarios`/`fazendas`: adicionados
+  triggers `BEFORE UPDATE` de imutabilidade (`prevent_usuarios_identity_change()`,
+  `prevent_fazendas_identity_change()`) bloqueando `id`/`created_at` e, respectivamente,
+  `email`/`usuario_id`, mantendo `nome` livre (único campo com caso de uso real) — defesa em
+  profundidade porque `WITH CHECK` de RLS não consegue comparar valor novo com valor antigo da
+  linha (limitação do Postgres), só um trigger com acesso a `OLD`/`NEW` consegue.
+- **Mudanças de arquivo:**
+  `supabase/migrations/20260716171522_fase1_usuarios_fazendas.sql` editado diretamente (ver
+  log completo para o detalhamento de cada mudança); novo log; esta entrada em
+  `PROJECT_CONTEXT.md`.
+- **Pendências:** não bloqueante — `qa` (Emma) deve adicionar casos de teste automatizados
+  para as garantias de RLS validadas aqui (insert client-side falha nas 3 tabelas; update de
+  colunas imutáveis falha mesmo pelo dono da linha; update em `usuarios_fazendas` falha
+  sempre), já sinalizado desde o ADR-0001 e agora ampliado. Quando a Fase 6 estender a
+  constraint de `papel`, qualquer nova policy de UPDATE proposta para `usuarios_fazendas`
+  precisa de nova revisão deste gate antes de entrar.
+- **Log completo:** `.agents/memory/log/2026-07-16-cyber_chief-review-fase1.md`
+
+### 2026-07-16 — Migration SQL da Fase 1 (usuarios/fazendas/usuarios_fazendas) — `db_sage` (SOFIA, via Claude)
+
+- **O que foi feito:** implementada em SQL a decisão do ADR-0001 — migration única com a
+  function genérica `trigger_set_updated_at()`, as tabelas `usuarios`/`fazendas`/
+  `usuarios_fazendas` (spec seções 3.1/5.4), a função `handle_new_user()` (`SECURITY DEFINER`)
+  + trigger `on_auth_user_created` em `auth.users`, e RLS nas 3 tabelas (SELECT/UPDATE
+  restritos ao próprio usuário/fazenda vinculada, sem nenhuma policy de INSERT/DELETE para
+  `authenticated`/`anon`, com comentário SQL citando o ADR-0001 documentando a ausência
+  proposital).
+- **Decisões:** (1) constraint de `papel` em `usuarios_fazendas` via `CHECK` sobre `text`
+  (não `enum`), para a Fase 6 (`financeiro`) ser uma migration pequena de troca de constraint,
+  sem alterar o tipo da coluna; (2) fallback do nome da fazenda (ponto que o ADR-0001 deixava
+  em aberto) resolvido como `'Minha Fazenda'` quando `raw_user_meta_data->>'nome_fazenda'`
+  vier ausente/vazio, em vez de `RAISE EXCEPTION` — bloquear o signup por um campo de UX
+  secundário reintroduziria o mesmo risco que o trigger existe para eliminar; nome é editável
+  depois em Configurações.
+- **Mudanças de arquivo:** novo
+  `supabase/migrations/20260716171522_fase1_usuarios_fazendas.sql`; este log; esta entrada em
+  `PROJECT_CONTEXT.md`. Seção 1 (Estado Atual) **não foi alterada** — migration escrita, ainda
+  não aplicada ao banco (aplicação é tarefa seguinte, após revisão humana).
+- **Pendências:** migration não aplicada (`supabase db push`/`migration up` propositalmente
+  não executado, fora do escopo desta tarefa). Revisão recomendada antes de aplicar:
+  `architect` (Alex) confirma aderência ao ADR-0001; `cyber_chief` (Constantine) valida RLS,
+  incluindo o caso de teste explícito pedido pelo ADR ("insert direto do client autenticado
+  nas 3 tabelas deve falhar").
+- **Log completo:** `.agents/memory/log/2026-07-16-db_sage-migration-fase1.md`
 
 ### 2026-07-16 — ADR-0001: provisionamento de conta no signup — `architect` (Alex, via Claude)
 
