@@ -49,6 +49,7 @@
 | 2026-07-16 | Unidade de idade de Aves: **semanas** (`unidade_idade` configurável por espécie), mas faixas confirmadas valem **só para o subtipo Frango de Corte** | JP | Matriz/Poedeira/Peru/Codorna/Avestruz seguem sem faixa definida (ciclo de vida >1 ano, incompatível com as faixas do Frango de Corte) |
 | 2026-07-16 | Faixas etárias completas para Caprino (meses: 0-6/7-12/13-24/24+), Suíno (dias: 0-30/30-70/70-150/180+), Muar (meses: 0-12/13-24/25-36/36+), Aves-Frango de Corte (semanas: 0-1/1-6/6-8/8+) | JP | Suíno: "acima de 6 meses" convertido para 180 dias para manter unidade única da espécie. Spec seção 3.2 atualizada com seed completo |
 | 2026-07-16 | Supabase: **projeto novo** (não reaproveita o do protótipo Bolt.new) | JP | Resolve item 2 da Fase 0, seção 10 da spec |
+| 2026-07-16 | **ADR-0001 aceito:** provisionamento de conta no signup via **trigger de banco** `on_auth_user_created` (não Edge Function) — função `SECURITY DEFINER` em `auth.users` cria `usuarios`+`fazendas`+`usuarios_fazendas` (`papel='dono'`) na mesma transação | `architect` (Alex) | Escolhido pela atomicidade real (falha em qualquer insert reverte tudo, inclusive `auth.users` — nunca há conta "meio criada"); Edge Function foi rejeitada por não ser atômica com o signup (janela de rede entre `signUp()` e a chamada da função). Implicação de RLS: nenhuma policy de INSERT necessária/permitida para `authenticated`/`anon` nessas 3 tabelas. Revisar quando o papel Financeiro/Contábil (Fase 6) entrar — hoje a função assume que todo signup cria fazenda nova. Ver `.agents/memory/adr/ADR-0001-provisionamento-conta.md` |
 
 ---
 
@@ -102,6 +103,32 @@ de conta / auth).
 ---
 
 ## 5. Histórico de Tarefas Complexas (mais recente primeiro)
+
+### 2026-07-16 — ADR-0001: provisionamento de conta no signup — `architect` (Alex, via Claude)
+
+- **O que foi feito:** formalizado o ADR que a spec (seção 9, item 1) e o `multi-agent-workflow.md`
+  (Fase 1) já atribuíam ao `architect`. Avaliadas com critério real as duas alternativas que a
+  spec aponta — trigger de banco `on_auth_user_created` vs. Edge Function com `service_role` —
+  e decidido pelo trigger: atomicidade garantida pelo Postgres (o trigger roda na mesma
+  transação que o GoTrue usa para criar `auth.users`; falha em qualquer insert reverte tudo,
+  inclusive o próprio `auth.users`), cobrindo todo caminho de criação de usuário sem depender
+  de o client completar um segundo passo de rede. Edge Function foi rejeitada por reproduzir,
+  num ponto diferente do fluxo, o mesmo tipo de risco que o protótipo já teve (janela de
+  inconsistência entre `signUp()` e a chamada da função).
+- **Decisões:** ver seção 2 (linha "ADR-0001 aceito"). Detalhado no ADR: onde entra o insert de
+  `usuarios_fazendas` (`papel='dono'`, mesma function body do trigger, mesma transação);
+  garantias de atomicidade (tudo ou nada, nunca "usuarios criado mas fazendas falhou");
+  implicação de RLS (nenhuma policy de INSERT client-side necessária/permitida nas 3 tabelas —
+  o trigger roda como role com `BYPASSRLS`, RLS default-deny já cobre o client, e isso deve
+  virar caso de teste explícito do `cyber_chief`).
+- **Mudanças de arquivo:** criado `.agents/memory/adr/ADR-0001-provisionamento-conta.md` (pasta
+  `adr/` nova); este log; `PROJECT_CONTEXT.md` (esta seção + seção 2). Seções 1, 3 e 4 não
+  alteradas — decisão de arquitetura, não mudança de estado do projeto.
+- **Pendências:** nenhuma bloqueante. Próximo passo real: implementação na Fase 1 (`developer`
+  escreve a migration a partir do ADR; `db_sage` revisa schema/RLS; `cyber_chief` faz o gate
+  antes de a Fase 1 avançar). Este ADR não implementa nada — nenhuma migration SQL foi criada,
+  fora do escopo desta tarefa.
+- **Log completo:** `.agents/memory/log/2026-07-16-architect-adr-provisionamento.md`
 
 ### 2026-07-16 — Fase 0: link do projeto Supabase — `orchestrator` (via Claude/Cowork)
 
