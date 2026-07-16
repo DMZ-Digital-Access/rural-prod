@@ -1,7 +1,12 @@
 [ADR-0001]
 Título: Estratégia de provisionamento de conta no signup (`usuarios` / `fazendas` / `usuarios_fazendas`)
 Data: 2026-07-16
-Status: aceito
+Status: aceito — substituído parcialmente por ADR-0002 na premissa "todo signup cria fazenda
+nova" (ver ADR-0002-convites-e-papeis-admin.md, seção [CONTEXTO] e decisão D2:
+`handle_new_user()` agora também trata signup com convite pendente, entrando em fazenda
+existente em vez de criar uma nova). O restante deste ADR — a escolha entre trigger de banco e
+Edge Function para o caminho de signup SEM convite pendente, e as garantias de atomicidade
+correspondentes — continua válido e não foi revisado.
 
 ---
 

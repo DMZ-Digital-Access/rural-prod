@@ -57,6 +57,7 @@
 | 2026-07-16 | Faixas etárias completas para Caprino (meses: 0-6/7-12/13-24/24+), Suíno (dias: 0-30/30-70/70-150/180+), Muar (meses: 0-12/13-24/25-36/36+), Aves-Frango de Corte (semanas: 0-1/1-6/6-8/8+) | JP | Suíno: "acima de 6 meses" convertido para 180 dias para manter unidade única da espécie. Spec seção 3.2 atualizada com seed completo |
 | 2026-07-16 | Supabase: **projeto novo** (não reaproveita o do protótipo Bolt.new) | JP | Resolve item 2 da Fase 0, seção 10 da spec |
 | 2026-07-16 | **ADR-0001 aceito:** provisionamento de conta no signup via **trigger de banco** `on_auth_user_created` (não Edge Function) — função `SECURITY DEFINER` em `auth.users` cria `usuarios`+`fazendas`+`usuarios_fazendas` (`papel='dono'`) na mesma transação | `architect` (Alex) | Escolhido pela atomicidade real (falha em qualquer insert reverte tudo, inclusive `auth.users` — nunca há conta "meio criada"); Edge Function foi rejeitada por não ser atômica com o signup (janela de rede entre `signUp()` e a chamada da função). Implicação de RLS: nenhuma policy de INSERT necessária/permitida para `authenticated`/`anon` nessas 3 tabelas. Revisar quando o papel Financeiro/Contábil (Fase 6) entrar — hoje a função assume que todo signup cria fazenda nova. Ver `.agents/memory/adr/ADR-0001-provisionamento-conta.md` |
+| 2026-07-16 | **ADR-0002 aceito:** papel único hierárquico `admin/membro/financeiro` (substitui `dono`) + convite para fazenda existente (novo usuário ou já cadastrado) já nesta fase, não só Fase 6. Escrita em `usuarios_fazendas`/`convites` só via 4 funções `SECURITY DEFINER` (`aceitar_convite`, `promover_papel`, `criar_convite`, `cancelar_convite`) — zero policy de INSERT/UPDATE/DELETE nova para `authenticated`/`anon`, generalizando a correção do `cyber_chief` na Fase 1. Envio de convite a quem não tem conta exige Edge Function nova (`enviar-convite`, `service_role`) | `architect` (Alex) | Substitui parcialmente o ADR-0001 (só a premissa "todo signup cria fazenda nova"; resto do ADR-0001 continua válido). Ver `.agents/memory/adr/ADR-0002-convites-e-papeis-admin.md` |
 
 ---
 
@@ -109,9 +110,48 @@ falha nas 3 tabelas; update de colunas imutáveis falha mesmo pelo dono da linha
 `usuarios_fazendas` falha sempre). Não bloqueia seguir com o frontend, mas deve entrar antes
 do fim da Fase 1.
 
+**Pendência de trabalho (não bloqueante):** `db_sage` ainda não implementou a migration a
+partir do ADR-0002 (tabela `convites`, funções `aceitar_convite`/`promover_papel`/
+`criar_convite`/`cancelar_convite`, branch novo em `handle_new_user()`, migração de
+`papel='dono'` → `'admin'`). Depois da implementação, gate do `cyber_chief` obrigatório antes
+de aplicar — atenção redobrada às funções `SECURITY DEFINER` novas e à Edge Function
+`enviar-convite`. Ver `.agents/memory/adr/ADR-0002-convites-e-papeis-admin.md`.
+
 ---
 
 ## 5. Histórico de Tarefas Complexas (mais recente primeiro)
+
+### 2026-07-16 — ADR-0002: convites para fazenda existente e papéis admin/membro/financeiro — `architect` (Alex, via Claude)
+
+- **O que foi feito:** formalizada a decisão técnica para as três mudanças de modelo já
+  decididas por JP (papel único hierárquico `admin/membro/financeiro` substituindo `dono`;
+  qualquer admin pode promover outro membro; convite funciona para usuário novo ou já
+  cadastrado, N:N usuário↔fazenda já nesta fase). Endereça o Critério de Revisão nº 1 e nº 4
+  do ADR-0001, que já previa este momento.
+- **Decisões:** (1) toda escrita em `usuarios_fazendas`/`convites` passa a ser feita
+  exclusivamente por 4 funções `SECURITY DEFINER` (`aceitar_convite`, `promover_papel`,
+  `criar_convite`, `cancelar_convite`), cada uma validando a permissão do chamador dentro do
+  próprio corpo — zero policy de INSERT/UPDATE/DELETE nova para `authenticated`/`anon`,
+  generalizando a partir de agora (não só reativamente) a correção que o `cyber_chief` já
+  aplicou na Fase 1 contra escalação de privilégio em `usuarios_fazendas`; (2)
+  `handle_new_user()` ganha um branch para signup com convite pendente (entra em fazenda
+  existente em vez de criar nova, valida token+e-mail, bloqueia o signup se o token vier
+  presente mas inválido); (3) tabela `convites` nova como fonte da verdade do convite +
+  Edge Function `enviar-convite` (`service_role`) para o envio em si, com branch entre
+  `admin.inviteUserByEmail` (sem conta) e e-mail transacional próprio (já tem conta); (4)
+  ordem obrigatória da migração de dados existentes (`papel='dono'` → `'admin'`): drop da
+  constraint antiga antes do UPDATE, senão a constraint antiga rejeita o novo valor.
+- **Mudanças de arquivo:** criado `.agents/memory/adr/ADR-0002-convites-e-papeis-admin.md`;
+  editado `.agents/memory/adr/ADR-0001-provisionamento-conta.md` (campo `Status:` — só nota de
+  substituição parcial, conteúdo original preservado); este log; `PROJECT_CONTEXT.md` (esta
+  seção + seções 2 e 4). Nenhuma migration SQL escrita — decisão e documentação apenas,
+  implementação é tarefa seguinte do `db_sage`.
+- **Pendências:** `db_sage` implementa a migration a partir deste ADR (tabela `convites`, as 4
+  funções, atualização de `handle_new_user()`, troca de constraint de `papel` com migração de
+  dados); gate do `cyber_chief` obrigatório antes de aplicar, com atenção redobrada às funções
+  `SECURITY DEFINER` novas e à Edge Function `enviar-convite`. Provedor de e-mail transacional
+  para convite a usuário já cadastrado não decidido aqui — é do `devops` (Oliver).
+- **Log completo:** `.agents/memory/log/2026-07-16-architect-adr-0002-convites.md`
 
 ### 2026-07-16 — Aplicação da migration da Fase 1 no banco remoto — `orchestrator` (via Claude)
 
