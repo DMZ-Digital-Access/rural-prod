@@ -30,16 +30,28 @@
 //     precisam de `supabase secrets set` manual.
 //   - APP_URL: NÃO injetada automaticamente. Precisa ser configurada via
 //     `supabase secrets set APP_URL=https://app.dominio.com` (decisão de
-//     devops/deploy, fora do escopo desta tarefa). Usada para:
+//     devops/deploy — ver ADR-0003, .agents/memory/adr/
+//     ADR-0003-provedor-email-transacional.md). Usada para:
 //       (a) redirectTo do e-mail nativo de convite (admin.inviteUserByEmail);
-//       (b) montar a URL de aceite no branch de e-mail transacional (TODO,
-//           ver enviarEmailConvite em logica.ts);
+//       (b) montar a URL de aceite no e-mail transacional (Resend/fallback,
+//           ver enviarEmailConvite/montarChamadaResend em logica.ts);
 //       (c) o Access-Control-Allow-Origin do CORS, quando definida — ver
 //           corsHeadersFor() em logica.ts.
 //     Se ausente, a função ainda funciona (cai em comportamento mais
 //     permissivo/menos preciso em vez de falhar), porque travar todo o envio
 //     de convite por uma variável de configuração de UX seria
 //     desproporcional — mas isso deve ser corrigido antes de produção.
+//   - RESEND_API_KEY: NÃO injetada automaticamente, e OPCIONAL (feature-gated
+//     — ver ADR-0003). Ausente hoje porque ninguém criou a conta Resend
+//     ainda. Quando presente, o branch de e-mail transacional (convidado já
+//     tem conta) chama a API REST da Resend de verdade; quando ausente,
+//     cai no fallback seguro pré-existente (loga a URL, `emailEnviado:
+//     false`) — nunca quebra por falta desta env var.
+//   - RESEND_FROM_EMAIL: opcional. Endereço "From:" usado na chamada à
+//     Resend. Default: 'Livestock Control <onboarding@resend.dev>' (sender de
+//     sandbox da própria Resend, funciona sem domínio verificado, mas com
+//     limitações — ver ADR-0003 para quando/como trocar por um domínio
+//     verificado do produto).
 // ============================================================================
 
 import { createClient } from 'npm:@supabase/supabase-js@2'
@@ -48,6 +60,7 @@ import {
   corsHeadersFor,
   enviarEmailConvite,
   montarChamadaInviteUserByEmail,
+  montarChamadaResend,
   validarConvitePendente,
   type ConviteRow,
   type VinculoRow,
@@ -230,9 +243,44 @@ Deno.serve(async (req: Request): Promise<Response> => {
       )
     }
 
-    // Pessoa já tem conta: branch deliberadamente TODO (ver comentário de
-    // enviarEmailConvite em logica.ts). Não falha a função — o convite foi
-    // processado com sucesso, só o e-mail em si não foi enviado de fato.
+    // Pessoa já tem conta: envia e-mail transacional via Resend (ADR-0003)
+    // quando RESEND_API_KEY está configurada. Nunca falha a função por causa
+    // deste branch — o convite já foi processado com sucesso nos passos
+    // acima, só o canal de notificação pode ficar pendente.
+    const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')
+
+    if (RESEND_API_KEY) {
+      const remetente = Deno.env.get('RESEND_FROM_EMAIL') ?? 'Livestock Control <onboarding@resend.dev>'
+      const chamada = montarChamadaResend(convite, APP_URL, remetente)
+
+      try {
+        const resendResponse = await fetch(chamada.url, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${RESEND_API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(chamada.body),
+        })
+
+        if (resendResponse.ok) {
+          return jsonResponse({ success: true, canal: 'resend', emailEnviado: true }, 200, cors)
+        }
+
+        const erroResend = await resendResponse.text()
+        console.error(
+          'enviar-convite: Resend retornou erro',
+          resendResponse.status,
+          erroResend,
+        )
+        // Não retorna aqui de propósito — cai no fallback abaixo, mesma
+        // filosofia do branch original (convite já válido, só o canal de
+        // notificação falhou).
+      } catch (err) {
+        console.error('enviar-convite: exceção ao chamar Resend', err)
+      }
+    }
+
     const aceiteUrl = enviarEmailConvite(convite, APP_URL)
 
     return jsonResponse(
@@ -240,7 +288,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
         success: true,
         canal: 'email_transacional_pendente',
         emailEnviado: false,
-        motivo: 'provedor de e-mail pendente de decisão (devops)',
+        motivo: RESEND_API_KEY
+          ? 'Resend retornou erro ao enviar — ver logs da function'
+          : 'RESEND_API_KEY não configurada (ver ADR-0003, devops decide quando criar a conta)',
         aceiteUrl,
       },
       200,

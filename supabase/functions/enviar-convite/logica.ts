@@ -93,33 +93,76 @@ export function montarChamadaInviteUserByEmail(convite: ConviteRow, appUrl: stri
 }
 
 /**
- * TODO(devops): placeholder deliberado para o envio de e-mail transacional de
- * convite a quem JÁ TEM CONTA (branch convidado_usuario_id !== null).
- *
- * O provedor de e-mail (Resend, SendGrid, SMTP próprio, etc.) NÃO foi
- * decidido — ADR-0002 D3 marca isso explicitamente como "a definir por
- * devops", e está fora do escopo desta tarefa escolher um (ver
- * .agents/agents/developer.md, "LIMITES DESTA TAREFA"). Este NÃO é um
- * esquecimento: é a decisão consciente de não inventar uma escolha de
- * infraestrutura que não é do developer, mas também não travar a função
- * inteira por causa disso (regra de comportamento do próprio agente: "seja
- * honesto sobre estimativas" / débito técnico visível, não invisível).
- *
- * Por ora: monta a URL de aceite (a aceitação em si sempre acontece via RPC
+ * Monta a URL de aceite (a aceitação em si sempre acontece via RPC
  * `aceitar_convite(token)`, depois que o usuário loga — nunca por esta
- * função) e apenas loga. Quando o provedor for escolhido, substituir o
- * `console.log` por uma chamada HTTP real e propagar o resultado real do
- * envio para `emailEnviado` na resposta.
+ * função nem pelo e-mail em si, que só carrega o link).
  */
 export function montarUrlAceite(convite: ConviteRow, appUrl: string | undefined): string {
   const base = appUrl ?? '(APP_URL não configurada)'
   return `${base}/convites/aceitar?token=${convite.token}`
 }
 
+export interface ChamadaResend {
+  url: string
+  body: {
+    from: string
+    to: string[]
+    subject: string
+    html: string
+  }
+}
+
+/**
+ * Provedor de e-mail transacional decidido pelo `devops` (ADR-0003 —
+ * .agents/memory/adr/ADR-0003-provedor-email-transacional.md): Resend, pela
+ * combinação de API HTTP simples (um único POST JSON, sem SDK Node-específico
+ * incompatível com Deno), tier gratuito generoso (3.000 e-mails/mês) e
+ * reputação de deliverability adequada para um produto pré-lançamento.
+ *
+ * Função PURA (sem fetch), mesmo motivo do resto deste arquivo — só monta o
+ * payload exato da chamada HTTP; quem efetivamente chama a rede é index.ts,
+ * condicionado a `RESEND_API_KEY` estar configurada. Sem essa env var (caso
+ * hoje, ninguém criou a conta Resend ainda), index.ts nunca chama esta
+ * função — cai direto no fallback de `enviarEmailConvite()` abaixo.
+ */
+export function montarChamadaResend(
+  convite: ConviteRow,
+  appUrl: string | undefined,
+  remetente: string,
+): ChamadaResend {
+  const aceiteUrl = montarUrlAceite(convite, appUrl)
+  return {
+    url: 'https://api.resend.com/emails',
+    body: {
+      from: remetente,
+      to: [convite.convidado_email],
+      subject: 'Você foi convidado para uma fazenda no Livestock Control',
+      html:
+        `<p>Você foi convidado para participar de uma fazenda no Livestock Control, ` +
+        `com o papel <strong>${convite.papel_oferecido}</strong>.</p>` +
+        `<p><a href="${aceiteUrl}">Clique aqui para ver e aceitar o convite</a></p>` +
+        `<p>Se você não reconhece este convite, pode ignorar este e-mail com segurança.</p>`,
+    },
+  }
+}
+
+/**
+ * Fallback deliberado para o envio de e-mail transacional de convite a quem
+ * JÁ TEM CONTA (branch `convidado_usuario_id !== null`), usado por index.ts
+ * sempre que `RESEND_API_KEY` não está configurada (hoje é sempre o caso —
+ * ninguém criou a conta Resend ainda) OU quando a chamada real à Resend
+ * falha (rede fora do ar, chave inválida, etc.) — nunca falha a função por
+ * causa do canal de notificação, o convite já é válido nesse ponto.
+ *
+ * Monta a URL de aceite e apenas loga — não é um esquecimento, é a mesma
+ * filosofia de débito técnico visível que já valia antes de o provedor ser
+ * escolhido (ver ADR-0003), agora reduzida à sua função real: fallback
+ * seguro, não mais "esperando decisão".
+ */
 export function enviarEmailConvite(convite: ConviteRow, appUrl: string | undefined): string {
   const aceiteUrl = montarUrlAceite(convite, appUrl)
   console.log(
-    `[enviar-convite] TODO(devops): provedor de e-mail pendente de decisão. ` +
+    `[enviar-convite] Resend não configurada/falhou — fallback de log. ` +
       `Convite ${convite.id} para ${convite.convidado_email} — URL de aceite: ${aceiteUrl}`,
   )
   return aceiteUrl

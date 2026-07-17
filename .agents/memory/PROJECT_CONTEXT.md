@@ -18,9 +18,10 @@
   `fazendas`, `usuarios_fazendas` (com `papel`), função `handle_new_user()` +
   trigger `on_auth_user_created`, RLS habilitada (SELECT/UPDATE restritos, sem INSERT/DELETE
   client-side, com triggers de imutabilidade de coluna). Falta da Fase 1: formulário de
-  signup/login no frontend (populando `options.data.nome_fazenda`/`nome` no `signUp()`), shell
-  da aplicação com roteamento real (react-router-dom, rotas da seção 8 da spec), e testes de
-  RLS pelo `qa` (Emma) — recomendados pelo próprio `cyber_chief`.
+  signup/login no frontend (populando `options.data.nome_fazenda`/`nome` no `signUp()`) e shell
+  da aplicação com roteamento real (react-router-dom, rotas da seção 8 da spec). Testes de RLS
+  pelo `qa` (Emma), recomendados pelo próprio `cyber_chief`, **concluídos em 2026-07-17** — ver
+  seção 5.
 - **Repositório:** criado — `https://github.com/DMZ-Digital-Access/rural-prod` (branch `main`)
 - **Stack confirmada:** React 18 + TypeScript + Vite, Tailwind + shadcn/ui, react-hook-form +
   zod, @tanstack/react-query, Supabase (Postgres + Auth + Storage), sonner, recharts
@@ -34,12 +35,17 @@
   (`aceitar_convite`/`promover_papel`/`criar_convite`/`cancelar_convite`), RLS default-deny em
   todas as tabelas de autorização.
 - **Em andamento agora:** Fase 1 — falta o formulário de signup/login e o shell de roteamento
-  no frontend, os testes de RLS/integração pelo `qa` (recomendados pelo `cyber_chief` nos dois
-  gates), e `devops` decidir provedor de e-mail transacional + configurar `APP_URL` (secret da
-  Edge Function) antes de usar o fluxo de convite para usuário já cadastrado em produção real.
-- **Última atualização:** 2026-07-16 — schema completo da Fase 1 (incluindo ADR-0002: convites
-  e papéis admin/membro/financeiro) aplicado e deployado no Supabase remoto, após dois gates de
-  segurança do `cyber_chief` (ambos 🟢 após correções)
+  no frontend, e uma ação humana: criar a conta Resend, gerar a API key e rodar os `supabase
+  secrets set` (`RESEND_API_KEY`, `APP_URL`) + `supabase functions deploy` para o branch de
+  e-mail transacional de convite (usuário já cadastrado) funcionar de verdade em produção —
+  código já pronto e gated, ver ADR-0003. Testes de RLS/integração pelo `qa` **concluídos e
+  executados com sucesso** em 2026-07-17 (32/32 asserções, incluindo as duas regressões de
+  segurança do gate ADR-0002) — ver seção 5.
+- **Última atualização:** 2026-07-17 — `qa` (Emma) escreveu e executou 32 testes automatizados
+  (pgTAP + integração HTTP + concorrência real) contra Supabase local, cobrindo RLS das 4
+  tabelas de autorização, as duas regressões de segurança do gate `cyber_chief`/ADR-0002 e o
+  handler HTTP completo de `enviar-convite`. Todos passaram. Ver seção 5 e
+  `.agents/memory/log/2026-07-17-qa-testes-fase1-adr0002.md`.
 
 ---
 
@@ -67,6 +73,7 @@
 | 2026-07-16 | Supabase: **projeto novo** (não reaproveita o do protótipo Bolt.new) | JP | Resolve item 2 da Fase 0, seção 10 da spec |
 | 2026-07-16 | **ADR-0001 aceito:** provisionamento de conta no signup via **trigger de banco** `on_auth_user_created` (não Edge Function) — função `SECURITY DEFINER` em `auth.users` cria `usuarios`+`fazendas`+`usuarios_fazendas` (`papel='dono'`) na mesma transação | `architect` (Alex) | Escolhido pela atomicidade real (falha em qualquer insert reverte tudo, inclusive `auth.users` — nunca há conta "meio criada"); Edge Function foi rejeitada por não ser atômica com o signup (janela de rede entre `signUp()` e a chamada da função). Implicação de RLS: nenhuma policy de INSERT necessária/permitida para `authenticated`/`anon` nessas 3 tabelas. Revisar quando o papel Financeiro/Contábil (Fase 6) entrar — hoje a função assume que todo signup cria fazenda nova. Ver `.agents/memory/adr/ADR-0001-provisionamento-conta.md` |
 | 2026-07-16 | **ADR-0002 aceito:** papel único hierárquico `admin/membro/financeiro` (substitui `dono`) + convite para fazenda existente (novo usuário ou já cadastrado) já nesta fase, não só Fase 6. Escrita em `usuarios_fazendas`/`convites` só via 4 funções `SECURITY DEFINER` (`aceitar_convite`, `promover_papel`, `criar_convite`, `cancelar_convite`) — zero policy de INSERT/UPDATE/DELETE nova para `authenticated`/`anon`, generalizando a correção do `cyber_chief` na Fase 1. Envio de convite a quem não tem conta exige Edge Function nova (`enviar-convite`, `service_role`) | `architect` (Alex) | Substitui parcialmente o ADR-0001 (só a premissa "todo signup cria fazenda nova"; resto do ADR-0001 continua válido). Ver `.agents/memory/adr/ADR-0002-convites-e-papeis-admin.md` |
+| 2026-07-17 | **ADR-0003 aceito:** provedor de e-mail transacional = **Resend** (API HTTP simples sem SDK Node-específico, tier gratuito de 3.000 e-mails/mês, deliverability adequada) para o branch "convidado já tem conta" de `enviarEmailConvite()`. Código implementado gated por `RESEND_API_KEY` (opcional, ausente hoje — fallback de log preservado). `APP_URL` de dev local = `http://localhost:5173` (porta padrão do Vite, sem `server.port` customizado) | `devops` (Oliver) | Precisa de ação humana para completar: criar conta Resend, gerar API key, rodar `supabase secrets set RESEND_API_KEY=...`/`APP_URL=...` e `supabase functions deploy`. Atualizar `APP_URL` para a URL pública real quando o frontend for deployado (Vercel/Netlify). Ver `.agents/memory/adr/ADR-0003-provedor-email-transacional.md` |
 
 ---
 
@@ -113,11 +120,16 @@ vem com defaults de auth diferentes do `supabase/config.toml` gerado localmente 
 (Constantine) revisa e alinha `config.toml` com o que for decidido na Fase 1 (provisionamento
 de conta / auth).
 
-**Pendência de trabalho (não bloqueante):** `qa` (Emma) ainda não escreveu os testes
-automatizados de RLS recomendados pelo `cyber_chief` no gate da Fase 1 (insert client-side
-falha nas 3 tabelas; update de colunas imutáveis falha mesmo pelo dono da linha; update em
-`usuarios_fazendas` falha sempre). Não bloqueia seguir com o frontend, mas deve entrar antes
-do fim da Fase 1.
+**Pendência de trabalho resolvida em 2026-07-17 (`qa`/Emma):** os testes automatizados de RLS
+recomendados pelo `cyber_chief` no gate da Fase 1 e no gate do ADR-0002 foram escritos e
+**executados de verdade** contra Supabase local — 32/32 asserções passaram, incluindo a
+regressão do bypass de autorização via NULL e um teste de concorrência real da guarda de
+`promover_papel()`. Ver `.agents/memory/log/2026-07-17-qa-testes-fase1-adr0002.md` e seção 5.
+Pendências residuais não bloqueantes desta rodada: cobertura pgTAP dedicada de
+`criar_convite()`/`cancelar_convite()`; teste HTTP do branch Resend de `enviar-convite` quando
+`RESEND_API_KEY` existir; CLI do Supabase local desatualizada (2.26.9), forçando excluir
+`storage-api`/`imgproxy`/`logflare`/`vector` de `supabase start` local (não usados pelos testes
+desta rodada, mas bloqueiam testar Storage/Analytics localmente até a CLI ser atualizada).
 
 **Pendência de trabalho (não bloqueante — gate de segurança JÁ CONCLUÍDO, falta só aplicar):**
 migration do ADR-0002 (`supabase/migrations/20260716183000_adr0002_convites_papeis.sql`) —
@@ -130,21 +142,111 @@ NULL-unsafe em `aceitar_convite()`/`handle_new_user()`) e uma corrida TOCTOU na 
 banco** (`supabase db push` é decisão humana/orchestrator). Ver
 `.agents/memory/adr/ADR-0002-convites-e-papeis-admin.md`.
 
-**Pendência de trabalho (não bloqueante — gate de segurança JÁ CONCLUÍDO, falta só deployar):**
-Edge Function `enviar-convite` (`supabase/functions/enviar-convite/{index.ts,logica.ts,
-index.test.ts}`) — branch `admin.inviteUserByEmail` (sem conta) implementado por completo;
-branch de e-mail transacional (já tem conta) é um placeholder deliberado (`emailEnviado: false`,
-provedor a definir por `devops`, ver ADR-0002 D3). **Passou pelo gate do `cyber_chief` (🟢)** —
-revalidação de permissão do chamador confirmada correta; CORS `*`/branch placeholder/cobertura de
-teste avaliados e considerados não bloqueantes, ver log do review. **Ainda não deployada**
-(`supabase functions deploy` é decisão humana/orchestrator). Antes de produção real: `devops`
-precisa configurar `APP_URL` via `supabase secrets set` e decidir o provedor de e-mail
-transacional. Ver `.agents/memory/log/2026-07-16-developer-edge-function-convite.md` e
-`.agents/memory/log/2026-07-16-cyber_chief-review-adr0002.md`.
+**Pendência de trabalho (não bloqueante — gate de segurança JÁ CONCLUÍDO, código do provedor JÁ
+IMPLEMENTADO):** Edge Function `enviar-convite` (`supabase/functions/enviar-convite/{index.ts,
+logica.ts,index.test.ts}`) — branch `admin.inviteUserByEmail` (sem conta) implementado por
+completo; branch de e-mail transacional (já tem conta) agora chama a Resend de verdade via
+`fetch()` quando `RESEND_API_KEY` está configurada, com fallback seguro (log da URL,
+`emailEnviado: false`) quando ausente ou em caso de falha — ver ADR-0003 (`devops` decidiu o
+provedor em 2026-07-17). **Já deployada em versão anterior** (`supabase functions deploy`
+confirmado no dashboard), mas a versão com Resend **ainda não foi redeployada** — precisa de
+`supabase functions deploy enviar-convite --project-ref bsoofshttpboaaokejwt` depois que os
+secrets abaixo existirem.
+
+**Pendência de ação humana (não bloqueante — só ação humana falta, nada técnico pendente):**
+criar conta na Resend (https://resend.com), gerar API key, e rodar os dois `supabase secrets
+set` documentados em `.agents/memory/adr/ADR-0003-provedor-email-transacional.md`
+(`RESEND_API_KEY` e `APP_URL=http://localhost:5173` para dev local) antes do redeploy da Edge
+Function. Quando o frontend for deployado (Vercel/Netlify), `APP_URL` precisa ser atualizada
+para a URL pública real — instrução com ⚠️ explícito no próprio ADR-0003. Nenhum agente pode
+executar esta pendência (criação de conta externa e aplicação de secrets em produção são
+decisões humanas/orchestrator).
 
 ---
 
 ## 5. Histórico de Tarefas Complexas (mais recente primeiro)
+
+### 2026-07-17 — Testes de RLS/RPC (Fase 1 + ADR-0002) e integração da Edge Function `enviar-convite` — `qa` (Emma, via Claude)
+
+- **O que foi feito:** escrita e **execução real** (não só descrição) de 3 suítes de teste
+  contra Supabase local (`supabase start`, ambas as migrations aplicadas do zero num Postgres
+  limpo). Suíte A — 6 arquivos pgTAP em `supabase/tests/database/` (25 asserções, 25/25 PASS):
+  insert direto do client falha nas 4 tabelas de autorização (`usuarios`/`fazendas`/
+  `usuarios_fazendas`/`convites`); update de colunas imutáveis falha mesmo pelo dono da linha;
+  update em `usuarios_fazendas` nunca tem efeito (sem policy nenhuma); **regressão do achado
+  nº1 do gate cyber_chief no ADR-0002** (bypass de autorização via NULL) nos dois locais onde o
+  bug existia — `aceitar_convite()` e o branch de convite de `handle_new_user()` — confirmada
+  como **corrigida** (rejeita, não aceita silenciosamente) por execução real, com teste de
+  controle confirmando que o caminho legítimo continua funcionando; guarda "fazenda nunca fica
+  sem admin" de `promover_papel()` testada no caso sequencial. Suíte B —
+  `supabase/tests/edge-functions/enviar-convite.integration.ps1`, teste de integração HTTP real
+  do handler completo (`supabase functions serve` + chamadas HTTP de fato via `curl.exe`,
+  usuários/JWTs reais via signup GoTrue): 5/5 PASS (401 sem auth, 403 não-admin, 404 convite
+  inexistente, 409 convite não-pendente, 200 controle positivo) — cobre exatamente a lacuna que
+  `index.test.ts` (do `developer`) já documentava não cobrir. Suíte C —
+  `supabase/tests/manual/promover_papel-concorrencia.ps1`, **teste de concorrência real** (duas
+  sessões `psql` de verdade via `docker exec`, não simulação) do **achado nº2** (corrida
+  TOCTOU): duas chamadas concorrentes rebaixando os 2 admins de uma mesma fazenda — confirmado
+  que a segunda sessão bloqueia de verdade no lock da primeira e, ao ser liberada, reavalia
+  contra o dado já commitado, rejeitando corretamente; fazenda termina com exatamente 1 admin,
+  nunca 0. **Total: 32/32 asserções passaram em execução real.**
+- **Bloqueio de ambiente encontrado e contornado:** `supabase start` sem flags falhava
+  (`storage-api` unhealthy por incompatibilidade CLI 2.26.9/imagem nova; depois `logflare`
+  também). Contornado com `supabase start -x storage-api -x imgproxy -x logflare -x vector` —
+  nenhum necessário para os testes desta tarefa. Ver log para detalhes e recomendação de
+  atualizar a CLI.
+- **Decisões:** convenção de organização documentada nos próprios arquivos: pgTAP para
+  banco (`supabase/tests/database/NNN_descricao.sql`, um arquivo por garantia, autocontido
+  `begin;...rollback;`), PowerShell para integração HTTP de Edge Function (não há equivalente
+  pgTAP nativo para Deno) e para o teste de concorrência real (pgTAP roda numa única sessão,
+  não serve para simular duas conexões concorrentes).
+- **O que NÃO foi testado (honestidade de cobertura):** `criar_convite()`/`cancelar_convite()`
+  sem teste pgTAP dedicado (mesmo padrão de autorização já testado indiretamente); branch
+  Resend do `enviar-convite` não testado via HTTP real (`RESEND_API_KEY` ausente neste
+  ambiente, mesma pendência já registrada no ADR-0003); Storage/Analytics não testados
+  (excluídos do `supabase start` local, não usados por nenhum artefato desta tarefa).
+- **Mudanças de arquivo:** novos `supabase/tests/database/001_rls_insert_default_deny.sql` a
+  `006_promover_papel_guarda_sequencial.sql`; novo
+  `supabase/tests/edge-functions/enviar-convite.integration.ps1`; novo
+  `supabase/tests/manual/promover_papel-concorrencia.ps1`; novo log; esta entrada +
+  seção 4 de `PROJECT_CONTEXT.md`.
+- **Pendências:** nenhum bloqueio técnico para a Fase 1 do ponto de vista deste gate de testes
+  — aprovação final continua sendo decisão do usuário (`qa` está proibida de aprovar, ver
+  regras do próprio agente). `devops`: considerar atualizar a CLI do Supabase. `qa` (rodada
+  futura, não bloqueante): cobertura de `criar_convite()`/`cancelar_convite()`, teste HTTP do
+  branch Resend quando a API key existir.
+- **Log completo:** `.agents/memory/log/2026-07-17-qa-testes-fase1-adr0002.md`
+
+### 2026-07-17 — ADR-0003: provedor de e-mail transacional (Resend) + `APP_URL` — `devops` (Oliver, via Claude)
+
+- **O que foi feito:** resolvidas as duas pendências deixadas pelo gate do `cyber_chief` no
+  ADR-0002 (`.agents/memory/log/2026-07-16-cyber_chief-review-adr0002.md`). Avaliado com
+  critério real (integração HTTP simples em Deno sem SDK Node-específico, tier gratuito,
+  deliverability) Resend vs. SendGrid vs. Postmark vs. Amazon SES — Resend escolhida (SES
+  descartada principalmente por exigir assinatura AWS SigV4 sem SDK; SendGrid/Postmark sem tier
+  gratuito permanente comparável). Implementada a chamada HTTP real à Resend em
+  `supabase/functions/enviar-convite/logica.ts` (`montarChamadaResend()`, função pura) e
+  `index.ts` (branch com `fetch()` real), **gated por `RESEND_API_KEY`** — ausente hoje, então o
+  comportamento atual (fallback de log, `emailEnviado: false`) é preservado sem nenhuma
+  regressão. `enviarEmailConvite()` deixou de ser "placeholder aguardando decisão" e virou o
+  fallback deliberado (usado quando a env var está ausente OU quando a chamada à Resend falha).
+  Decidido e documentado `APP_URL` para dev local (`http://localhost:5173`, confirmado contra
+  `vite.config.ts`/`package.json` — sem `server.port` customizado, porta padrão do Vite).
+- **Decisões:** ver seção 2 (linha ADR-0003). Nova env var opcional `RESEND_FROM_EMAIL` (default
+  no código: sender de sandbox `onboarding@resend.dev`, trocar por domínio verificado antes de
+  produção real com usuários fora da equipe).
+- **Mudanças de arquivo:** `supabase/functions/enviar-convite/logica.ts` editado
+  (`montarChamadaResend()` nova, `enviarEmailConvite()` recontextualizada); `index.ts` editado
+  (branch Resend + fallback, env vars documentadas no cabeçalho); `index.test.ts` editado (2
+  testes novos para `montarChamadaResend()`); novo `.agents/memory/adr/
+  ADR-0003-provedor-email-transacional.md`; novo log; esta entrada + seções 1, 2 e 4 de
+  `PROJECT_CONTEXT.md`.
+- **Pendências:** ação humana — criar conta Resend, gerar API key, rodar `supabase secrets set
+  RESEND_API_KEY=...`/`APP_URL=http://localhost:5173` (comandos exatos no ADR-0003) e
+  `supabase functions deploy enviar-convite --project-ref bsoofshttpboaaokejwt` para a versão
+  nova ir ao ar. Atualizar `APP_URL` quando o frontend for deployado. `qa` (Emma) segue com o
+  teste de integração real do handler HTTP completo pendente, agora incluindo o branch Resend.
+- **Log completo:** `.agents/memory/log/2026-07-17-devops-email-provider-app-url.md`
 
 ### 2026-07-16 — Aplicação/deploy do ADR-0002 (migration + Edge Function) — `orchestrator` (via Claude)
 

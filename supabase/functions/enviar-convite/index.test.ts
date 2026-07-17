@@ -49,6 +49,7 @@ import {
   chamadorEhAdminDaFazenda,
   validarConvitePendente,
   montarChamadaInviteUserByEmail,
+  montarChamadaResend,
   montarUrlAceite,
   enviarEmailConvite,
   corsHeadersFor,
@@ -162,10 +163,43 @@ Deno.test('montarUrlAceite: usa placeholder quando APP_URL não está configurad
   assertMatch(url, /token=token-abc$/)
 })
 
-Deno.test('enviarEmailConvite: não lança exceção quando chamado (branch TODO deliberado, nunca falha a função)', () => {
+Deno.test('enviarEmailConvite: não lança exceção quando chamado (fallback seguro, nunca falha a função)', () => {
   const convite = conviteBase({ convidado_usuario_id: 'usuario-existente-1' })
   const url = enviarEmailConvite(convite, 'https://app.exemplo.com')
   assertEquals(url, `https://app.exemplo.com/convites/aceitar?token=${convite.token}`)
+})
+
+// ---------------------------------------------------------------------------
+// montarChamadaResend — cobre o payload real da Resend (ADR-0003), só
+// montagem de dados, sem chamada de rede (fetch acontece em index.ts,
+// condicionado a RESEND_API_KEY estar configurada)
+// ---------------------------------------------------------------------------
+
+Deno.test('montarChamadaResend: monta URL, remetente, destinatário e link de aceite corretos', () => {
+  const convite = conviteBase({
+    convidado_email: 'pessoa@fazenda.com',
+    convidado_usuario_id: 'usuario-existente-1',
+    papel_oferecido: 'financeiro',
+    token: 'token-xyz',
+  })
+
+  const chamada = montarChamadaResend(
+    convite,
+    'https://app.exemplo.com',
+    'Livestock Control <convites@exemplo.com>',
+  )
+
+  assertEquals(chamada.url, 'https://api.resend.com/emails')
+  assertEquals(chamada.body.from, 'Livestock Control <convites@exemplo.com>')
+  assertEquals(chamada.body.to, ['pessoa@fazenda.com'])
+  assertMatch(chamada.body.html, /financeiro/)
+  assertMatch(chamada.body.html, /https:\/\/app\.exemplo\.com\/convites\/aceitar\?token=token-xyz/)
+})
+
+Deno.test('montarChamadaResend: não lança exceção quando APP_URL não está configurada', () => {
+  const convite = conviteBase()
+  const chamada = montarChamadaResend(convite, undefined, 'Livestock Control <convites@exemplo.com>')
+  assertMatch(chamada.body.html, /APP_URL não configurada/)
 })
 
 // ---------------------------------------------------------------------------
