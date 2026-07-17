@@ -25,12 +25,21 @@
 - **Stack confirmada:** React 18 + TypeScript + Vite, Tailwind + shadcn/ui, react-hook-form +
   zod, @tanstack/react-query, Supabase (Postgres + Auth + Storage), sonner, recharts
   (roadmap). Hospedagem: Vercel/Netlify (frontend) + Supabase (backend gerenciado).
-- **Última entrega:** migration `20260716171522_fase1_usuarios_fazendas.sql` aplicada no banco
-  Supabase remoto (schema de autenticação/fundação da Fase 1)
+- **Última entrega:** as duas migrations da Fase 1 (`20260716171522_fase1_usuarios_fazendas.sql`
+  e `20260716183000_adr0002_convites_papeis.sql`) **aplicadas no banco Supabase remoto**
+  (`supabase migration list`: local=remote nas duas) e a Edge Function `enviar-convite`
+  **deployada** (`supabase functions deploy`, confirmado no dashboard do projeto). Schema no ar:
+  `usuarios`/`fazendas`/`usuarios_fazendas` (papel admin/membro/financeiro) + `convites`, função
+  `handle_new_user()` com branch de convite, 4 funções `SECURITY DEFINER`
+  (`aceitar_convite`/`promover_papel`/`criar_convite`/`cancelar_convite`), RLS default-deny em
+  todas as tabelas de autorização.
 - **Em andamento agora:** Fase 1 — falta o formulário de signup/login e o shell de roteamento
-  no frontend, e os testes de RLS pelo `qa`
-- **Última atualização:** 2026-07-16 — migration da Fase 1 aplicada no banco remoto, após gate
-  de segurança do `cyber_chief` (🟢)
+  no frontend, os testes de RLS/integração pelo `qa` (recomendados pelo `cyber_chief` nos dois
+  gates), e `devops` decidir provedor de e-mail transacional + configurar `APP_URL` (secret da
+  Edge Function) antes de usar o fluxo de convite para usuário já cadastrado em produção real.
+- **Última atualização:** 2026-07-16 — schema completo da Fase 1 (incluindo ADR-0002: convites
+  e papéis admin/membro/financeiro) aplicado e deployado no Supabase remoto, após dois gates de
+  segurança do `cyber_chief` (ambos 🟢 após correções)
 
 ---
 
@@ -110,16 +119,169 @@ falha nas 3 tabelas; update de colunas imutáveis falha mesmo pelo dono da linha
 `usuarios_fazendas` falha sempre). Não bloqueia seguir com o frontend, mas deve entrar antes
 do fim da Fase 1.
 
-**Pendência de trabalho (não bloqueante):** `db_sage` ainda não implementou a migration a
-partir do ADR-0002 (tabela `convites`, funções `aceitar_convite`/`promover_papel`/
-`criar_convite`/`cancelar_convite`, branch novo em `handle_new_user()`, migração de
-`papel='dono'` → `'admin'`). Depois da implementação, gate do `cyber_chief` obrigatório antes
-de aplicar — atenção redobrada às funções `SECURITY DEFINER` novas e à Edge Function
-`enviar-convite`. Ver `.agents/memory/adr/ADR-0002-convites-e-papeis-admin.md`.
+**Pendência de trabalho (não bloqueante — gate de segurança JÁ CONCLUÍDO, falta só aplicar):**
+migration do ADR-0002 (`supabase/migrations/20260716183000_adr0002_convites_papeis.sql`) —
+tabela `convites`, funções `aceitar_convite`/`promover_papel`/`criar_convite`/`cancelar_convite`,
+branch novo em `handle_new_user()`, migração de `papel='dono'` → `'admin'`. **Passou pelo gate do
+`cyber_chief` (🟢)** — corrigido um bypass de autorização crítico (comparação de e-mail
+NULL-unsafe em `aceitar_convite()`/`handle_new_user()`) e uma corrida TOCTOU na guarda de
+"zero admins" de `promover_papel()`, ver
+`.agents/memory/log/2026-07-16-cyber_chief-review-adr0002.md`. **Ainda não aplicada a nenhum
+banco** (`supabase db push` é decisão humana/orchestrator). Ver
+`.agents/memory/adr/ADR-0002-convites-e-papeis-admin.md`.
+
+**Pendência de trabalho (não bloqueante — gate de segurança JÁ CONCLUÍDO, falta só deployar):**
+Edge Function `enviar-convite` (`supabase/functions/enviar-convite/{index.ts,logica.ts,
+index.test.ts}`) — branch `admin.inviteUserByEmail` (sem conta) implementado por completo;
+branch de e-mail transacional (já tem conta) é um placeholder deliberado (`emailEnviado: false`,
+provedor a definir por `devops`, ver ADR-0002 D3). **Passou pelo gate do `cyber_chief` (🟢)** —
+revalidação de permissão do chamador confirmada correta; CORS `*`/branch placeholder/cobertura de
+teste avaliados e considerados não bloqueantes, ver log do review. **Ainda não deployada**
+(`supabase functions deploy` é decisão humana/orchestrator). Antes de produção real: `devops`
+precisa configurar `APP_URL` via `supabase secrets set` e decidir o provedor de e-mail
+transacional. Ver `.agents/memory/log/2026-07-16-developer-edge-function-convite.md` e
+`.agents/memory/log/2026-07-16-cyber_chief-review-adr0002.md`.
 
 ---
 
 ## 5. Histórico de Tarefas Complexas (mais recente primeiro)
+
+### 2026-07-16 — Aplicação/deploy do ADR-0002 (migration + Edge Function) — `orchestrator` (via Claude)
+
+- **O que foi feito:** após o gate 🟢 do `cyber_chief` (correções de NULL-bypass e TOCTOU já
+  aplicadas nos arquivos), revisado o SQL corrigido linha a linha e aplicado
+  `20260716183000_adr0002_convites_papeis.sql` no banco remoto via `supabase db push`.
+  Deployada a Edge Function `enviar-convite` via `supabase functions deploy enviar-convite
+  --project-ref bsoofshttpboaaokejwt`. Confirmado com `supabase migration list`: as duas
+  migrations da Fase 1 (Fase 1 base + ADR-0002) batem local=remote.
+- **Decisões:** nenhuma nova — execução do que já estava revisado e liberado pelas tarefas
+  anteriores (db_sage + developer + cyber_chief).
+- **Mudanças de arquivo:** nenhuma no repo além desta entrada de memória — a mudança real foi
+  no banco remoto (schema `convites` + 4 funções + `handle_new_user()` atualizada) e no painel
+  de Edge Functions do projeto Supabase.
+- **Pendências:** `qa` (Emma) — testes de RLS/integração recomendados nos dois gates de
+  segurança; `devops` — decidir provedor de e-mail transacional e configurar o secret
+  `APP_URL` da Edge Function antes de usar o fluxo de convite para usuário já cadastrado em
+  produção real; frontend (signup/login + shell de rotas) ainda não começou.
+- **Log completo:** esta própria entrada — tarefa de execução simples, sem log próprio (mesmo
+  padrão da aplicação da migration da Fase 1 base).
+
+### 2026-07-16 — Security review (gate ADR-0002) da migration convites/papéis + Edge Function `enviar-convite` — `cyber_chief` (CONSTANTINE, via Claude)
+
+- **Veredito: 🟢 Seguro — migration e Edge Function LIBERADAS para aplicação/deploy**
+  (`supabase db push` / `supabase functions deploy`), decisão de quando aplicar continua
+  humana/orchestrator, fora do escopo deste gate. **Antes das correções: 🔴 Risco Crítico** —
+  havia um bypass de autorização real, não apenas latente.
+- **O que foi feito:** security review formal de
+  `supabase/migrations/20260716183000_adr0002_convites_papeis.sql` (4 funções
+  `SECURITY DEFINER`, tabela `convites`, RLS, `handle_new_user()`) e de
+  `supabase/functions/enviar-convite/{index.ts,logica.ts}`, gate exigido explicitamente pelo
+  próprio ADR-0002. **Achado crítico:** `aceitar_convite()` e `handle_new_user()` comparavam
+  e-mail do chamador com `<>`/lógica trivalente do SQL sem tratar `NULL` — se `auth.email()`/
+  `new.email` viesse `NULL` (provedor de auth sem claim de e-mail garantido, ex.: telefone/
+  anônimo — hoje desabilitados em `supabase/config.toml`, mas por configuração, não por garantia
+  de schema), a checagem de destinatário do convite era silenciosamente pulada (`IF NULL THEN`
+  = `FALSE` em PL/pgSQL), permitindo que qualquer sessão autenticada sem e-mail aceitasse
+  qualquer convite pendente não pré-resolvido, com o papel oferecido (inclusive `'admin'`) — CWE-
+  354/STRIDE Elevation of Privilege. **Achado de corrida:** a guarda "a fazenda nunca fica sem
+  admin" em `promover_papel()` usava `SELECT COUNT(*)` sem lock — duas chamadas concorrentes
+  rebaixando dois admins diferentes da mesma fazenda (cenário mínimo: 2 admins, cada chamada
+  rebaixa um) passavam ambas pela guarda sob `READ COMMITTED`, podendo deixar a fazenda com zero
+  admins (CWE-367 TOCTOU). **Achado menor:** policy `convites_select_convidado` comparava e-mail
+  sem `lower()` nos dois lados (inconsistente com o resto do desenho, falha para o lado seguro,
+  não uma brecha). Os 3 riscos já sinalizados pelo `developer` (CORS `*` sem `APP_URL`, branch de
+  e-mail placeholder, cobertura de teste parcial) foram avaliados formalmente e nenhum bloqueia o
+  gate — nenhum é uma vulnerabilidade de autorização.
+- **Decisões:** corrigir tudo diretamente nos arquivos (nada aplicado a nenhum ambiente ainda).
+  `aceitar_convite()`/`handle_new_user()`: checagens reescritas com booleanos explicitamente
+  NULL-safe. `promover_papel()`: `for update` nas linhas admin da fazenda antes de contar
+  restantes, fechando a corrida. `convites_select_convidado`: `lower()` nos dois lados.
+  `enviar-convite/index.ts`: `console.warn` quando `APP_URL` ausente, para visibilidade
+  operacional (não bloqueante, endurecimento).
+- **Mudanças de arquivo:**
+  `supabase/migrations/20260716183000_adr0002_convites_papeis.sql` editado (4 correções + header
+  atualizado); `supabase/functions/enviar-convite/index.ts` editado (warning de `APP_URL`); novo
+  log; esta entrada em `PROJECT_CONTEXT.md` (+ seções 1 e 4).
+- **Pendências (não bloqueantes):** `qa` (Emma) — teste de integração real do handler HTTP
+  completo de `enviar-convite`, e casos de teste explícitos para os dois achados corrigidos
+  (e-mail nulo bloqueia aceite; duas demoções concorrentes não zeram admins). `devops` — decidir
+  provedor de e-mail transacional e configurar `APP_URL` antes de produção. `developer`/produto —
+  considerar tela de "convites pendentes" para usuários já logados, mitigando a lacuna do branch
+  de e-mail placeholder.
+- **Log completo:** `.agents/memory/log/2026-07-16-cyber_chief-review-adr0002.md`
+
+### 2026-07-16 — Edge Function `enviar-convite` (ADR-0002 D3) — `developer` (RYAN, via Claude)
+
+- **O que foi feito:** implementada a Edge Function Deno/TypeScript `enviar-convite`
+  (`supabase/functions/enviar-convite/`), chamada pelo client depois que `criar_convite()` (RPC)
+  já rodou com sucesso. Arquivo `index.ts` só orquestra HTTP (parsing, os dois clients Supabase —
+  um com o JWT do chamador para `auth.getUser()`, outro `service_role` para as operações
+  privilegiadas —, montagem de respostas); toda a lógica de decisão foi extraída para
+  `logica.ts` (sem dependência de rede), especificamente para ser testável sem disparar
+  `Deno.serve` como efeito colateral do import. Fluxo: busca o convite por `convite_id` via
+  `service_role` (404 se não existir); **revalida a permissão do chamador** consultando
+  `usuarios_fazendas` para confirmar `papel='admin'` na `fazenda_id` **lida do convite no
+  banco** (nunca de qualquer campo do corpo da requisição — único parâmetro de entrada aceito é
+  `convite_id`), 403 se não for; rejeita convite não-pendente (409); branch por
+  `convidado_usuario_id`: `null` chama `admin.inviteUserByEmail` (dispara `handle_new_user()`,
+  que lê `convite_token`); preenchido é um placeholder deliberado (loga a URL de aceite, retorna
+  `emailEnviado: false` com o motivo explícito — provedor de e-mail transacional não decidido,
+  fora do escopo do `developer`). CORS com preflight `OPTIONS` tratado; todo o handler dentro de
+  um `try/catch` único, nunca deixa exceção sem resposta JSON.
+- **Decisões:** branch de e-mail para usuário já cadastrado nunca falha a função — o convite já
+  é válido nesse ponto, só o canal de notificação está pendente (débito técnico visível,
+  documentado como `TODO(devops)` isolado em `enviarEmailConvite()`, não uma decisão de provedor
+  tomada pelo `developer`). Lógica pura separada em `logica.ts` de propósito técnico (evitar que
+  importar o módulo para teste levante um servidor HTTP real).
+- **Mudanças de arquivo:** novos `supabase/functions/enviar-convite/index.ts`,
+  `supabase/functions/enviar-convite/logica.ts`,
+  `supabase/functions/enviar-convite/index.test.ts`; este log; `PROJECT_CONTEXT.md` (esta seção
+  + seção 4). Nenhum arquivo `.sql` tocado; nenhum deploy executado.
+- **Pendências:** gate obrigatório do `cyber_chief` antes de `supabase functions deploy` —
+  atenção especial ao CORS com fallback `*` quando `APP_URL` está ausente e à lacuna funcional
+  do branch de e-mail placeholder (ver log completo, seção de riscos). Handler HTTP completo de
+  `index.ts` não coberto por teste automatizado (só a lógica pura de `logica.ts` está) — Deno
+  não estava disponível nesta máquina para rodar `deno test` e confirmar execução real;
+  recomendado teste de integração real pelo `qa`. Provedor de e-mail transacional para convite a
+  usuário já cadastrado segue sem decisão (`devops`).
+- **Log completo:** `.agents/memory/log/2026-07-16-developer-edge-function-convite.md`
+
+### 2026-07-16 — Migration SQL do ADR-0002 (convites + papéis admin/membro/financeiro) — `db_sage` (SOFIA, via Claude)
+
+- **O que foi feito:** implementada em SQL a decisão do ADR-0002, em migration nova e
+  aditiva sobre `20260716171522_fase1_usuarios_fazendas.sql` (nenhuma tabela recriada):
+  (1) D1/D4 — migração de papel na ordem exata do ADR (`DROP CONSTRAINT` → `UPDATE
+  papel='dono'→'admin'` → `ADD CONSTRAINT` nova com `admin/membro/financeiro`); (2) D3
+  parcial — tabela `convites` completa (todos os campos do ADR, trigger `set_updated_at`
+  reaproveitado, RLS habilitada com só 2 policies de SELECT — admin vê convites das fazendas
+  onde é admin, convidado vê os endereçados a ele — zero policy de INSERT/UPDATE/DELETE);
+  (3) D2 — as 4 funções `SECURITY DEFINER` (`aceitar_convite`, `promover_papel`,
+  `criar_convite`, `cancelar_convite`), todas com `search_path=''`, `REVOKE ALL FROM PUBLIC`
+  + `GRANT EXECUTE TO authenticated` (nunca `anon`); (4) D2 — `handle_new_user()` atualizada
+  (`CREATE OR REPLACE`) com o branch de `convite_token`: presente e válido entra na fazenda
+  existente, presente e inválido bloqueia o signup com `RAISE EXCEPTION`, ausente preserva o
+  comportamento do ADR-0001 com `papel='admin'`.
+- **Decisões de implementação resolvidas** (pontos que o ADR deixava em aberto): `DEFAULT` da
+  coluna `papel` trocado de `'dono'` (agora inválido) para `'membro'` (menor privilégio,
+  nunca exercitado na prática); `SELECT ... FOR UPDATE` no convite (tanto em
+  `aceitar_convite()` quanto no branch de `handle_new_user()`) para fechar janela de corrida
+  entre aceites concorrentes com o mesmo token, decorrente do próprio argumento de
+  atomicidade do ADR; FKs de `convites` (`convidado_usuario_id` → `ON DELETE SET NULL`,
+  `convidado_por` → `ON DELETE CASCADE`, sem especificação no ADR); `status` de `convites`
+  implementado só com os 3 valores efetivamente escritos pelas funções (`pendente`/`aceito`/
+  `cancelado`) — `'expirado'` fica para uma migration futura, se o job de expiração do ADR
+  (não decidido) for implementado.
+- **Mudanças de arquivo:** novo
+  `supabase/migrations/20260716183000_adr0002_convites_papeis.sql`; este log;
+  `PROJECT_CONTEXT.md` (esta seção + seção 4). Seção 1 (Estado Atual) **não foi alterada** —
+  migration escrita, ainda não aplicada a nenhum banco.
+- **Pendências:** gate obrigatório do `cyber_chief` antes de `supabase db push` (atenção
+  redobrada às 4 funções novas e ao branch novo de `handle_new_user()` — riscos detalhados no
+  log completo, incluindo duplicação de lógica de validação entre `aceitar_convite()` e
+  `handle_new_user()`, e a policy `convites_select_admin` consultando `usuarios_fazendas`
+  dentro do próprio `USING`). Depois do gate: Edge Function `enviar-convite` (`developer`) e
+  testes de RLS/RPC (`qa`) seguem fora do escopo desta tarefa.
+- **Log completo:** `.agents/memory/log/2026-07-16-db_sage-migration-adr0002.md`
 
 ### 2026-07-16 — ADR-0002: convites para fazenda existente e papéis admin/membro/financeiro — `architect` (Alex, via Claude)
 
