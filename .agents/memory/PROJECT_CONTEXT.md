@@ -10,42 +10,43 @@
 ## 1. Estado Atual do Projeto
 
 - **Nome:** Livestock Control — Gestão Agropecuária (Rebanho + Compliance + Financeiro)
-- **Fase:** Fase 0 concluída. **Fase 1 (Fundação: Autenticação) em andamento** — feito até
-  aqui: ADR-0001 (provisionamento via trigger de banco), migration
-  `20260716171522_fase1_usuarios_fazendas.sql` escrita por `db_sage`, revisada e corrigida por
-  `cyber_chief` (gate de segurança 🟢, ver log), **aplicada no banco remoto** (`supabase db
-  push` confirmado, `supabase migration list` mostra local=remote). Schema no ar: `usuarios`,
-  `fazendas`, `usuarios_fazendas` (com `papel`), função `handle_new_user()` +
-  trigger `on_auth_user_created`, RLS habilitada (SELECT/UPDATE restritos, sem INSERT/DELETE
-  client-side, com triggers de imutabilidade de coluna). Falta da Fase 1: formulário de
-  signup/login no frontend (populando `options.data.nome_fazenda`/`nome` no `signUp()`) e shell
-  da aplicação com roteamento real (react-router-dom, rotas da seção 8 da spec). Testes de RLS
-  pelo `qa` (Emma), recomendados pelo próprio `cyber_chief`, **concluídos em 2026-07-17** — ver
-  seção 5.
+- **Fase:** Fase 0 concluída. **Fase 1 (Fundação: Autenticação) concluída** (itens 5-7 da
+  seção 10 da spec) — schema base (`usuarios`/`fazendas`/`usuarios_fazendas` + ADR-0002)
+  aplicado no remoto e testado (32/32 asserções, `qa`, 2026-07-17); frontend de autenticação
+  (login/signup/aceitar convite) e shell de roteamento completo (todas as rotas da seção 8,
+  módulos ainda não implementados como placeholder) entregues por `developer` em 2026-07-17 —
+  ver seção 5. `npm run build`/`npm run lint`/`npm run test` passando limpos; `npm run dev`
+  confirmado subindo sem erro (smoke test HTTP, sem navegador real disponível neste ambiente).
+  Próxima fase real: Fase 2 (Eixo 1 — gestão individual de rebanho: `lotes`/`animais`/
+  `pesagens` e telas correspondentes).
 - **Repositório:** criado — `https://github.com/DMZ-Digital-Access/rural-prod` (branch `main`)
 - **Stack confirmada:** React 18 + TypeScript + Vite, Tailwind + shadcn/ui, react-hook-form +
   zod, @tanstack/react-query, Supabase (Postgres + Auth + Storage), sonner, recharts
-  (roadmap). Hospedagem: Vercel/Netlify (frontend) + Supabase (backend gerenciado).
-- **Última entrega:** as duas migrations da Fase 1 (`20260716171522_fase1_usuarios_fazendas.sql`
-  e `20260716183000_adr0002_convites_papeis.sql`) **aplicadas no banco Supabase remoto**
+  (roadmap), react-router-dom, Vitest (testes de schema, novo nesta entrega — não havia
+  framework de teste frontend antes). Hospedagem: Vercel/Netlify (frontend) + Supabase (backend
+  gerenciado).
+- **Última entrega:** frontend de autenticação (`/login`, `/signup` com suporte a
+  `?convite=<token>`, `/convites/aceitar`) e shell de roteamento (`react-router-dom`,
+  `ProtectedRoute`, `AppShell` com navegação em duas seções + Configurações) implementados por
+  `developer` — ver seção 5,
+  `.agents/memory/log/2026-07-17-developer-frontend-fase1.md`. Antes disso: as duas migrations
+  da Fase 1 (`20260716171522_fase1_usuarios_fazendas.sql` e
+  `20260716183000_adr0002_convites_papeis.sql`) **aplicadas no banco Supabase remoto**
   (`supabase migration list`: local=remote nas duas) e a Edge Function `enviar-convite`
   **deployada** (`supabase functions deploy`, confirmado no dashboard do projeto). Schema no ar:
   `usuarios`/`fazendas`/`usuarios_fazendas` (papel admin/membro/financeiro) + `convites`, função
   `handle_new_user()` com branch de convite, 4 funções `SECURITY DEFINER`
   (`aceitar_convite`/`promover_papel`/`criar_convite`/`cancelar_convite`), RLS default-deny em
   todas as tabelas de autorização.
-- **Em andamento agora:** Fase 1 — falta o formulário de signup/login e o shell de roteamento
-  no frontend, e uma ação humana: criar a conta Resend, gerar a API key e rodar os `supabase
-  secrets set` (`RESEND_API_KEY`, `APP_URL`) + `supabase functions deploy` para o branch de
-  e-mail transacional de convite (usuário já cadastrado) funcionar de verdade em produção —
-  código já pronto e gated, ver ADR-0003. Testes de RLS/integração pelo `qa` **concluídos e
-  executados com sucesso** em 2026-07-17 (32/32 asserções, incluindo as duas regressões de
-  segurança do gate ADR-0002) — ver seção 5.
-- **Última atualização:** 2026-07-17 — `qa` (Emma) escreveu e executou 32 testes automatizados
-  (pgTAP + integração HTTP + concorrência real) contra Supabase local, cobrindo RLS das 4
-  tabelas de autorização, as duas regressões de segurança do gate `cyber_chief`/ADR-0002 e o
-  handler HTTP completo de `enviar-convite`. Todos passaram. Ver seção 5 e
-  `.agents/memory/log/2026-07-17-qa-testes-fase1-adr0002.md`.
+- **Em andamento agora:** nada bloqueando a Fase 1. Pendências abertas (não bloqueantes, ver
+  seção 4): ação humana da conta Resend (`RESEND_API_KEY`/`APP_URL`) para o branch de e-mail de
+  convite a usuário já cadastrado funcionar de verdade em produção (ADR-0003); policy de SELECT
+  pública por token em `convites` (para a tela de signup mostrar "fazenda/papel do convite" sem
+  exigir sessão) não implementada, pendência de decisão para `db_sage`/`cyber_chief`; testes de
+  componente/E2E do frontend não escritos (só os schemas zod puros, ver log).
+- **Última atualização:** 2026-07-17 — `developer` (Ryan) implementou o frontend de
+  autenticação e o shell de roteamento completo, fechando a Fase 1. Ver seção 5 e
+  `.agents/memory/log/2026-07-17-developer-frontend-fase1.md`.
 
 ---
 
@@ -162,9 +163,75 @@ para a URL pública real — instrução com ⚠️ explícito no próprio ADR-0
 executar esta pendência (criação de conta externa e aplicação de secrets em produção são
 decisões humanas/orchestrator).
 
+**Pendência de decisão resolvida NÃO implementar sem revisão (achado do `developer` em
+2026-07-17, frontend Fase 1):** a tela de `/signup` com `?convite=<token>` não consegue
+mostrar para qual fazenda/papel o usuário está sendo convidado antes de completar o cadastro,
+porque as policies de SELECT de `convites` (ADR-0002) exigem `authenticated` E ser
+admin/destinatário — não há hoje leitura pública por token. Resolver exigiria uma policy nova
+(ex.: SELECT por `token` sem exigir sessão), não implementada por conta própria — pendência de
+decisão para `db_sage`/`cyber_chief`. Ver
+`.agents/memory/log/2026-07-17-developer-frontend-fase1.md`.
+
+**Pendência de trabalho (não bloqueante — Fase 1 fechada, mas cobertura de teste do frontend
+é parcial):** `developer` (Ryan) só escreveu testes automatizados para os schemas zod puros de
+validação de formulário (`src/lib/validations/auth.test.ts`, Vitest, 10/10 PASS) — nenhum
+teste de componente (Testing Library não instalada) nem end-to-end real do fluxo de
+signup/login/aceite de convite a partir do frontend contra um Supabase real. Sem acesso a
+navegador neste ambiente, o smoke test de `npm run dev` confirmou apenas que o servidor sobe e
+responde HTTP 200, não que a UI renderiza/interage corretamente.
+
 ---
 
 ## 5. Histórico de Tarefas Complexas (mais recente primeiro)
+
+### 2026-07-17 — Frontend Fase 1: autenticação + shell de roteamento — `developer` (Ryan, via Claude)
+
+- **O que foi feito:** implementados os dois itens que faltavam para fechar a Fase 1 (spec
+  seção 10, itens 5-6). Componentes shadcn/ui adicionados (`input`/`label`/`card`/`sonner` via
+  CLI; `form` escrito à mão — CLI não gerou o arquivo em várias tentativas, sem erro, ver log).
+  Provider de autenticação (`src/lib/auth.tsx`, `useAuth()`) com `getSession()` + 
+  `onAuthStateChange()`. Roteamento completo (`src/router.tsx`, `createBrowserRouter`) com
+  TODAS as rotas da seção 8 da spec — as 15 rotas `/app/*` de módulos ainda não implementados
+  (Fases 2/3/4) renderizam `PlaceholderPage` honesto em vez de 404/tela em branco.
+  `ProtectedRoute` redireciona para `/login?redirect=...` sem sessão, preservando destino
+  (usado por `/convites/aceitar`). `AppShell` com navegação em duas seções ("Manejo Individual"/
+  "Rebanho & Compliance") + Configurações, conforme spec seção 6. Páginas: `SignupPage`
+  (schema zod dinâmico conforme `?convite=<token>` presente ou não, ADR-0002 D2 — sem convite
+  pede `nome_fazenda`, com convite não pede; erros do Supabase mostrados exatamente como vêm,
+  cobrindo as mensagens de `RAISE EXCEPTION` do `handle_new_user()`), `LoginPage`
+  (`signInWithPassword`, respeita `?redirect=`), `AceitarConvitePage` (chama
+  `aceitar_convite(p_token)` uma vez com usuário já autenticado, redireciona para login com
+  destino preservado se não houver sessão).
+- **Decisões:** `form.tsx` escrito à mão (padrão shadcn de referência, mas `FormControl` usa
+  `React.cloneElement` em vez de `Slot`/`@radix-ui/react-slot`, porque o projeto usa
+  `@base-ui/react`, não Radix, e não há Slot equivalente instalado). Vitest escolhido como
+  primeiro framework de teste frontend do projeto (nenhum existia) — só para os schemas zod
+  puros (`src/lib/validations/auth.ts`/`.test.ts`, 10/10 testes passando), não para
+  componentes (Testing Library não instalada, lacuna declarada). Nenhuma policy de RLS nova
+  criada em `convites` para resolver a exibição de "fazenda/papel do convite" na tela de
+  signup — documentado como `TODO` no código, pendência para `db_sage`/`cyber_chief`, não
+  implementada por conta própria (fora do que esta tarefa autoriza).
+- **Validação real executada:** `npm run build` (`tsc -b && vite build`) limpo, zero erros de
+  tipo (só aviso de bundle >500kB, esperado nesta fase). `npm run lint` (oxlint) limpo, exit
+  code 0 (3 warnings de fast-refresh, não-bloqueantes, um pré-existente). `npm run test`
+  (Vitest) 10/10 PASS. `npm run dev` subiu sem erro (log confirmado) e respondeu HTTP 200 em
+  `/`, `/login` e `/app/dashboard` (smoke test via `Invoke-WebRequest`), processo derrubado
+  depois. **Limitação honesta:** sem navegador real disponível neste ambiente — o smoke test
+  confirma que o servidor sobe e responde, não que a UI renderiza/navega/envia formulários
+  corretamente no DOM; nenhuma interação visual foi de fato exercitada.
+- **Mudanças de arquivo:** novos `src/lib/auth.tsx`, `src/lib/validations/auth.ts`,
+  `src/lib/validations/auth.test.ts`, `src/router.tsx`, `src/components/ProtectedRoute.tsx`,
+  `src/components/layout/AppShell.tsx`, `src/components/ui/form.tsx` (mão),
+  `src/components/ui/{input,label,card,sonner}.tsx` (CLI), `src/pages/PlaceholderPage.tsx`,
+  `src/pages/NotFoundPage.tsx`, `src/pages/auth/{LoginPage,SignupPage,AceitarConvitePage}.tsx`,
+  `vitest.config.ts`; editados `src/App.tsx` (composição de providers), `package.json`
+  (`next-themes` via CLI, `vitest` devDependency, script `test`); este log; `PROJECT_CONTEXT.md`
+  (esta seção + seção 1). Nenhuma migration/arquivo em `supabase/` tocado.
+- **Pendências:** ação humana da Resend (ADR-0003, independente desta tarefa); policy de SELECT
+  pública por token em `convites` (decisão de `db_sage`/`cyber_chief`); testes de
+  componente/E2E do frontend (não escritos nesta rodada); code-splitting por rota quando os
+  módulos de Fase 2/3/4 ganharem conteúdo real (bundle único hoje, só aviso).
+- **Log completo:** `.agents/memory/log/2026-07-17-developer-frontend-fase1.md`
 
 ### 2026-07-17 — Testes de RLS/RPC (Fase 1 + ADR-0002) e integração da Edge Function `enviar-convite` — `qa` (Emma, via Claude)
 

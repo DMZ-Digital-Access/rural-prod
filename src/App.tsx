@@ -1,8 +1,19 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
+import { RouterProvider } from "react-router-dom"
+import { AuthProvider } from "@/lib/auth"
+import { Toaster } from "@/components/ui/sonner"
+import { router } from "@/router"
+
+const queryClient = new QueryClient()
+
 function App() {
   return (
-    <div className="flex min-h-svh items-center justify-center">
-      <h1 className="text-2xl font-medium">Livestock Control</h1>
-    </div>
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <RouterProvider router={router} />
+        <Toaster />
+      </AuthProvider>
+    </QueryClientProvider>
   )
 }
 
