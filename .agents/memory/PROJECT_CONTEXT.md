@@ -17,8 +17,15 @@
   módulos ainda não implementados como placeholder) entregues por `developer` em 2026-07-17 —
   ver seção 5. `npm run build`/`npm run lint`/`npm run test` passando limpos; `npm run dev`
   confirmado subindo sem erro (smoke test HTTP, sem navegador real disponível neste ambiente).
-  Próxima fase real: Fase 2 (Eixo 1 — gestão individual de rebanho: `lotes`/`animais`/
-  `pesagens` e telas correspondentes).
+  **Fase 2 (Eixo 1 — Gestão Individual de Rebanho) EM ANDAMENTO:** item 8 da seção 10 da spec
+  (schema `lotes`/`animais`/`pesagens` + views + `registrar_pesagem()`) escrito por `db_sage`
+  em 2026-07-17, **gate do `cyber_chief` CONCLUÍDO (🟢)** no mesmo dia — 3 correções aplicadas
+  diretamente na migration (papel `financeiro` sem restrição de acesso a manejo de Eixo 1,
+  contra spec seção 5.4; campos calculados de `animais` falsificáveis via INSERT; oráculo de
+  mensagens de erro em `registrar_pesagem()`) — ver seção 5 e
+  `.agents/memory/log/2026-07-17-cyber_chief-review-fase2.md`. **Ainda não aplicado a nenhum
+  banco** (`supabase db push` é decisão humana/orchestrator). Próximo passo real: item 9 da
+  seção 10 (`developer` constrói as telas de Animais/Lotes/Dashboard/Comparativo).
 - **Repositório:** criado — `https://github.com/DMZ-Digital-Access/rural-prod` (branch `main`)
 - **Stack confirmada:** React 18 + TypeScript + Vite, Tailwind + shadcn/ui, react-hook-form +
   zod, @tanstack/react-query, Supabase (Postgres + Auth + Storage), sonner, recharts
@@ -99,6 +106,25 @@
 ---
 
 ## 4. Bloqueios e Pendências Abertas
+
+**Pendência de trabalho (não bloqueante — gate de segurança JÁ CONCLUÍDO, falta só aplicar):**
+migration da Fase 2 (`supabase/migrations/20260717140000_fase2_lotes_animais_pesagens.sql`) —
+tabelas `lotes`/`animais`/`pesagens`, views `animais_com_detalhes`/`lotes_com_estatisticas`,
+função `registrar_pesagem()` + trigger `atualizar_animal_apos_pesagem()` (fórmula de GMD
+corrigida, spec seção 9 item 2). Escrita por `db_sage` em 2026-07-17. **Passou pelo gate do
+`cyber_chief` (🟢)** no mesmo dia — corrigidos: (1) RLS de `lotes`/`animais`/`pesagens` e a
+autorização de `registrar_pesagem()` não excluíam `papel='financeiro'` (já ativo em produção via
+ADR-0002), violando spec seção 5.4 ("sem acesso a manejo individual de animais/lotes/pesagens");
+(2) `inicializar_peso_atual_animal()` só protegia os 3 campos calculados de `animais` contra
+UPDATE, não contra INSERT — falsificação possível na criação do animal; (3) mensagens de erro de
+`registrar_pesagem()` unificadas (oráculo de enumeração de `animal_id` entre fazendas). Ver
+`.agents/memory/log/2026-07-17-cyber_chief-review-fase2.md`. **Ainda não aplicada a nenhum
+banco** (`supabase db push` é decisão humana/orchestrator). Pendências não bloqueantes
+remanescentes: duas decisões de produto a confirmar com `developer`/JP antes das telas (pesagem
+em animal vendido/morto/baixado não bloqueada; `peso_inicial_kg` editável sem recálculo imediato
+de GMD) e se `financeiro` deve ter alguma visão read-only de Eixo 1 (a correção aplicada segue a
+leitura mais estrita da spec — zero acesso, nem leitura).
+
 
 > Pontos que a própria spec marca como "validar com o cliente antes de implementar"
 > (ver `.agents/rules/multi-agent-workflow.md` seção 6). Remover a linha assim que o usuário
@@ -183,6 +209,100 @@ responde HTTP 200, não que a UI renderiza/interage corretamente.
 ---
 
 ## 5. Histórico de Tarefas Complexas (mais recente primeiro)
+
+### 2026-07-17 — Security review (gate Fase 2) da migration lotes/animais/pesagens — `cyber_chief` (CONSTANTINE, via Claude)
+
+- **Veredito: 🟢 Seguro — migration LIBERADA para aplicação** (`supabase db push`), decisão de
+  quando aplicar continua humana/orchestrator, fora do escopo deste gate. **Antes das
+  correções: 🟡 Seguro com Observações** — sem vazamento cross-tenant (a modelagem da Sofia já
+  fechava essa classe de risco corretamente), mas com um achado de severidade Alta já
+  exercitável hoje, não latente.
+- **O que foi feito:** security review formal de
+  `supabase/migrations/20260717140000_fase2_lotes_animais_pesagens.sql` (tabelas
+  `lotes`/`animais`/`pesagens`, 2 views, 3 funções, RLS), gate obrigatório antes de
+  `supabase db push`, mesmo padrão de rigor da Fase 1/ADR-0002. **Achado nº1 (Alto):** as 7
+  policies de RLS das 3 tabelas e a checagem de autorização de `registrar_pesagem()` escopavam
+  só por vínculo de fazenda, sem checar `papel` — permitindo que um usuário `papel='financeiro'`
+  (já um valor válido em produção desde o ADR-0002, com `criar_convite()` já aceitando esse
+  papel) lesse e escrevesse livremente em lotes/animais/pesagens, contrariando
+  `especificacao-sistema.md` seção 5.4, que nega explicitamente qualquer acesso (nem leitura) de
+  Financeiro/Contábil a "manejo individual de animais/lotes/pesagens". **Achado nº2 (Médio):**
+  `inicializar_peso_atual_animal()` só protegia `peso_atual_kg`/`gmd_medio_kg`/
+  `ultima_pesagem_data` contra UPDATE direto (trigger dedicado da própria Sofia) — um INSERT
+  direto em `animais` podia fabricar esses 3 campos calculados sem nenhuma pesagem real ter
+  ocorrido, a mesma falsificação que a migration já reconhecia como inaceitável, só que pela
+  porta que a guarda de UPDATE não cobre. **Achado nº3 (Baixo):** mensagens de erro distintas em
+  `registrar_pesagem()` para "animal não existe" vs. "sem permissão" formavam um oráculo de
+  enumeração entre fazendas — unificadas em uma mensagem genérica, mesmo padrão já usado em
+  `validar_lote_mesma_fazenda()`. Os 5 pontos de atenção que a Sofia deixou explicitamente para
+  este gate foram avaliados: `security_invoker=true` nas 2 views (lógica confirmada correta —
+  RLS das tabelas base se propaga ao consulente real), a GUC `rural_prod.recalculo_pesagem`
+  (robusta contra o vetor de ataque real — `pg_catalog` não exposto pelo PostgREST, `is_local`
+  seguro sob pooler transaction-mode), autorização de `registrar_pesagem()` (revisada linha a
+  linha, só o achado nº1 encontrado), e as 2 decisões de produto (pesagem em animal
+  vendido/morto/baixado; recálculo não imediato de GMD ao editar `peso_inicial_kg`) confirmadas
+  como não sendo achados de segurança.
+- **Decisões:** corrigir tudo diretamente no arquivo (nada aplicado a nenhum banco ainda).
+  7 policies de RLS + `registrar_pesagem()`: adicionado `papel <> 'financeiro'`.
+  `inicializar_peso_atual_animal()`: reescrita para forçar incondicionalmente os 3 campos
+  calculados no `BEFORE INSERT` (`peso_atual_kg = peso_inicial_kg`, os outros dois `null`),
+  ignorando qualquer valor enviado pelo client. `registrar_pesagem()`: mensagens de erro
+  unificadas.
+- **Mudanças de arquivo:**
+  `supabase/migrations/20260717140000_fase2_lotes_animais_pesagens.sql` editado (3 correções +
+  header atualizado); novo log; esta entrada em `PROJECT_CONTEXT.md` (+ seções 1 e 4).
+- **Pendências (não bloqueantes):** `qa` (Emma) — casos de teste explícitos para os 3 achados
+  corrigidos (financeiro bloqueado nas 3 tabelas; INSERT não falsifica campos calculados;
+  mensagem de erro única). `developer`/produto — confirmar se `financeiro` deve ter alguma visão
+  read-only de Eixo 1 antes das telas (a correção seguiu a leitura mais estrita da spec: zero
+  acesso); confirmar as 2 decisões de produto já sinalizadas pela Sofia.
+- **Log completo:** `.agents/memory/log/2026-07-17-cyber_chief-review-fase2.md`
+
+### 2026-07-17 — Schema Fase 2: lotes/animais/pesagens (Eixo 1) — `db_sage` (SOFIA, via Claude)
+
+- **O que foi feito:** modelada e escrita em SQL a Fase 2 (spec seção 10, item 8) — migration
+  nova e aditiva `supabase/migrations/20260717140000_fase2_lotes_animais_pesagens.sql`, com as
+  tabelas `lotes`/`animais`/`pesagens` (spec seção 3.1), a função pura de categorização
+  automática `calcular_categoria_animal()` (IMMUTABLE, recebe idade já calculada — não
+  `data_nascimento` — para ser genuinamente pura), as views `animais_com_detalhes` e
+  `lotes_com_estatisticas` (ambas com `security_invoker = true`), e
+  `public.registrar_pesagem()` (RPC `SECURITY DEFINER`) + trigger
+  `atualizar_animal_apos_pesagem()` implementando a regra de correção de pesagem (≤ 2 dias =
+  UPDATE, senão INSERT) e a fórmula de GMD **corrigida** do débito técnico prioritário desta
+  fase (spec seção 9, item 2): `GMD = (peso_atual - peso_inicial) / dias_totais`.
+- **Decisões:** (1) `pesagens` só tem SELECT declarativo — toda escrita via
+  `registrar_pesagem()` (`SECURITY DEFINER`), generalizando o padrão do ADR-0002 (correção
+  precisa de SELECT antes do comando, RLS declarativa não expressa isso); `lotes`/`animais`
+  ganham policies de INSERT/UPDATE declarativas normais (sem decisão condicional nem
+  recálculo derivado nelas fora dos 3 campos calculados, ver decisão 3); (2) `dias_totais` do
+  GMD usa `animais.created_at` (data de registro), não `data_nascimento` — `peso_inicial_kg` é
+  capturado na criação do animal, que pode já ser adulto; `dias_totais <= 0` →
+  `gmd_medio_kg = NULL` (não erro, não `0`); (3) `animais.peso_atual_kg`/`gmd_medio_kg`/
+  `ultima_pesagem_data` são campos calculados, protegidos contra UPDATE direto do client por
+  trigger com flag de sessão local à transação (RLS não escopa coluna); (4)
+  `animais.lote_id` só pode apontar para lote da MESMA fazenda (trigger dedicado) — sem isso,
+  um animal poderia poluir `lotes_com_estatisticas` de outra fazenda; (5) AMBAS as views usam
+  `security_invoker = true` (Postgres 15+) — sem essa opção, views vazariam TODOS os
+  animais/lotes de TODAS as fazendas para qualquer usuário autenticado (IDOR real, apesar de
+  RLS correta nas tabelas base) — achado preventivo próprio, não pedido explicitamente, mas
+  dentro do princípio "vazamento entre fazendas inaceitável" desta fase.
+- **Mudanças de arquivo:** novo
+  `supabase/migrations/20260717140000_fase2_lotes_animais_pesagens.sql`; novo
+  `.agents/memory/log/2026-07-17-db_sage-schema-fase2.md`; esta seção + seção 1 de
+  `PROJECT_CONTEXT.md`. Nenhuma tabela da Fase 1 tocada; nenhum item de Eixo 2 (GTAs/
+  transações/saldo) implementado.
+- **Pendências:** gate obrigatório do `cyber_chief` antes de `supabase db push` — atenção
+  especial pedida a: `security_invoker = true` nas views (crítico se a versão do Postgres não
+  honrar a opção), a flag de sessão `rural_prod.recalculo_pesagem` (mecanismo novo neste
+  projeto, checar comportamento sob o pooler transaction-mode do Supabase), a checagem de
+  autorização de `registrar_pesagem()` isoladamente, e duas decisões de produto não bloqueantes
+  para confirmar com `developer`/JP antes das telas: `registrar_pesagem()` não bloqueia pesagem
+  em animal com status venda/morte/baixa (deliberado, não restringido); `peso_inicial_kg`
+  editável depois da criação sem re-disparar recálculo imediato de GMD (só recalcula na
+  próxima pesagem). Depois do gate: `developer` constrói as telas (spec seção 10, item 9);
+  `qa` prioriza teste automatizado da fórmula de GMD e da regra de correção de pesagem (spec
+  seção 9, item 5). `supabase db push` não executado — fora do escopo desta tarefa.
+- **Log completo:** `.agents/memory/log/2026-07-17-db_sage-schema-fase2.md`
 
 ### 2026-07-17 — Frontend Fase 1: autenticação + shell de roteamento — `developer` (Ryan, via Claude)
 
