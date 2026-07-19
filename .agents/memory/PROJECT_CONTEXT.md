@@ -17,43 +17,55 @@
   módulos ainda não implementados como placeholder) entregues por `developer` em 2026-07-17 —
   ver seção 5. `npm run build`/`npm run lint`/`npm run test` passando limpos; `npm run dev`
   confirmado subindo sem erro (smoke test HTTP, sem navegador real disponível neste ambiente).
-  **Fase 2 (Eixo 1 — Gestão Individual de Rebanho) EM ANDAMENTO:** item 8 da seção 10 da spec
-  (schema `lotes`/`animais`/`pesagens` + views + `registrar_pesagem()`) escrito por `db_sage`
-  em 2026-07-17, **gate do `cyber_chief` CONCLUÍDO (🟢)** no mesmo dia — 3 correções aplicadas
-  diretamente na migration (papel `financeiro` sem restrição de acesso a manejo de Eixo 1,
-  contra spec seção 5.4; campos calculados de `animais` falsificáveis via INSERT; oráculo de
-  mensagens de erro em `registrar_pesagem()`) — ver seção 5 e
-  `.agents/memory/log/2026-07-17-cyber_chief-review-fase2.md`. **Ainda não aplicado a nenhum
-  banco** (`supabase db push` é decisão humana/orchestrator). Próximo passo real: item 9 da
-  seção 10 (`developer` constrói as telas de Animais/Lotes/Dashboard/Comparativo).
+  **Fase 2 (Eixo 1 — Gestão Individual de Rebanho) CONCLUÍDA do ponto de vista de
+  schema+frontend:** item 8 da seção 10 da spec (schema `lotes`/`animais`/`pesagens` + views +
+  `registrar_pesagem()`) escrito por `db_sage` em 2026-07-17, **gate do `cyber_chief` CONCLUÍDO
+  (🟢)** no mesmo dia — 3 correções aplicadas diretamente na migration (papel `financeiro` sem
+  restrição de acesso a manejo de Eixo 1, contra spec seção 5.4; campos calculados de `animais`
+  falsificáveis via INSERT; oráculo de mensagens de erro em `registrar_pesagem()`) — ver seção 5
+  e `.agents/memory/log/2026-07-17-cyber_chief-review-fase2.md`. Migration **aplicada ao banco
+  remoto**. Item 9 da seção 10 (telas de Dashboard/Animais/Lotes/Comparativo) implementado por
+  `developer` em 2026-07-17 — 6 rotas reais (`/app/dashboard`, `/app/animais`,
+  `/app/animais/:id`, `/app/lotes`, `/app/lotes/:id`, `/app/comparativo`) substituindo os
+  placeholders, consumindo `animais_com_detalhes`/`lotes_com_estatisticas`/`registrar_pesagem()`
+  via `@tanstack/react-query`. `npm run build`/`npm run lint`/`npm run test` (35/35) passando
+  limpos. Ver seção 5 e `.agents/memory/log/2026-07-17-developer-frontend-fase2.md`. **Falta
+  para fechar a fase por completo:** teste automatizado real de RLS/RPC contra o schema novo
+  (`qa`, ainda não rodado) e teste de UI num navegador real (nenhum agente teve acesso a
+  navegador até agora).
 - **Repositório:** criado — `https://github.com/DMZ-Digital-Access/rural-prod` (branch `main`)
-- **Stack confirmada:** React 18 + TypeScript + Vite, Tailwind + shadcn/ui, react-hook-form +
-  zod, @tanstack/react-query, Supabase (Postgres + Auth + Storage), sonner, recharts
-  (roadmap), react-router-dom, Vitest (testes de schema, novo nesta entrega — não havia
-  framework de teste frontend antes). Hospedagem: Vercel/Netlify (frontend) + Supabase (backend
-  gerenciado).
-- **Última entrega:** frontend de autenticação (`/login`, `/signup` com suporte a
-  `?convite=<token>`, `/convites/aceitar`) e shell de roteamento (`react-router-dom`,
-  `ProtectedRoute`, `AppShell` com navegação em duas seções + Configurações) implementados por
-  `developer` — ver seção 5,
-  `.agents/memory/log/2026-07-17-developer-frontend-fase1.md`. Antes disso: as duas migrations
-  da Fase 1 (`20260716171522_fase1_usuarios_fazendas.sql` e
-  `20260716183000_adr0002_convites_papeis.sql`) **aplicadas no banco Supabase remoto**
-  (`supabase migration list`: local=remote nas duas) e a Edge Function `enviar-convite`
-  **deployada** (`supabase functions deploy`, confirmado no dashboard do projeto). Schema no ar:
-  `usuarios`/`fazendas`/`usuarios_fazendas` (papel admin/membro/financeiro) + `convites`, função
-  `handle_new_user()` com branch de convite, 4 funções `SECURITY DEFINER`
-  (`aceitar_convite`/`promover_papel`/`criar_convite`/`cancelar_convite`), RLS default-deny em
-  todas as tabelas de autorização.
-- **Em andamento agora:** nada bloqueando a Fase 1. Pendências abertas (não bloqueantes, ver
-  seção 4): ação humana da conta Resend (`RESEND_API_KEY`/`APP_URL`) para o branch de e-mail de
-  convite a usuário já cadastrado funcionar de verdade em produção (ADR-0003); policy de SELECT
-  pública por token em `convites` (para a tela de signup mostrar "fazenda/papel do convite" sem
-  exigir sessão) não implementada, pendência de decisão para `db_sage`/`cyber_chief`; testes de
-  componente/E2E do frontend não escritos (só os schemas zod puros, ver log).
-- **Última atualização:** 2026-07-17 — `developer` (Ryan) implementou o frontend de
-  autenticação e o shell de roteamento completo, fechando a Fase 1. Ver seção 5 e
-  `.agents/memory/log/2026-07-17-developer-frontend-fase1.md`.
+- **Stack confirmada:** React 18 + TypeScript + Vite, Tailwind + shadcn/ui (componentes
+  `table`/`dialog`/`select`/`badge`/`textarea` adicionados na Fase 2), react-hook-form + zod,
+  @tanstack/react-query, Supabase (Postgres + Auth + Storage), sonner, recharts (em uso desde a
+  Fase 2 — dashboard e comparativo entre lotes), react-router-dom, Vitest (testes de schema, 35
+  testes no total). Hospedagem: Vercel/Netlify (frontend) + Supabase (backend gerenciado).
+- **Última entrega:** frontend do Eixo 1 (Fase 2) — Dashboard, Animais (lista + detalhe +
+  registro de pesagem via RPC), Lotes (lista + detalhe + arquivar/reativar), Comparativo entre
+  lotes — implementado por `developer` em 2026-07-17. Ver seção 5,
+  `.agents/memory/log/2026-07-17-developer-frontend-fase2.md`. Antes disso: frontend de
+  autenticação (`/login`, `/signup` com suporte a `?convite=<token>`, `/convites/aceitar`) e
+  shell de roteamento (`react-router-dom`, `ProtectedRoute`, `AppShell` com navegação em duas
+  seções + Configurações) implementados por `developer` — ver
+  `.agents/memory/log/2026-07-17-developer-frontend-fase1.md`. As duas migrations da Fase 1
+  (`20260716171522_fase1_usuarios_fazendas.sql` e `20260716183000_adr0002_convites_papeis.sql`)
+  e a migration da Fase 2 (`20260717140000_fase2_lotes_animais_pesagens.sql`) **aplicadas no
+  banco Supabase remoto**; Edge Function `enviar-convite` **deployada**. Schema no ar:
+  `usuarios`/`fazendas`/`usuarios_fazendas` (papel admin/membro/financeiro) + `convites` +
+  `lotes`/`animais`/`pesagens` (+ views `animais_com_detalhes`/`lotes_com_estatisticas`), função
+  `handle_new_user()` com branch de convite, funções `SECURITY DEFINER`
+  (`aceitar_convite`/`promover_papel`/`criar_convite`/`cancelar_convite`/`registrar_pesagem`),
+  RLS default-deny em todas as tabelas de autorização (Eixo 1 também exclui `papel='financeiro'`
+  em todas as policies, spec seção 5.4).
+- **Em andamento agora:** nada bloqueando a Fase 2 do ponto de vista de código. Pendências
+  abertas (não bloqueantes, ver seção 4): teste automatizado real de RLS/RPC do schema da Fase 2
+  (`qa`, ainda não rodado — mesmo padrão já feito para Fase 1/ADR-0002); ação humana da conta
+  Resend (`RESEND_API_KEY`/`APP_URL`, ADR-0003); policy de SELECT pública por token em
+  `convites` não implementada; testes de componente/E2E reais do frontend não escritos em
+  nenhuma fase (só os schemas zod puros); seletor de fazenda multi-tenant não existe
+  (`useFazendaAtual` pega sempre o vínculo mais antigo do usuário).
+- **Última atualização:** 2026-07-17 — `developer` (Ryan) implementou as 6 telas do Eixo 1
+  (Dashboard/Animais/Lotes/Comparativo), fechando a Fase 2 do ponto de vista de frontend. Ver
+  seção 5 e `.agents/memory/log/2026-07-17-developer-frontend-fase2.md`.
 
 ---
 
@@ -118,12 +130,14 @@ ADR-0002), violando spec seção 5.4 ("sem acesso a manejo individual de animais
 (2) `inicializar_peso_atual_animal()` só protegia os 3 campos calculados de `animais` contra
 UPDATE, não contra INSERT — falsificação possível na criação do animal; (3) mensagens de erro de
 `registrar_pesagem()` unificadas (oráculo de enumeração de `animal_id` entre fazendas). Ver
-`.agents/memory/log/2026-07-17-cyber_chief-review-fase2.md`. **Ainda não aplicada a nenhum
-banco** (`supabase db push` é decisão humana/orchestrator). Pendências não bloqueantes
-remanescentes: duas decisões de produto a confirmar com `developer`/JP antes das telas (pesagem
-em animal vendido/morto/baixado não bloqueada; `peso_inicial_kg` editável sem recálculo imediato
-de GMD) e se `financeiro` deve ter alguma visão read-only de Eixo 1 (a correção aplicada segue a
-leitura mais estrita da spec — zero acesso, nem leitura).
+`.agents/memory/log/2026-07-17-cyber_chief-review-fase2.md`. **Aplicada ao banco remoto** — as
+telas de frontend (`developer`, 2026-07-17, ver seção 5) já consomem o schema em produção.
+Pendências não bloqueantes remanescentes: `qa` ainda não escreveu/rodou testes automatizados de
+RLS/RPC para este schema (mesmo padrão já feito para Fase 1/ADR-0002); duas decisões de produto
+seguem sem confirmação explícita de JP (pesagem em animal vendido/morto/baixado não bloqueada;
+`peso_inicial_kg` editável sem recálculo imediato de GMD) e se `financeiro` deve ter alguma
+visão read-only de Eixo 1 (a correção aplicada segue a leitura mais estrita da spec — zero
+acesso, nem leitura; o frontend não esconde os itens de menu correspondentes por papel).
 
 
 > Pontos que a própria spec marca como "validar com o cliente antes de implementar"
@@ -209,6 +223,57 @@ responde HTTP 200, não que a UI renderiza/interage corretamente.
 ---
 
 ## 5. Histórico de Tarefas Complexas (mais recente primeiro)
+
+### 2026-07-17 — Frontend Fase 2, Eixo 1: Gestão Individual de Rebanho — `developer` (Ryan, via Claude)
+
+- **O que foi feito:** implementadas as 6 telas do Eixo 1 (spec seção 5.1/10 item 9), fechando a
+  Fase 2 do ponto de vista de frontend: `/app/dashboard` (stat tiles + distribuição por
+  status/categoria + filtro por lote), `/app/animais` (listagem + criar/editar via dialog),
+  `/app/animais/:id` (detalhe + histórico de pesagens + formulário de registro via RPC),
+  `/app/lotes` (listagem com estatísticas + criar/editar/arquivar/reativar), `/app/lotes/:id`
+  (detalhe + animais associados), `/app/comparativo` (2 bar charts + tabela comparando peso
+  médio/GMD médio entre lotes). Componentes shadcn novos: `table`/`dialog`/`select`/`badge`/
+  `textarea` (todos gerados sem problema pelo CLI, ao contrário de `form` na Fase 1). Camada de
+  dados nova: `src/hooks/{useFazendaAtual,useLotes,useAnimais,usePesagens}.ts` sobre
+  `@tanstack/react-query`, sempre via `animais_com_detalhes`/`lotes_com_estatisticas` (nunca as
+  tabelas base direto) e `registrar_pesagem()` via RPC (nunca INSERT direto em `pesagens`, que
+  não tem policy nenhuma).
+- **Achado de tooling:** `z.coerce.number()` + `zodResolver` (`@hookform/resolvers` v5) + Zod v4
+  quebra a inferência de tipos de `useForm<T>()` (o `Resolver` gerado tem tipo de entrada
+  `unknown` diferente do tipo de saída `number`). Contornado sem `z.coerce`: schemas usam
+  `z.number()` puro, campos numéricos convertem string→number no próprio `<Input
+  type="number">` via `valueAsNumber`. Documentado nos 3 arquivos de schema para o próximo
+  agente não perder tempo redescobrindo.
+- **Decisões:** `useFazendaAtual()` pega o vínculo mais antigo do usuário em `usuarios_fazendas`
+  como "a" fazenda (sem seletor multi-tenant na UI — débito técnico documentado, ADR-0002 já
+  permite multi-fazenda via convites mas a spec desta tarefa não pediu o seletor);
+  `criarAnimalSchema`/`editarAnimalSchema` separados (edição só toca
+  identificação/lote/status, nunca os 3 campos calculados nem os campos de criação);
+  gráficos usam as CSS vars `--chart-1..5` já existentes no tema em vez de uma paleta nova
+  (skill `dataviz` consultada: um eixo por gráfico, hue único por série, nunca dual-axis nem
+  rainbow por categoria numa série só). Nenhuma tela específica para o papel `financeiro` (RLS
+  já bloqueia no backend; o `AppShell` não esconde os links de Manejo Individual
+  condicionalmente por papel — pendência de UX, não de segurança).
+- **Validação real executada:** `npm run build` limpo (zero erros de tipo). `npm run lint`
+  (oxlint) limpo, exit 0, só os 4 warnings de fast-refresh pré-existentes. `npm run test`
+  (Vitest) 35/35 PASS (10 da Fase 1 + 25 novos: `animais.test.ts`/`lotes.test.ts`/
+  `pesagens.test.ts`). `npm run dev` subiu sem erro; `Invoke-WebRequest` confirmou HTTP 200 nas
+  7 rotas novas (SPA — roteamento client-side) e nos 7 módulos `.tsx` novos requisitados
+  diretamente pela URL de transform do Vite (confirma ausência de erro de sintaxe/import além
+  do que `tsc -b` já garante). **Limitação honesta, igual à da Fase 1:** sem navegador real
+  neste ambiente — nenhuma interação de UI (clicar, preencher formulário, abrir dialog) foi de
+  fato exercitada; nenhum teste de componente escrito (Testing Library não instalada).
+- **Mudanças de arquivo:** ver lista completa no log. Resumo: 5 componentes shadcn novos, 1
+  arquivo de tipos, 3 pares schema+teste, 4 hooks de dados, 2 componentes compartilhados
+  (`StatusAnimalBadge`, `LoteSelectField`), 13 arquivos de página/dialog/form novos em
+  `src/pages/{animais,lotes,dashboard,comparativo}/`, `src/router.tsx` editado (6 rotas reais).
+  Nenhuma migration tocada; nenhuma rota de Eixo 2 implementada.
+- **Pendências:** `qa` — teste automatizado real de RLS/RPC do schema da Fase 2 (mesmo padrão
+  já feito para Fase 1/ADR-0002, ainda não rodado para `lotes`/`animais`/`pesagens`); teste de
+  UI em navegador real quando disponível; seletor de fazenda multi-tenant; esconder/adaptar
+  navegação para o papel `financeiro` (UX, não segurança); code-splitting por rota (bundle
+  único >500kB, aviso desde a Fase 1, ainda não endereçado).
+- **Log completo:** `.agents/memory/log/2026-07-17-developer-frontend-fase2.md`
 
 ### 2026-07-17 — Security review (gate Fase 2) da migration lotes/animais/pesagens — `cyber_chief` (CONSTANTINE, via Claude)
 
