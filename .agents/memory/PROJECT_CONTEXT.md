@@ -29,10 +29,13 @@
   `/app/animais/:id`, `/app/lotes`, `/app/lotes/:id`, `/app/comparativo`) substituindo os
   placeholders, consumindo `animais_com_detalhes`/`lotes_com_estatisticas`/`registrar_pesagem()`
   via `@tanstack/react-query`. `npm run build`/`npm run lint`/`npm run test` (35/35) passando
-  limpos. Ver seção 5 e `.agents/memory/log/2026-07-17-developer-frontend-fase2.md`. **Falta
-  para fechar a fase por completo:** teste automatizado real de RLS/RPC contra o schema novo
-  (`qa`, ainda não rodado) e teste de UI num navegador real (nenhum agente teve acesso a
-  navegador até agora).
+  limpos. Ver seção 5 e `.agents/memory/log/2026-07-17-developer-frontend-fase2.md`. **Teste
+  automatizado real de RLS/RPC/GMD do schema novo CONCLUÍDO** (`qa`, 2026-07-19) — 63/63
+  asserções pgTAP passando (25 da Fase 1/ADR-0002 + 38 novas da Fase 2: fórmula de GMD incluindo
+  a regressão do bug do protótipo, regra de correção de pesagem, e os 3 achados do gate
+  `cyber_chief`), ver seção 5 e
+  `.agents/memory/log/2026-07-19-qa-testes-fase2-gmd.md`. **Falta para fechar a fase por
+  completo:** teste de UI num navegador real (nenhum agente teve acesso a navegador até agora).
 - **Repositório:** criado — `https://github.com/DMZ-Digital-Access/rural-prod` (branch `main`)
 - **Stack confirmada:** React 18 + TypeScript + Vite, Tailwind + shadcn/ui (componentes
   `table`/`dialog`/`select`/`badge`/`textarea` adicionados na Fase 2), react-hook-form + zod,
@@ -56,16 +59,20 @@
   (`aceitar_convite`/`promover_papel`/`criar_convite`/`cancelar_convite`/`registrar_pesagem`),
   RLS default-deny em todas as tabelas de autorização (Eixo 1 também exclui `papel='financeiro'`
   em todas as policies, spec seção 5.4).
-- **Em andamento agora:** nada bloqueando a Fase 2 do ponto de vista de código. Pendências
-  abertas (não bloqueantes, ver seção 4): teste automatizado real de RLS/RPC do schema da Fase 2
-  (`qa`, ainda não rodado — mesmo padrão já feito para Fase 1/ADR-0002); ação humana da conta
-  Resend (`RESEND_API_KEY`/`APP_URL`, ADR-0003); policy de SELECT pública por token em
-  `convites` não implementada; testes de componente/E2E reais do frontend não escritos em
-  nenhuma fase (só os schemas zod puros); seletor de fazenda multi-tenant não existe
-  (`useFazendaAtual` pega sempre o vínculo mais antigo do usuário).
-- **Última atualização:** 2026-07-17 — `developer` (Ryan) implementou as 6 telas do Eixo 1
-  (Dashboard/Animais/Lotes/Comparativo), fechando a Fase 2 do ponto de vista de frontend. Ver
-  seção 5 e `.agents/memory/log/2026-07-17-developer-frontend-fase2.md`.
+- **Em andamento agora:** nada bloqueando a Fase 2 do ponto de vista de código ou de testes de
+  banco. Pendências abertas (não bloqueantes, ver seção 4): teste de UI em navegador real (nenhum
+  agente teve acesso até agora); ação humana da conta Resend (`RESEND_API_KEY`/`APP_URL`,
+  ADR-0003); policy de SELECT pública por token em `convites` não implementada; testes de
+  componente/E2E reais do frontend não escritos em nenhuma fase (só os schemas zod puros);
+  seletor de fazenda multi-tenant não existe (`useFazendaAtual` pega sempre o vínculo mais antigo
+  do usuário).
+- **Última atualização:** 2026-07-19 — `qa` (Emma) escreveu e **rodou de verdade** a suíte pgTAP
+  de RLS/RPC/GMD da Fase 2 (63/63 asserções, incluindo a regressão do bug de GMD do protótipo e
+  os 3 achados do gate `cyber_chief`). Ver seção 5 e
+  `.agents/memory/log/2026-07-19-qa-testes-fase2-gmd.md`. Antes disso, 2026-07-17: `developer`
+  (Ryan) implementou as 6 telas do Eixo 1 (Dashboard/Animais/Lotes/Comparativo), fechando a
+  Fase 2 do ponto de vista de frontend. Ver
+  `.agents/memory/log/2026-07-17-developer-frontend-fase2.md`.
 
 ---
 
@@ -132,12 +139,17 @@ UPDATE, não contra INSERT — falsificação possível na criação do animal; 
 `registrar_pesagem()` unificadas (oráculo de enumeração de `animal_id` entre fazendas). Ver
 `.agents/memory/log/2026-07-17-cyber_chief-review-fase2.md`. **Aplicada ao banco remoto** — as
 telas de frontend (`developer`, 2026-07-17, ver seção 5) já consomem o schema em produção.
-Pendências não bloqueantes remanescentes: `qa` ainda não escreveu/rodou testes automatizados de
-RLS/RPC para este schema (mesmo padrão já feito para Fase 1/ADR-0002); duas decisões de produto
-seguem sem confirmação explícita de JP (pesagem em animal vendido/morto/baixado não bloqueada;
-`peso_inicial_kg` editável sem recálculo imediato de GMD) e se `financeiro` deve ter alguma
-visão read-only de Eixo 1 (a correção aplicada segue a leitura mais estrita da spec — zero
-acesso, nem leitura; o frontend não esconde os itens de menu correspondentes por papel).
+**Testes automatizados de RLS/RPC/GMD CONCLUÍDOS e passando** (`qa`, 2026-07-19, 63/63
+asserções — inclui regressão do bug de GMD do protótipo e dos 3 achados do `cyber_chief` acima —
+ver `.agents/memory/log/2026-07-19-qa-testes-fase2-gmd.md`). Pendências não bloqueantes
+remanescentes: duas decisões de produto seguem sem confirmação explícita de JP (pesagem em
+animal vendido/morto/baixado não bloqueada; `peso_inicial_kg` editável sem recálculo imediato de
+GMD) e se `financeiro` deve ter alguma visão read-only de Eixo 1 (a correção aplicada segue a
+leitura mais estrita da spec — zero acesso, nem leitura; o frontend não esconde os itens de menu
+correspondentes por papel); cobertura de teste sem as views
+`animais_com_detalhes`/`lotes_com_estatisticas` nem `calcular_categoria_animal()`, e sem teste
+de concorrência real para `registrar_pesagem()` (lista completa de lacunas honestas no log de
+2026-07-19).
 
 
 > Pontos que a própria spec marca como "validar com o cliente antes de implementar"
@@ -223,6 +235,46 @@ responde HTTP 200, não que a UI renderiza/interage corretamente.
 ---
 
 ## 5. Histórico de Tarefas Complexas (mais recente primeiro)
+
+### 2026-07-19 — Testes pgTAP da Fase 2 (GMD/regra de correção/regressões de segurança) — `qa` (Emma, via Claude)
+
+- **O que foi feito:** escrita e **execução real** (`supabase db reset` + `supabase test db`) de
+  5 arquivos pgTAP novos contra o schema `lotes`/`animais`/`pesagens` da Fase 2, continuando a
+  numeração da suíte da Fase 1 (`supabase/tests/database/007` a `011`). Cobertura: (A) fórmula de
+  GMD — caso feliz comparado contra a MESMA fórmula calculada em SQL (não um número decorado);
+  **regressão do bug do protótipo** com 3 pesagens de variação não-uniforme (inclusive uma queda
+  de peso no meio) provando que o GMD depende só de `peso_inicial` + pesagem MAIS RECENTE, nunca
+  de uma média das variações sucessivas; `dias_totais=0` → `NULL` sem erro. (B) regra de correção
+  de `registrar_pesagem()` — UPDATE do mesmo registro a 1 dia de distância, INSERT novo a 6 dias,
+  e o limite EXATO de 2 dias (inclusivo) também testado como UPDATE. (C) regressão dos 3 achados
+  do gate `cyber_chief` (`.agents/memory/log/2026-07-17-cyber_chief-review-fase2.md`): papel
+  `financeiro` bloqueado em SELECT/INSERT/UPDATE de `lotes`/`animais`/`pesagens` e em
+  `registrar_pesagem()`; INSERT direto em `animais` com campos calculados falsificados é
+  sobrescrito silenciosamente pelo trigger; vazamento entre fazendas testado nas duas direções
+  (SELECT vazio, INSERT `42501`, `validar_lote_mesma_fazenda()` rejeitando associação cruzada A→B
+  e B→A). **63/63 asserções passaram** (25 pré-existentes da Fase 1/ADR-0002 + 38 novas),
+  suíte completa rodada duas vezes seguidas para confirmar ausência de flakiness.
+- **Achados de tooling (não são achados de produto):** `INSERT ... RETURNING` não pode ser
+  subquery direta em `FROM` (só dentro de uma CTE `WITH`); uma `WITH` de escrita não pode ficar
+  aninhada dentro de uma subquery escalar passada a `is()` (precisa estar no nível mais externo
+  do comando); arquivos que escrevem na temp table `t_ids` DEPOIS de assumir a sessão
+  `authenticated` precisam de `grant insert` nela, não só `grant select` (convenção anterior só
+  precisava de `select` porque os ids eram todos capturados antes da troca de role).
+- **O que NÃO foi testado (honestidade de cobertura):** as views `animais_com_detalhes`/
+  `lotes_com_estatisticas` não têm teste pgTAP dedicado (revisadas linha a linha pelo
+  `cyber_chief`, mas sem cobertura automatizada própria); `calcular_categoria_animal()` sem teste
+  unitário; nenhum teste de concorrência real (duas sessões `psql`) para `registrar_pesagem()`
+  (o `for update` existe e foi revisado, mas não repeti o padrão de concorrência real já usado
+  para `promover_papel()` na Fase 1); nenhum teste de UI/frontend (fora do escopo desta tarefa).
+- **Mudanças de arquivo:** novos `supabase/tests/database/007_gmd_formula_calculo.sql`,
+  `008_registrar_pesagem_regra_correcao.sql`, `009_rls_regressao_papel_financeiro.sql`,
+  `010_animais_insert_campos_calculados_regressao.sql`,
+  `011_vazamento_entre_fazendas_lotes_animais.sql`; novo log; esta entrada + seções 1 e 4 de
+  `PROJECT_CONTEXT.md`.
+- **Pendências:** nenhum bloqueio técnico identificado por este gate de testes — aprovação final
+  continua sendo decisão do usuário (`qa` proibida de aprovar). Lacunas de cobertura listadas
+  acima ficam como trabalho futuro não bloqueante.
+- **Log completo:** `.agents/memory/log/2026-07-19-qa-testes-fase2-gmd.md`
 
 ### 2026-07-17 — Frontend Fase 2, Eixo 1: Gestão Individual de Rebanho — `developer` (Ryan, via Claude)
 
