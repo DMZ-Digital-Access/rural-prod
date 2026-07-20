@@ -451,6 +451,26 @@ responde HTTP 200, não que a UI renderiza/interage corretamente.
 
 ## 5. Histórico de Tarefas Complexas (mais recente primeiro)
 
+### 2026-07-20 — Frontend ADR-0005: "Individualizar Animal" + "Entradas e Saídas de Animais de Lote" — `developer` (RYAN, via Claude)
+
+- **O que foi feito:** RPC nova `registrar_entrada_saida_lote()` (migration
+  `20260720220000_adr0005_rpc_entrada_saida_lote.sql`, SECURITY INVOKER, insere transacao+
+  transacoes_detalhe atomicamente validando soma machos+fêmeas) + frontend completo: botão
+  "Novo animal" renomeado para "Individualizar Animal" (rótulo de peso → "Peso de hoje (kg)");
+  novo botão/dialog "Entradas e Saídas de Animais de Lote" (5 tipos de operação, Machos/Fêmeas,
+  outra parte com rótulo dinâmico, data, valor/peso opcionais).
+- **Construído mobile-first desde o início** (diretriz nova de JP, ver seção 2) — validado
+  visualmente em 1440×900 E 390×844 antes de considerar a tarefa concluída, não como retrofit.
+- **Validação:** `npm run build`/`lint`/`test` (35/35) limpos; RPC testada localmente com
+  usuários reais via GoTrue (soma correta, rejeição de zero animais, `financeiro` bloqueado pela
+  RLS existente); Playwright confirma os dois botões lado a lado em desktop/empilhados em
+  mobile, formulário completo renderizando sem overflow nas duas resoluções.
+- **Log completo:** `.agents/memory/log/2026-07-20-developer-frontend-adr0005.md`.
+- **Pendências:** upload real de Nota/Contranota depende do item 14 (Storage); card de detalhe
+  de operação com GTA/Nota/Contranota "presente ou pendente" ainda não implementado (Fase 4);
+  Venda/Óbito/Consumo vinculados a animal individual específico (via `transacoes_animais`) sem
+  UI ainda — esta tela só cobre lançamento agregado.
+
 ### 2026-07-20 — ADR-0005 + schema + gate: expansão de transacoes (nascimento/obito/consumo, docs independentes, saldo "Não classificado") — `architect`+`db_sage`+`cyber_chief` (via Claude)
 
 - **Motivação:** JP pediu, fora da sequência da spec, mudar a UX de Animais — botão

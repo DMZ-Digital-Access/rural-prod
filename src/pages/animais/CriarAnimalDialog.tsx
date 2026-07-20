@@ -86,15 +86,16 @@ export function CriarAnimalDialog({
         render={
           <Button>
             <PlusIcon />
-            Novo animal
+            Individualizar Animal
           </Button>
         }
       />
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Novo animal</DialogTitle>
+          <DialogTitle>Individualizar Animal</DialogTitle>
           <DialogDescription>
-            Cadastre um animal individual da fazenda.
+            Cadastre o registro individual de um animal já contabilizado no
+            saldo do rebanho (via Entradas e Saídas de Animais de Lote).
           </DialogDescription>
         </DialogHeader>
 
@@ -158,7 +159,7 @@ export function CriarAnimalDialog({
               name="peso_inicial_kg"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Peso inicial (kg)</FormLabel>
+                  <FormLabel>Peso de hoje (kg)</FormLabel>
                   <FormControl>
                     <Input
                       type="number"

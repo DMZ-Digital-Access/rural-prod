@@ -13,6 +13,7 @@ import {
 import { StatusAnimalBadge } from "@/components/rebanho/StatusAnimalBadge"
 import { CriarAnimalDialog } from "@/pages/animais/CriarAnimalDialog"
 import { EditarAnimalDialog } from "@/pages/animais/EditarAnimalDialog"
+import { EntradaSaidaLoteDialog } from "@/pages/animais/EntradaSaidaLoteDialog"
 
 function formatPeso(kg: number | null) {
   return kg === null ? "—" : `${kg.toFixed(1)} kg`
@@ -43,7 +44,10 @@ export function AnimaisListPage() {
             Rebanho individual da fazenda — cadastro, status e desempenho.
           </p>
         </div>
-        <CriarAnimalDialog fazendaId={fazenda?.fazenda_id} lotes={lotes} />
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <EntradaSaidaLoteDialog fazendaId={fazenda?.fazenda_id} />
+          <CriarAnimalDialog fazendaId={fazenda?.fazenda_id} lotes={lotes} />
+        </div>
       </div>
 
       {animaisQuery.isLoading && (
@@ -61,7 +65,9 @@ export function AnimaisListPage() {
 
       {animaisQuery.data && animaisQuery.data.length === 0 && (
         <p className="text-sm text-muted-foreground">
-          Nenhum animal cadastrado ainda. Use "Novo animal" para começar.
+          Nenhum animal cadastrado ainda. Use "Entradas e Saídas de Animais de
+          Lote" para lançar a entrada no rebanho, e "Individualizar Animal"
+          para cadastrar cada exemplar.
         </p>
       )}
 
