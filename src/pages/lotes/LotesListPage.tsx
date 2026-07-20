@@ -27,7 +27,7 @@ export function LotesListPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold">Lotes</h1>
           <p className="text-muted-foreground">
@@ -63,8 +63,8 @@ export function LotesListPage() {
               <TableHead>Nome</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Animais ativos</TableHead>
-              <TableHead>Peso médio</TableHead>
-              <TableHead>GMD médio</TableHead>
+              <TableHead className="hidden sm:table-cell">Peso médio</TableHead>
+              <TableHead className="hidden md:table-cell">GMD médio</TableHead>
               <TableHead className="text-right">Ações</TableHead>
             </TableRow>
           </TableHeader>
@@ -92,8 +92,12 @@ export function LotesListPage() {
                   )}
                 </TableCell>
                 <TableCell>{lote.numero_animais_ativos}</TableCell>
-                <TableCell>{formatPeso(lote.peso_medio_kg)}</TableCell>
-                <TableCell>{formatGmd(lote.gmd_medio_kg)}</TableCell>
+                <TableCell className="hidden sm:table-cell">
+                  {formatPeso(lote.peso_medio_kg)}
+                </TableCell>
+                <TableCell className="hidden md:table-cell">
+                  {formatGmd(lote.gmd_medio_kg)}
+                </TableCell>
                 <TableCell className="text-right">
                   <div className="flex justify-end gap-2">
                     <LoteFormDialog mode="editar" lote={lote} />

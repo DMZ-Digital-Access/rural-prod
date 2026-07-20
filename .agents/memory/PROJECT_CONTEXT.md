@@ -166,6 +166,12 @@
   componente/E2E reais do frontend não escritos em nenhuma fase (só os schemas zod puros);
   seletor de fazenda multi-tenant não existe (`useFazendaAtual` pega sempre o vínculo mais antigo
   do usuário).
+- **Retrofit de responsividade mobile concluído em 2026-07-20** (`developer`) — Shell +
+  Eixo 1 completo (AppShell com drawer mobile via `Sheet` novo, tabelas com colunas priorizadas
+  por breakpoint, headers empilháveis). `npm run build`/`lint`/`test` (35/35) limpos. Primeiro
+  teste visual real em viewport mobile do projeto (Playwright, 390×844, contra o remoto). Eixo 2
+  fica de fora (placeholder). Ver seção 5 e
+  `.agents/memory/log/2026-07-20-developer-retrofit-mobile-eixo1.md`.
 - **Última atualização:** 2026-07-19 — `qa` (Emma) escreveu e **rodou de verdade** a suíte pgTAP
   de RLS/RPC/GMD da Fase 2 (63/63 asserções, incluindo a regressão do bug de GMD do protótipo e
   os 3 achados do gate `cyber_chief`). Ver seção 5 e
@@ -410,6 +416,38 @@ responde HTTP 200, não que a UI renderiza/interage corretamente.
 ---
 
 ## 5. Histórico de Tarefas Complexas (mais recente primeiro)
+
+### 2026-07-20 — Retrofit de responsividade mobile: Shell + Eixo 1 — `developer` (RYAN, via Claude)
+
+- **O que foi feito:** a pedido de JP, priorizado antes de retomar a Fase 3 (item 12). Auditoria
+  prévia mostrou o app essencialmente desktop-only (sidebar fixa sem breakpoints, só 4 páginas
+  usando `lg:grid-cols-*`, nenhum uso de `sm:`). Escopo: `AppShell` + as 6 telas do Eixo 1
+  (Dashboard/Animais/AnimalDetail/Lotes/LoteDetail/Comparativo) + 3 formulários. Eixo 2 fica de
+  fora (ainda é placeholder, Fase 4).
+- **Componente novo:** `src/components/ui/sheet.tsx` — não existia; construído sobre o mesmo
+  primitivo de `Dialog` (`@base-ui/react/dialog`, projeto usa `components.json` style
+  `base-nova`, não Radix) com posicionamento de painel lateral, em vez de rodar
+  `npx shadcn add sheet` (assume Radix, quebraria consistência).
+- **`AppShell`:** sidebar fixa só a partir de `lg` (1024px); abaixo disso, hambúrguer + `Sheet`
+  deslizante com a mesma navegação de 3 seções (`SidebarNav` extraído como componente
+  compartilhado). Navegar por um item do drawer fecha ele automaticamente.
+- **Tabelas** (Animais/Lotes/LoteDetail): colunas secundárias ocultas progressivamente
+  (`hidden sm:table-cell`/`md:table-cell`/`lg:table-cell`) em vez de só depender do
+  `overflow-x-auto` de fábrica do componente `Table`.
+- **Headers de página:** `flex items-center justify-between` → empilha em `flex-col` abaixo de
+  `sm`, evitando título e botão/seletor disputarem espaço em telas estreitas.
+- **Não precisou de mudança:** formulários e grids `dl` de estatística já eram mobile-first por
+  acidente — confirmado por teste visual real, não assumido.
+- **Validação:** `npm run build`/`lint`/`test` (35/35) limpos, sem regressão. **Primeiro teste
+  visual real em viewport mobile deste projeto** — Chromium headless via Playwright, 390×844,
+  logado contra o Supabase remoto com a conta de teste real: Dashboard, drawer, Animais, Lotes,
+  LoteDetail, AnimalDetail, tudo sem overflow horizontal, zero erros de console. Achado de
+  timing (não bug): Dashboard demora até ~1s pra carregar dados na primeira renderização
+  (latência de rede contra o remoto), não é uma trava.
+- **Pendências:** telas de Eixo 2 (placeholder) ficam para quando forem implementadas de
+  verdade; nenhum teste de componente/E2E automatizado cobre o drawer (só validação visual
+  manual); bottom tab bar foi considerada e descartada por JP em favor do drawer.
+- **Log completo:** `.agents/memory/log/2026-07-20-developer-retrofit-mobile-eixo1.md`
 
 ### 2026-07-20 — Correção de dado: faixas etárias de Ovino (comparação com prints reais da Secretaria) — `db_sage` (SOFIA, via Claude)
 

@@ -58,7 +58,7 @@ export function LoteDetailPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-2xl font-semibold">{lote.nome}</h1>
@@ -143,10 +143,12 @@ export function LoteDetailPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Identificação</TableHead>
-                  <TableHead>Categoria</TableHead>
+                  <TableHead className="hidden md:table-cell">
+                    Categoria
+                  </TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Peso atual</TableHead>
-                  <TableHead>GMD</TableHead>
+                  <TableHead className="hidden sm:table-cell">GMD</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -160,12 +162,16 @@ export function LoteDetailPage() {
                         {animal.identificacao}
                       </Link>
                     </TableCell>
-                    <TableCell>{animal.categoria}</TableCell>
+                    <TableCell className="hidden md:table-cell">
+                      {animal.categoria}
+                    </TableCell>
                     <TableCell>
                       <StatusAnimalBadge status={animal.status} />
                     </TableCell>
                     <TableCell>{formatPeso(animal.peso_atual_kg)}</TableCell>
-                    <TableCell>{formatGmd(animal.gmd_medio_kg)}</TableCell>
+                    <TableCell className="hidden sm:table-cell">
+                      {formatGmd(animal.gmd_medio_kg)}
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>

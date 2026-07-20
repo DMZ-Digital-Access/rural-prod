@@ -118,7 +118,7 @@ export function DashboardPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold">Dashboard</h1>
           <p className="text-muted-foreground">
@@ -130,7 +130,7 @@ export function DashboardPage() {
           value={loteFiltro}
           onValueChange={(v) => setLoteFiltro(v ?? TODOS_OS_LOTES)}
         >
-          <SelectTrigger className="w-56">
+          <SelectTrigger className="w-full sm:w-56">
             {/* Base UI (@base-ui/react/select) só resolve o rótulo do
                 SelectItem correspondente depois que o popup já foi aberto
                 pelo menos uma vez — antes disso, <SelectValue /> sem
