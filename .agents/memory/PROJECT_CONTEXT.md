@@ -47,7 +47,12 @@
   para rodar o app existia (`.claude/skills/`) — recomendado `/run-skill-generator` para
   capturar a receita (NODE_PATH apontando pro cache `_npx` do playwright, sem instalação local
   no projeto) para sessões futuras.
-  **Fase 3 (Eixo 2 — Dados e Regras) INICIADA:** item 10 da seção 10 da spec (catálogos
+  **Fase 3 (Eixo 2 — Dados e Regras) COMPLETA em 2026-07-20, exceto item 14 (Storage, não
+  iniciado).** Itens 10/11/13 com gate de segurança concluído e aplicados ao remoto; item 12
+  (saldo de rebanho) implementado, gated e com **Checkpoint de Validação de Saldo CONFIRMADO por
+  JP** (comparação exata contra os prints reais de Bovino/Ovino) — ver seção 5, entrada "Schema
+  + gate de segurança, Fase 3 item 12". Detalhe histórico do início da fase abaixo. Item 10 da
+  seção 10 da spec (catálogos
   `especies`/`subtipos_especie`/`agrupamentos_etarios`, sem `fazenda_id` — primeira tabela não
   multi-tenant do projeto) escrito por `db_sage` em 2026-07-20 — migration nova
   `20260720120000_fase3_especies_agrupamentos.sql`, seed completo validado por query real após
@@ -472,8 +477,14 @@ responde HTTP 200, não que a UI renderiza/interage corretamente.
 - **Limite honesto:** `transacoes_detalhe` é opcional (spec) — transações reais só com
   `observações` em texto livre (comuns no print de JP) não entram no saldo calculado até serem
   estruturadas.
-- **Checkpoint de Validação de Saldo:** comparação apresentada a JP na mesma sessão — ver
-  confirmação abaixo nesta seção 1/4.
+- **Checkpoint de Validação de Saldo — CONFIRMADO por JP em 2026-07-20.** Comparação lado a
+  lado apresentada em tabela (Ovino 4/4 combinações; Bovino 8/8 combinações incluindo os totais
+  201 registrada/184 pendente) — JP confirmou explicitamente "os números batem, pode fechar o
+  item 12" após pedir para ver a tabela (não apenas a descrição em texto). **Item 12 e Fase 3
+  (Eixo 2 — Dados e Regras) considerados completos, exceto item 14 (Storage), ainda não
+  iniciado.** Nota: a comparação usou transações de TESTE inseridas localmente (desfeitas por
+  `rollback`) — o banco remoto tem a função/views aplicadas, mas nenhuma transação real da
+  fazenda de JP lançada nelas ainda.
 - **Logs completos:** `.agents/memory/log/2026-07-20-db_sage-schema-fase3-saldo.md` e
   `.agents/memory/log/2026-07-20-cyber_chief-review-fase3-saldo.md`.
 
