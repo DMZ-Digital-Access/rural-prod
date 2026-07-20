@@ -451,6 +451,35 @@ responde HTTP 200, não que a UI renderiza/interage corretamente.
 
 ## 5. Histórico de Tarefas Complexas (mais recente primeiro)
 
+### 2026-07-20 — ADR-0005 + schema + gate: expansão de transacoes (nascimento/obito/consumo, docs independentes, saldo "Não classificado") — `architect`+`db_sage`+`cyber_chief` (via Claude)
+
+- **Motivação:** JP pediu, fora da sequência da spec, mudar a UX de Animais — botão
+  "Individualizar Animal" (renomeação) + novo botão "Entradas e Saídas de Animais de Lote" (5
+  tipos: Compra/Venda/Nascimento/Óbito/Consumo). Isso reabriu decisões de schema já gateadas
+  (itens 11/12) — formalizado em `ADR-0005-expansao-transacoes-doc-tracking.md`.
+- **Decisões (D1-D7), todas confirmadas por JP em tempo real:** `tipo_operacao` ganha 3 valores
+  aditivamente (nascimento/obito/consumo, pastoreio continua existindo); Óbito→`morte`,
+  Consumo→`baixa` via extensão do trigger do ADR-0004; **Nascimento fica FORA** do mecanismo de
+  `transacoes_animais` (agregado só, mesmo tratamento de Compra — animal não existe
+  individualmente ainda); GTA sem mudança (já cobre presente/pendente); Nota/Contranota ganham
+  colunas de arquivo (`arquivo_nota_path`/`arquivo_contranota_path`), `tem_contranota` removida;
+  `peso_total_kg` novo (opcional); `transacoes_detalhe.agrupamento_etario_id` vira nullable
+  (sexo sem faixa etária) — saldo ganha seção "Não classificado" (só aparece com movimento
+  real, não polui o catálogo regulatório de `agrupamentos_etarios`); `outra_parte` único
+  mantido (sem campos separados de comprador/vendedor).
+- **Schema implementado** em `20260720210000_adr0005_expansao_transacoes.sql` — aditiva sobre
+  os itens 11/12, sem editar migrations já aplicadas.
+- **Validado localmente** com usuários reais via GoTrue: nascimento/óbito/consumo funcionando
+  exatamente como desenhado; sexo sem faixa etária isolado em "Não classificado";
+  **regressão confirmada** — reprodução do cenário Ovino do gate do item 12 continua idêntica
+  após a reescrita da view de saldo.
+- **Gate do `cyber_chief` CONCLUÍDO (🟢) no mesmo dia, sem correção necessária** — `financeiro`
+  e `admin` veem os mesmos números na linha "Não classificado"; `anon` bloqueado.
+- **Logs completos:** `.agents/memory/log/2026-07-20-db_sage-schema-adr0005.md` e
+  `.agents/memory/log/2026-07-20-cyber_chief-review-adr0005.md`.
+- **Pendências:** frontend (renomear botão + novo fluxo de lançamento) é a próxima tarefa;
+  upload real de Nota/Contranota depende do item 14 (Storage), ainda não iniciado.
+
 ### 2026-07-20 — Schema + gate de segurança, Fase 3 item 12: saldo de rebanho (view calculada) — `db_sage` + `cyber_chief` (via Claude)
 
 - **O que foi feito:** item 12 desbloqueado no mesmo dia pelos prints reais que JP forneceu
