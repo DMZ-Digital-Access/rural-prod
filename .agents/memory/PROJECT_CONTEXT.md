@@ -451,6 +451,21 @@ responde HTTP 200, não que a UI renderiza/interage corretamente.
 
 ## 5. Histórico de Tarefas Complexas (mais recente primeiro)
 
+### 2026-07-20 — "Encerrar Lote" (Arquivar/Excluir com dupla confirmação) — `db_sage`+`cyber_chief`+`developer` (via Claude)
+
+- **O que foi feito:** a pedido de JP, campo de edição de lotes ganhou "Encerrar Lote" com
+  escolha entre Arquivar (reversível, existente) e Excluir (novo, permanente, com segunda
+  confirmação dedicada mostrando quantos animais ficarão sem lote).
+- **Schema:** nova policy `lotes_delete_vinculada` (reabre decisão da Fase 2 que não tinha
+  DELETE em `lotes`) — segura porque `animais.lote_id` já usa `on delete set null`. Gate do
+  `cyber_chief` concluído (🟢), validado com usuário real: lote com animal excluído → animal
+  sobrevive sem lote; `financeiro` bloqueado.
+- **Frontend:** `EncerrarLoteDialog.tsx` novo (fluxo de 2 etapas), `useExcluirLote()` novo,
+  `LotesListPage`/`LoteDetailPage` atualizados (detalhe navega de volta pra lista ao excluir).
+  Validado visualmente em desktop+mobile.
+- **Logs:** `.agents/memory/log/2026-07-20-developer-encerrar-lote.md` e
+  `.agents/memory/log/2026-07-20-cyber_chief-review-lotes-delete.md`.
+
 ### 2026-07-20 — Frontend ADR-0006: badge "Pendente" na lista de Animais — `developer` (RYAN, via Claude)
 
 - **O que foi feito:** tipos atualizados (`data_nascimento`/`peso_inicial_kg`/`categoria`/

@@ -93,8 +93,7 @@ export function useAtualizarLote(loteId: string) {
 
 /**
  * Arquivar/reativar um lote (spec seção 5.1: "Arquivar" lote). Sempre
- * `UPDATE ativo=<valor>` — não existe policy de DELETE em `lotes` (migration
- * da Fase 2, decisão de modelagem: arquivamento é flag, não exclusão física).
+ * `UPDATE ativo=<valor>`.
  */
 export function useDefinirLoteAtivo(loteId: string) {
   const queryClient = useQueryClient()
@@ -106,6 +105,26 @@ export function useDefinirLoteAtivo(loteId: string) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["lotes"] })
+    },
+  })
+}
+
+/**
+ * Exclusão física de um lote ("Encerrar Lote" → "Excluir", com dupla
+ * confirmação na UI). `animais.lote_id` usa `on delete set null` — animais
+ * associados nunca são apagados, só desvinculados ("Sem lote").
+ */
+export function useExcluirLote(loteId: string) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.from("lotes").delete().eq("id", loteId)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["lotes"] })
+      queryClient.invalidateQueries({ queryKey: ["animais"] })
     },
   })
 }

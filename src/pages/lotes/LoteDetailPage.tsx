@@ -1,4 +1,4 @@
-import { Link, useParams } from "react-router-dom"
+import { Link, useNavigate, useParams } from "react-router-dom"
 import { ArrowLeftIcon } from "lucide-react"
 import { useLote } from "@/hooks/useLotes"
 import { useAnimais } from "@/hooks/useAnimais"
@@ -21,6 +21,7 @@ import { Badge } from "@/components/ui/badge"
 import { StatusAnimalBadge } from "@/components/rebanho/StatusAnimalBadge"
 import { LoteFormDialog } from "@/pages/lotes/LoteFormDialog"
 import { ArquivarLoteButton } from "@/pages/lotes/ArquivarLoteButton"
+import { EncerrarLoteDialog } from "@/pages/lotes/EncerrarLoteDialog"
 
 function formatPeso(kg: number | null) {
   return kg === null ? "—" : `${kg.toFixed(1)} kg`
@@ -37,6 +38,7 @@ function formatData(data: string | null) {
 
 export function LoteDetailPage() {
   const { id } = useParams<{ id: string }>()
+  const navigate = useNavigate()
   const loteQuery = useLote(id)
   const animaisQuery = useAnimais(loteQuery.data?.fazenda_id, id)
 
@@ -97,7 +99,14 @@ export function LoteDetailPage() {
         </div>
         <div className="flex gap-2">
           <LoteFormDialog mode="editar" lote={lote} />
-          <ArquivarLoteButton lote={lote} />
+          {lote.ativo ? (
+            <EncerrarLoteDialog
+              lote={lote}
+              aoExcluir={() => navigate("/app/lotes", { replace: true })}
+            />
+          ) : (
+            <ArquivarLoteButton lote={lote} />
+          )}
         </div>
       </div>
 

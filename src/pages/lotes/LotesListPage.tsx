@@ -12,6 +12,7 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { LoteFormDialog } from "@/pages/lotes/LoteFormDialog"
 import { ArquivarLoteButton } from "@/pages/lotes/ArquivarLoteButton"
+import { EncerrarLoteDialog } from "@/pages/lotes/EncerrarLoteDialog"
 
 function formatPeso(kg: number | null) {
   return kg === null ? "—" : `${kg.toFixed(1)} kg`
@@ -101,7 +102,11 @@ export function LotesListPage() {
                 <TableCell className="text-right">
                   <div className="flex justify-end gap-2">
                     <LoteFormDialog mode="editar" lote={lote} />
-                    <ArquivarLoteButton lote={lote} />
+                    {lote.ativo ? (
+                      <EncerrarLoteDialog lote={lote} />
+                    ) : (
+                      <ArquivarLoteButton lote={lote} />
+                    )}
                   </div>
                 </TableCell>
               </TableRow>
