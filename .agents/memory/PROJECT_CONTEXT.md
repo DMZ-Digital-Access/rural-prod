@@ -36,6 +36,16 @@
   `cyber_chief`), ver seção 5 e
   `.agents/memory/log/2026-07-19-qa-testes-fase2-gmd.md`. **Falta para fechar a fase por
   completo:** teste de UI num navegador real (nenhum agente teve acesso a navegador até agora).
+  **Fase 3 (Eixo 2 — Dados e Regras) INICIADA:** item 10 da seção 10 da spec (catálogos
+  `especies`/`subtipos_especie`/`agrupamentos_etarios`, sem `fazenda_id` — primeira tabela não
+  multi-tenant do projeto) escrito por `db_sage` em 2026-07-20 — migration nova
+  `20260720120000_fase3_especies_agrupamentos.sql`, seed completo validado por query real após
+  `supabase db reset` local (8 espécies, 9 subtipos, 24 faixas etárias, contagem exata
+  confirmada), RLS com SELECT aberto a qualquer `authenticated` (sem filtro de papel — catálogo
+  também usado pelo papel `financeiro` em Eixo 2) e zero policy de escrita. Ver seção 5 e
+  `.agents/memory/log/2026-07-20-db_sage-schema-fase3-especies.md`. **Ainda não passou pelo gate
+  do `cyber_chief` nem foi aplicada a nenhum banco remoto.** Itens 11-14 da mesma fase
+  (gtas/transações/saldo/financeiro/declarações/storage) NÃO iniciados — próximas tarefas.
 - **Repositório:** criado — `https://github.com/DMZ-Digital-Access/rural-prod` (branch `main`)
 - **Stack confirmada:** React 18 + TypeScript + Vite, Tailwind + shadcn/ui (componentes
   `table`/`dialog`/`select`/`badge`/`textarea` adicionados na Fase 2), react-hook-form + zod,
@@ -125,6 +135,22 @@
 ---
 
 ## 4. Bloqueios e Pendências Abertas
+
+**Pendência de trabalho (não bloqueante — schema modelado, gate de segurança ainda NÃO
+rodado):** migration da Fase 3, item 10
+(`supabase/migrations/20260720120000_fase3_especies_agrupamentos.sql`) — catálogos
+`especies`/`subtipos_especie`/`agrupamentos_etarios`, seed completo (8/9/24 linhas, validado por
+query real após `supabase db reset` local, não só por leitura do SQL). **Ainda não passou pelo
+gate do `cyber_chief`** (diferente das migrations de Fase 1/2, que já foram revisadas) — próximo
+passo obrigatório antes de `supabase db push`. Dois pontos de atenção deixados explicitamente
+pela `db_sage` para esse gate: (1) decisão de transcrever "Muares" como subtipo ÚNICO
+"Mula/Burro/Jumento" em vez de dois subtipos separados — a redação da spec seção 3.2 é ambígua
+nesse ponto, a leitura seguida foi a instrução explícita da tarefa; (2) os limites de faixa
+etária de Suíno e Aves-Frango de Corte foram transcritos literalmente da spec COM sobreposição
+de borda entre linhas adjacentes e um hiato não coberto de 151-179 dias em Suíno — não é erro da
+migration, é característica do dado de origem, mas fica registrado para quem escrever a futura
+função de classificação idade→faixa (fora do escopo desta migration). Ver
+`.agents/memory/log/2026-07-20-db_sage-schema-fase3-especies.md`.
 
 **Pendência de trabalho (não bloqueante — gate de segurança JÁ CONCLUÍDO, falta só aplicar):**
 migration da Fase 2 (`supabase/migrations/20260717140000_fase2_lotes_animais_pesagens.sql`) —
@@ -235,6 +261,55 @@ responde HTTP 200, não que a UI renderiza/interage corretamente.
 ---
 
 ## 5. Histórico de Tarefas Complexas (mais recente primeiro)
+
+### 2026-07-20 — Schema Fase 3, item 10: catálogos especies/subtipos_especie/agrupamentos_etarios (Eixo 2) — `db_sage` (SOFIA, via Claude)
+
+- **O que foi feito:** modelada e escrita em SQL a primeira parte da Fase 3 (spec seção 10, item
+  10) — migration nova e aditiva
+  `supabase/migrations/20260720120000_fase3_especies_agrupamentos.sql`, com as tabelas
+  `especies`, `subtipos_especie`, `agrupamentos_etarios` (spec seção 3.2), **primeiras tabelas do
+  projeto sem `fazenda_id`** — catálogo de referência global, compartilhado por todas as
+  fazendas, não multi-tenant. Seed completo transcrito da spec: 8 espécies, 9 subtipos
+  (Aves: 6, Muares: 1 subtipo único "Mula/Burro/Jumento", Abelhas: 2), 24 faixas etárias
+  (Bovino 4, Equino 2, Ovino 2, Caprino 4, Muar 4, Suíno 4 em dias, Aves-Frango de Corte 4 em
+  semanas — Abelhas e os 5 demais subtipos de Aves deliberadamente sem faixa, spec seção 3.2).
+- **Decisões de modelagem:** (1) integridade subtipo↔espécie garantida por **FK composta**
+  (`subtipos_especie` ganha `unique(id, especie_id)`; `agrupamentos_etarios` referencia
+  `(subtipo_especie_id, especie_id) → subtipos_especie(id, especie_id)`), não por trigger —
+  MATCH SIMPLE (default do Postgres) não verifica a FK quando `subtipo_especie_id` é NULL, caso
+  normal das espécies sem subtipo; (2) unicidade de `ordem` por grupo via **2 índices únicos
+  parciais** (não 1 UNIQUE simples) — NULL não é igual a NULL em UNIQUE do Postgres, um UNIQUE
+  simples não fecharia o caso das espécies sem subtipo; (3) índice composto
+  `(especie_id, subtipo_especie_id, ordem)` cobrindo a consulta principal do módulo de Saldo de
+  Rebanho; (4) RLS com **SELECT aberto a qualquer `authenticated`, sem filtro de fazenda nem de
+  papel** (diferente de `lotes`/`animais`/`pesagens` da Fase 2, que excluem `financeiro`) — este
+  catálogo também alimenta os módulos de Eixo 2 aos quais `financeiro` TEM acesso; zero policy
+  de INSERT/UPDATE/DELETE (escrita só via migration/seed, mesmo padrão default-deny do
+  ADR-0001/ADR-0002).
+- **Duas decisões de transcrição sinalizadas para o gate do `cyber_chief`:** Muares como subtipo
+  ÚNICO "Mula/Burro/Jumento" (a redação da spec seção 3.2 é ambígua, segui a instrução explícita
+  da tarefa); limites de Suíno/Aves-Frango de Corte transcritos literalmente com sobreposição de
+  borda entre linhas adjacentes e um hiato não coberto de 151-179 dias em Suíno (característica
+  do dado de origem da spec, não erro desta migration — fica registrado para quem escrever a
+  futura função de classificação idade→faixa). Ver seção 4 e o log para detalhe completo.
+- **Validação real executada (local, não remota):** `supabase db reset` local aplicou as 4
+  migrations do zero sem erro de sintaxe/constraint. Query de contagem confirmou 8/9/24 linhas
+  exatamente como o desenho previa. Query com JOIN completo confirmou que a FK composta associou
+  corretamente cada faixa etária ao subtipo certo (ou NULL, quando aplicável). `pg_tables`/
+  `pg_policies` confirmaram RLS habilitada com só 1 policy de SELECT por tabela, zero policy de
+  escrita — verificado por inspeção direta do catálogo do Postgres, não só por leitura do SQL.
+- **Mudanças de arquivo:** novo
+  `supabase/migrations/20260720120000_fase3_especies_agrupamentos.sql`; novo
+  `.agents/memory/log/2026-07-20-db_sage-schema-fase3-especies.md`; esta entrada + seções 1 e 4
+  de `PROJECT_CONTEXT.md`. Nenhuma tabela de fase anterior tocada; `gtas`/`transacoes`/
+  `transacoes_detalhe`/`transacoes_animais`/`lancamentos_financeiros`/`declaracoes_rebanho`/
+  `prazos_declaracao_estado` (itens 11-14 da mesma fase) não implementados.
+- **Pendências:** gate obrigatório do `cyber_chief` antes de `supabase db push` — atenção
+  especial pedida às 2 decisões de transcrição acima e à decisão de RLS "leitura aberta sem
+  filtro de papel". `supabase db push` não executado (decisão humana/orchestrator). Depois do
+  gate: itens 11-14 da mesma fase (GTAs/transações/saldo/financeiro/declarações/storage) —
+  tarefas seguintes, não iniciadas aqui.
+- **Log completo:** `.agents/memory/log/2026-07-20-db_sage-schema-fase3-especies.md`
 
 ### 2026-07-19 — Testes pgTAP da Fase 2 (GMD/regra de correção/regressões de segurança) — `qa` (Emma, via Claude)
 
