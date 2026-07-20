@@ -1,4 +1,5 @@
 import { Link, useParams } from "react-router-dom"
+import { ArrowLeftIcon } from "lucide-react"
 import { useLote } from "@/hooks/useLotes"
 import { useAnimais } from "@/hooks/useAnimais"
 import {
@@ -45,12 +46,21 @@ export function LoteDetailPage() {
 
   if (loteQuery.isError || !loteQuery.data) {
     return (
-      <p className="text-sm text-destructive">
-        Erro ao carregar lote:{" "}
-        {loteQuery.error instanceof Error
-          ? loteQuery.error.message
-          : "lote não encontrado"}
-      </p>
+      <div className="flex flex-col gap-4">
+        <Link
+          to="/app/lotes"
+          className="inline-flex w-fit items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+        >
+          <ArrowLeftIcon className="size-4" />
+          Voltar para Lotes
+        </Link>
+        <p className="text-sm text-destructive">
+          Erro ao carregar lote:{" "}
+          {loteQuery.error instanceof Error
+            ? loteQuery.error.message
+            : "lote não encontrado"}
+        </p>
+      </div>
     )
   }
 
@@ -58,6 +68,14 @@ export function LoteDetailPage() {
 
   return (
     <div className="flex flex-col gap-6">
+      <Link
+        to="/app/lotes"
+        className="inline-flex w-fit items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+      >
+        <ArrowLeftIcon className="size-4" />
+        Voltar para Lotes
+      </Link>
+
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <div className="flex items-center gap-2">
