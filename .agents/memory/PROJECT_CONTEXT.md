@@ -46,6 +46,11 @@
   `.agents/memory/log/2026-07-20-db_sage-schema-fase3-especies.md`. **Ainda não passou pelo gate
   do `cyber_chief` nem foi aplicada a nenhum banco remoto.** Itens 11-14 da mesma fase
   (gtas/transações/saldo/financeiro/declarações/storage) NÃO iniciados — próximas tarefas.
+  **ADR-0004 aceito em 2026-07-20** (`architect`) — fecha a dívida de processo pendente desde
+  2026-07-16 (spec seção 3.3): formaliza o desenho técnico de `transacoes_animais` (mecanismo de
+  atualização automática de `animais.status`, fronteira de permissão do papel `financeiro`,
+  integridade cross-fazenda, reversibilidade, revenda) antes de `db_sage` escrever a migration
+  do item 11. Ver seção 5 e `.agents/memory/adr/ADR-0004-vinculo-transacoes-animais.md`.
 - **Repositório:** criado — `https://github.com/DMZ-Digital-Access/rural-prod` (branch `main`)
 - **Stack confirmada:** React 18 + TypeScript + Vite, Tailwind + shadcn/ui (componentes
   `table`/`dialog`/`select`/`badge`/`textarea` adicionados na Fase 2), react-hook-form + zod,
@@ -94,7 +99,8 @@
 | Data | Decisão | Origem/Responsável | Detalhe |
 |---|---|---|---|
 | spec v2.0 | Código do protótipo Bolt.new **não será reaproveitado** — projeto novo do zero | Cliente/spec | Seção "Decisão de projeto importante", topo da spec |
-| 2026-07-16 | Reconciliação Eixo 1 ↔ Eixo 2: **Opção B (vinculada)** confirmada por JP — não é mais roadmap | JP | Nova tabela `transacoes_animais` (N:N transação↔animal) entra na Fase 3, não na Fase 6; trigger/lógica atualiza `animais.status` automaticamente ao vincular venda; `architect` formaliza ADR na Fase 3. Ver spec seção 3.3 atualizada |
+| 2026-07-16 | Reconciliação Eixo 1 ↔ Eixo 2: **Opção B (vinculada)** confirmada por JP — não é mais roadmap | JP | Nova tabela `transacoes_animais` (N:N transação↔animal) entra na Fase 3, não na Fase 6; trigger/lógica atualiza `animais.status` automaticamente ao vincular venda. Ver spec seção 3.3 atualizada. **ADR formalizado em 2026-07-20 — ver linha ADR-0004 abaixo** |
+| 2026-07-20 | **ADR-0004 aceito:** desenho técnico de `transacoes_animais` — dois triggers `SECURITY INVOKER` (não `SECURITY DEFINER`); `AFTER INSERT` só muta `animais.status` para `venda` quando `tipo_operacao_transacao = 'venda'` (coluna nova, denormalizada/imutável, capturada no `BEFORE INSERT`); `financeiro` sem NENHUM acesso (nem `SELECT`) à tabela; cross-fazenda validado por trigger (padrão `validar_lote_mesma_fazenda()`); `DELETE` reverte `status` para `'ativo'` só se ainda for `'venda'` e não houver outro vínculo de venda remanescente; sem trava de banco para revenda de animal já vendido/morto/baixado (mitigação só na UI) | `architect` (Alex) | Fecha a dívida de processo pendente desde 2026-07-16 (spec seção 3.3, "architect formaliza ADR na Fase 3"). Ver `.agents/memory/adr/ADR-0004-vinculo-transacoes-animais.md` |
 | spec v2.0 | Saldo de rebanho: começar com **view calculada on-the-fly**; migrar para saldo materializado só se houver problema real de performance | Spec, seção 7 e item 8 da seção 9 | `architect` + `db_sage` revisitam se performance virar problema |
 | spec v2.0 | Prazo de Declaração Anual: **RS, 01/abril–30/junho** como padrão/fallback, configurável por estado/ano em `prazos_declaracao_estado`, nunca hardcoded | Spec, seções 3.2, 4.2, item 10 da seção 9 | — |
 | spec v2.0 | Provisionamento de conta no signup via **trigger de banco ou Edge Function com service_role**, nunca insert client-side | Spec, item 1 da seção 9 | Maior risco identificado no protótipo — resolver corretamente desde a Fase 1 |
@@ -262,6 +268,62 @@ responde HTTP 200, não que a UI renderiza/interage corretamente.
 
 ## 5. Histórico de Tarefas Complexas (mais recente primeiro)
 
+### 2026-07-20 — ADR-0004: desenho técnico de `transacoes_animais` (Opção B) — `architect` (ALEX, via Claude)
+
+- **O que foi feito:** formalização do ADR-0004
+  (`.agents/memory/adr/ADR-0004-vinculo-transacoes-animais.md`), fechando uma dívida de
+  processo registrada desde 2026-07-16 (`especificacao-sistema.md` seção 3.3 dizia
+  "`architect` formaliza o ADR correspondente na Fase 3" e isso nunca aconteceu). A Fase 3 já
+  começou (catálogos `especies`/`subtipos_especie`/`agrupamentos_etarios` entregues por
+  `db_sage` no mesmo dia, ver entrada abaixo) e o próximo bloco da mesma fase é exatamente
+  `gtas`/`transacoes`/`transacoes_detalhe`/`transacoes_animais` (spec seção 10, item 11) — hora
+  certa de fechar a decisão antes de `db_sage` escrever essa migration. Escopo estritamente o
+  desenho técnico de `transacoes_animais` — `gtas`/`transacoes`/`transacoes_detalhe` não foram
+  redesenhadas (schema já fechado pela spec seção 3.2, fora de escopo).
+- **As 5 decisões tomadas:** (1) **mecanismo** — dois triggers `SECURITY INVOKER` (não
+  `SECURITY DEFINER` — quem insere já tem `UPDATE` direto em `animais.status`, sem RLS a
+  contornar): `BEFORE INSERT` valida cross-fazenda e denormaliza uma coluna nova
+  `tipo_operacao_transacao` (cópia imutável do `tipo_operacao` da transação, capturada no
+  momento do vínculo, para não depender de reconsultar `transacoes` num `DELETE` em cascata
+  futuro); `AFTER INSERT` só muta `animais.status = 'venda'` quando
+  `tipo_operacao_transacao = 'venda'` — vínculos a `compra`/`entrada_pastoreio`/
+  `saida_pastoreio` são permitidos e gravados sem efeito colateral. (2) **fronteira
+  `financeiro`** — zero acesso (nem `SELECT`) a `transacoes_animais`, por dois motivos
+  independentes: a spec seção 5.4 já nega a `financeiro` "edição de transações" (não deveria
+  ter escrita em `transacoes` também — nota de dependência deixada para `db_sage` desenhar a
+  RLS de `transacoes` nesse sentido, fora do escopo deste ADR); e `animal_id` é dado de manejo
+  individual (Eixo 1), mesma categoria que a Fase 2 já nega a `financeiro` sem exceção. Decisão
+  reavaliada com critério próprio, não copiada automaticamente do padrão da Fase 2. (3)
+  **cross-fazenda** — trigger `BEFORE INSERT`, `SECURITY INVOKER`, mensagem de erro genérica,
+  mesmo padrão de `validar_lote_mesma_fazenda()` (Fase 2). (4) **reversibilidade** — trigger
+  `AFTER DELETE` reverte `status` para `'ativo'` só se o vínculo desfeito era venda, o status
+  atual ainda for `'venda'` (guarda de não-regressão contra um `'morte'`/`'baixa'` aplicado
+  depois) e não houver outro vínculo de venda remanescente para o mesmo animal (guarda de
+  coexistência). (5) **revenda** — sem trava de banco nesta fase (mesmo padrão de
+  "decisão de produto sem bloqueio técnico" já confirmado aceitável pelo `cyber_chief` na Fase 2
+  para `registrar_pesagem()`); pendência de UX deixada para `developer` sinalizar visualmente
+  animal não-`ativo` na tela de seleção de animais.
+- **Trade-offs sinalizados para `db_sage`:** coluna nova `tipo_operacao_transacao` não estava
+  na spec literal, mas é necessária para os mecanismos de D2/D4/D5 funcionarem sem depender de
+  ordem de execução de cascata; ausência de `SECURITY DEFINER` só é segura se as policies de
+  `INSERT`/`DELETE` de `transacoes_animais` implementarem literalmente a exclusão de
+  `financeiro` decidida em D3 (senão o trigger `SECURITY INVOKER` herdaria a falha
+  silenciosamente); a fronteira de `financeiro` decidida aqui assume que a RLS futura de
+  `transacoes`/`transacoes_detalhe` também vai negar escrita a esse papel — se `db_sage`
+  decidir diferente, o ADR precisa ser revisitado (critério de revisão nº1 do próprio ADR).
+- **Mudanças de arquivo:** novo
+  `.agents/memory/adr/ADR-0004-vinculo-transacoes-animais.md`; novo
+  `.agents/memory/log/2026-07-20-architect-adr-0004-transacoes-animais.md`; esta entrada +
+  seções 1, 2 e 4 de `PROJECT_CONTEXT.md` (linha pendente de 2026-07-16 na seção 2 resolvida,
+  apontando para este ADR). Nenhum SQL/migration escrito — tarefa de decisão e documentação,
+  não implementação.
+- **Pendências:** `db_sage` implementa `transacoes_animais` (+ `gtas`/`transacoes`/
+  `transacoes_detalhe`, spec seção 10 item 11) seguindo D1-D6 do ADR-0004; `cyber_chief` faz o
+  gate de segurança de praxe antes de `supabase db push`, com atenção especial à fronteira de
+  `financeiro` (D3) e à ausência de `SECURITY DEFINER` (D2/D4/D5); `developer` implementa a
+  sinalização de UX de D6 quando as telas de Eixo 2 chegarem (Fase 4).
+- **Log completo:** `.agents/memory/log/2026-07-20-architect-adr-0004-transacoes-animais.md`
+
 ### 2026-07-20 — Schema Fase 3, item 10: catálogos especies/subtipos_especie/agrupamentos_etarios (Eixo 2) — `db_sage` (SOFIA, via Claude)
 
 - **O que foi feito:** modelada e escrita em SQL a primeira parte da Fase 3 (spec seção 10, item
@@ -308,7 +370,9 @@ responde HTTP 200, não que a UI renderiza/interage corretamente.
   especial pedida às 2 decisões de transcrição acima e à decisão de RLS "leitura aberta sem
   filtro de papel". `supabase db push` não executado (decisão humana/orchestrator). Depois do
   gate: itens 11-14 da mesma fase (GTAs/transações/saldo/financeiro/declarações/storage) —
-  tarefas seguintes, não iniciadas aqui.
+  tarefas seguintes, não iniciadas aqui. **Atualização 2026-07-20 (`architect`):** o desenho
+  técnico de `transacoes_animais` (parte do item 11) já está decidido via ADR-0004 antes de
+  `db_sage` começar essa migration — ver entrada logo acima na seção 5.
 - **Log completo:** `.agents/memory/log/2026-07-20-db_sage-schema-fase3-especies.md`
 
 ### 2026-07-19 — Testes pgTAP da Fase 2 (GMD/regra de correção/regressões de segurança) — `qa` (Emma, via Claude)
