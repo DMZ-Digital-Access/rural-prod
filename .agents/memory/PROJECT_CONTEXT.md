@@ -43,9 +43,19 @@
   `supabase db reset` local (8 espécies, 9 subtipos, 24 faixas etárias, contagem exata
   confirmada), RLS com SELECT aberto a qualquer `authenticated` (sem filtro de papel — catálogo
   também usado pelo papel `financeiro` em Eixo 2) e zero policy de escrita. Ver seção 5 e
-  `.agents/memory/log/2026-07-20-db_sage-schema-fase3-especies.md`. **Ainda não passou pelo gate
-  do `cyber_chief` nem foi aplicada a nenhum banco remoto.** Itens 11-14 da mesma fase
-  (gtas/transações/saldo/financeiro/declarações/storage) NÃO iniciados — próximas tarefas.
+  `.agents/memory/log/2026-07-20-db_sage-schema-fase3-especies.md`. **Gate do `cyber_chief`
+  CONCLUÍDO (🟢) em 2026-07-20, sem nenhuma correção necessária** — primeira migration da Fase 3
+  a passar sem achado. Os 2 pontos técnicos que a `db_sage` pediu atenção (RLS de leitura aberta
+  sem filtro de papel; FK composta com MATCH SIMPLE) confirmados corretos por smoke test real
+  (`docker exec`/`psql`, sessões `anon`/`authenticated` simuladas): `anon` vê 0 linhas,
+  `authenticated` sem vínculo de fazenda vê as 8/9/24 linhas completas, INSERT cross-espécie/
+  subtipo rejeitado pela FK composta, escrita bloqueada nas 3 tabelas, `pg_policies` confirma
+  exatamente 3 policies (SELECT/authenticated, sem sobra). Ver seção 5 e
+  `.agents/memory/log/2026-07-20-cyber_chief-review-fase3-especies.md`. **Com este gate, as 3
+  migrations da Fase 3 escritas até agora (itens 10/11/13) estão todas liberadas para `supabase
+  db push`** — ainda não aplicada a nenhum banco remoto (decisão humana/orchestrator). Itens
+  11-14 da mesma fase: item 11 e 13 já com gate concluído (ver abaixo); itens 12/14
+  (saldo/storage) NÃO iniciados — próximas tarefas.
   **ADR-0004 aceito em 2026-07-20** (`architect`) — fecha a dívida de processo pendente desde
   2026-07-16 (spec seção 3.3): formaliza o desenho técnico de `transacoes_animais` (mecanismo de
   atualização automática de `animais.status`, fronteira de permissão do papel `financeiro`,
@@ -246,21 +256,28 @@ update` na linha de `animais`, serializando as duas execuções, mesmo padrão j
 seção 5 e `.agents/memory/log/2026-07-20-cyber_chief-review-fase3-transacoes.md`. **Ainda não
 aplicada a nenhum banco remoto** (`supabase db push` é decisão humana/orchestrator).
 
-**Pendência de trabalho (não bloqueante — schema modelado, gate de segurança ainda NÃO
-rodado):** migration da Fase 3, item 10
+**Pendência de trabalho (não bloqueante — gate de segurança JÁ CONCLUÍDO, falta só aplicar):**
+migration da Fase 3, item 10
 (`supabase/migrations/20260720120000_fase3_especies_agrupamentos.sql`) — catálogos
 `especies`/`subtipos_especie`/`agrupamentos_etarios`, seed completo (8/9/24 linhas, validado por
-query real após `supabase db reset` local, não só por leitura do SQL). **Ainda não passou pelo
-gate do `cyber_chief`** (diferente das migrations de Fase 1/2, que já foram revisadas) — próximo
-passo obrigatório antes de `supabase db push`. Dois pontos de atenção deixados explicitamente
-pela `db_sage` para esse gate: (1) decisão de transcrever "Muares" como subtipo ÚNICO
-"Mula/Burro/Jumento" em vez de dois subtipos separados — a redação da spec seção 3.2 é ambígua
-nesse ponto, a leitura seguida foi a instrução explícita da tarefa; (2) os limites de faixa
-etária de Suíno e Aves-Frango de Corte foram transcritos literalmente da spec COM sobreposição
-de borda entre linhas adjacentes e um hiato não coberto de 151-179 dias em Suíno — não é erro da
-migration, é característica do dado de origem, mas fica registrado para quem escrever a futura
-função de classificação idade→faixa (fora do escopo desta migration). Ver
-`.agents/memory/log/2026-07-20-db_sage-schema-fase3-especies.md`.
+query real após `supabase db reset` local, não só por leitura do SQL). **Passou pelo gate do
+`cyber_chief` (🟢) em 2026-07-20, sem nenhuma correção necessária** — os 2 pontos de atenção
+técnica que a `db_sage` tinha deixado para o gate (RLS de leitura aberta a qualquer
+`authenticated` sem filtro de papel; integridade subtipo↔espécie via FK composta com MATCH
+SIMPLE) foram confirmados corretos por smoke test real, não só leitura de código: `anon` vê 0
+linhas nas 3 tabelas; `authenticated` sem nenhum vínculo de fazenda vê as 8/9/24 linhas
+completas (necessário para o papel `financeiro` popular seletores de Eixo 2); INSERT/UPDATE/
+DELETE bloqueados para `authenticated` (RLS default-deny, `pg_policies` confirma exatamente 3
+policies, todas SELECT/authenticated); tentativa de inserir faixa etária cruzando
+espécie/subtipo incompatível (Bovino apontando para subtipo de Aves) rejeitada pela FK composta.
+Os dois pontos de transcrição de dado que a `db_sage` tinha sinalizado (Muares como subtipo
+ÚNICO "Mula/Burro/Jumento"; sobreposição de borda + hiato 151-179 dias nas faixas de Suíno e
+Aves-Frango de Corte) foram avaliados como decisões de modelagem/produto já corretamente
+tomadas, sem nenhum vetor de segurança associado — não geraram correção. Ver
+`.agents/memory/log/2026-07-20-db_sage-schema-fase3-especies.md` e
+`.agents/memory/log/2026-07-20-cyber_chief-review-fase3-especies.md`. **Ainda não aplicada a
+nenhum banco remoto** (`supabase db push` é decisão humana/orchestrator) — com este gate, as 3
+migrations da Fase 3 (itens 10/11/13) já estão todas liberadas para isso.
 
 **Pendência de trabalho (não bloqueante — gate de segurança JÁ CONCLUÍDO, falta só aplicar):**
 migration da Fase 2 (`supabase/migrations/20260717140000_fase2_lotes_animais_pesagens.sql`) —
@@ -371,6 +388,47 @@ responde HTTP 200, não que a UI renderiza/interage corretamente.
 ---
 
 ## 5. Histórico de Tarefas Complexas (mais recente primeiro)
+
+### 2026-07-20 — Security review Fase 3, item 10: especies/subtipos_especie/agrupamentos_etarios — `cyber_chief` (CONSTANTINE, via Claude)
+
+- **O que foi feito:** gate de segurança formal de
+  `supabase/migrations/20260720120000_fase3_especies_agrupamentos.sql`, entregue pela `db_sage`
+  no mesmo dia (ver entrada mais abaixo). Único item dos 3 já escritos na Fase 3 (10/11/13) que
+  ainda não tinha passado pelo gate — fecha a Fase 3 do ponto de vista de segurança até aqui.
+- **Veredito:** 🟢 Seguro. Liberada para `supabase db push` (decisão de aplicar continua
+  humana/orchestrator). **Nenhuma correção necessária** — primeira migration da Fase 3 a sair do
+  gate sem nenhum achado que exigisse mudança de código.
+- **Ponto 1 — RLS de leitura aberta a qualquer `authenticated`, sem filtro de papel: correto.**
+  Diferente de `lotes`/`animais`/`pesagens` (Fase 2), onde `financeiro` é excluído por spec
+  5.4, aqui excluir por papel seria erro: este catálogo alimenta os módulos de Eixo 2, aos quais
+  `financeiro` tem acesso explícito, e as 3 tabelas não carregam dado sensível por
+  fazenda/usuário. Validado por smoke test real (`docker exec`/`psql`, sessões
+  `anon`/`authenticated` simuladas via `set local role` + `request.jwt.claims`, não superuser):
+  `anon` vê 0 linhas; `authenticated` sem nenhum vínculo de fazenda vê as 8/9/24 linhas completas
+  nas 3 tabelas.
+- **Ponto 2 — FK composta com MATCH SIMPLE (integridade subtipo↔espécie): correto.** MATCH
+  SIMPLE não valida a FK quando `subtipo_especie_id` é NULL (caso normal para
+  Bovino/Suíno/Equino/Ovino/Caprino) — comportamento correto, sem janela de inconsistência.
+  Confirmado por teste direto: INSERT de faixa etária de Bovinos apontando para o subtipo
+  "Frango de Corte" (que pertence a Aves) **rejeitado** pela constraint
+  `agrupamentos_etarios_subtipo_mesma_especie`.
+- **Ponto 3 — decisões de transcrição (Muares subtipo único; sobreposição Suíno/Aves-Frango):
+  não são achados de segurança**, ficam como pendência de modelagem/produto já registrada na
+  seção 4, sem vetor de bypass/injeção/exposição associado.
+- **Restante revisado sem achados:** escrita (INSERT/UPDATE/DELETE) bloqueada para
+  `authenticated` nas 3 tabelas (`pg_policies` confirma exatamente 3 policies, todas
+  SELECT/authenticated, sem sobra) — INSERT rejeitado por RLS, UPDATE/DELETE afetam 0 linhas;
+  `especies.ativo` sem filtro na RLS de SELECT avaliado como soft-disable de UI, não achado;
+  cascatas (`on delete cascade`) sem risco de exploração via client (escrita já bloqueada);
+  nenhuma função nova nesta migration (só reaproveita `trigger_set_updated_at()`, já revisado).
+- **Mudanças de arquivo:** nenhuma mudança em
+  `supabase/migrations/20260720120000_fase3_especies_agrupamentos.sql` — aprovada como está;
+  novo `.agents/memory/log/2026-07-20-cyber_chief-review-fase3-especies.md`; esta entrada +
+  seções 1 e 4 de `PROJECT_CONTEXT.md`.
+- **Pendências:** nenhuma pendência de segurança nova. Com este gate, as 3 migrations da Fase 3
+  (itens 10/11/13) estão todas liberadas para `supabase db push` (decisão humana/orchestrator).
+  Itens 12 (saldo, bloqueado por prints de referência) e 14 (Storage) seguem não iniciados.
+- **Log completo:** `.agents/memory/log/2026-07-20-cyber_chief-review-fase3-especies.md`
 
 ### 2026-07-20 — Security review Fase 3, item 13: lancamentos_financeiros/declaracoes_rebanho/prazos_declaracao_estado — `cyber_chief` (CONSTANTINE, via Claude)
 
