@@ -69,8 +69,45 @@
   `animais.status` preso em `'venda'` permanentemente; corrigido com `select ... for update`,
   mesmo padrão já usado em `promover_papel()` (ADR-0002). Ver seção 5 e
   `.agents/memory/log/2026-07-20-cyber_chief-review-fase3-transacoes.md`. **Ainda não aplicada a
-  nenhum banco remoto** (`supabase db push` é decisão humana/orchestrator). Itens 12-14 da mesma
-  fase (saldo de rebanho, financeiro, declarações, storage) NÃO iniciados — próximas tarefas.
+  nenhum banco remoto** (`supabase db push` é decisão humana/orchestrator). **Item 13 da seção
+  10 entregue em 2026-07-20** (`db_sage`) — migration nova
+  `20260720150000_fase3_financeiro_declaracoes_prazos.sql` com `lancamentos_financeiros`,
+  `declaracoes_rebanho`, `prazos_declaracao_estado` + funções `definir_prazo_declaracao_estado()`
+  (SECURITY DEFINER, único caminho de escrita da tabela de prazos) e
+  `obter_prazo_declaracao_estado()` (leitura com fallback do padrão RS, sem seed anual).
+  `categoria` de lançamento financeiro decidida como texto livre (sem CHECK/tabela nova).
+  `prazos_declaracao_estado` mantida global (sem `fazenda_id`), com escrita restrita a uma função
+  auditada em vez de RLS declarativa solta — limite honesto documentado: a função ainda não
+  consegue validar que o editor tem fazenda NO estado editado, porque `fazendas` não tem coluna
+  de UF hoje (achado desta tarefa, pendência arquitetural nova registrada na seção 4). Validado
+  por `supabase db reset` local + suíte pgTAP manual real (11/11 asserções, sessões
+  `authenticated` simuladas via `set_config`/`set local role`, não superuser). Um bug de sintaxe
+  (`returning p into v_row` após `INSERT ... ON CONFLICT DO UPDATE` convertendo a linha inteira
+  para uuid) foi encontrado e corrigido durante a própria validação, antes de ir para o gate. Ver
+  seção 5 e `.agents/memory/log/2026-07-20-db_sage-schema-fase3-financeiro.md`. **Gate do
+  `cyber_chief` CONCLUÍDO (🟢) em 2026-07-20** — decisão central do gate: **BLOQUEADA e
+  CORRIGIDA na hora** a autorização frouxa de `definir_prazo_declaracao_estado()` (em vez de
+  aceitar o limite só documentado por `db_sage`), porque o self-signup automático (ADR-0001) faz
+  de "vínculo operacional em qualquer fazenda" uma barreira quase inexistente — qualquer usuário
+  cadastrado no sistema, sem relação nenhuma com a fazenda/estado alvo, conseguia sobrescrever o
+  prazo regulatório de qualquer UF via chamada direta de API. Correção aplicada: `fazendas.estado`
+  (coluna nova, nullable, seção 1.0 da migration) + autorização da função agora exige, quando a
+  fazenda do chamador TEM `estado` preenchido, que ele coincida com o estado editado (fallback
+  permissivo preservado para fazendas sem `estado`, 100% do parque hoje — sem regressão de
+  funcionalidade). Um segundo achado próprio do gate corrigido junto: NULL-bypass nas 4
+  validações de formato da função (parâmetro NULL pulava a checagem e caía num erro cru de
+  `not null constraint` em vez de mensagem própria). Validado por smoke test real (não só leitura
+  de código) via `docker exec`/`psql` com sessões `authenticated` simuladas, 7/7 cenários
+  conferindo o comportamento esperado, rollback confirmado. **Efeito honesto registrado no
+  próprio gate:** a correção NÃO reduz o risco para nenhuma fazenda existente hoje (nenhuma tem
+  `estado` preenchido ainda) — fecha a validação estruturalmente, mas o risco central segue
+  presente na prática até existir um fluxo de produto que colete `fazendas.estado` (pendência de
+  produto, não deste gate — mantida como pendência de segurança monitorada, ver seção 4). Ver
+  seção 5 e
+  `.agents/memory/log/2026-07-20-cyber_chief-review-fase3-financeiro.md`. **Ainda não aplicada a
+  nenhum banco remoto** (`supabase db push` é decisão humana/orchestrator). Item 12 (view de
+  saldo de rebanho, bloqueada por falta dos prints de referência) e item 14 (buckets de Storage)
+  seguem NÃO iniciados.
 - **Repositório:** criado — `https://github.com/DMZ-Digital-Access/rural-prod` (branch `main`)
 - **Stack confirmada:** React 18 + TypeScript + Vite, Tailwind + shadcn/ui (componentes
   `table`/`dialog`/`select`/`badge`/`textarea` adicionados na Fase 2), react-hook-form + zod,
@@ -161,6 +198,32 @@
 ---
 
 ## 4. Bloqueios e Pendências Abertas
+
+**Pendência de trabalho (não bloqueante — schema modelado, gate de segurança ainda NÃO
+rodado):** migration da Fase 3, item 13
+(`supabase/migrations/20260720150000_fase3_financeiro_declaracoes_prazos.sql`) —
+`lancamentos_financeiros`/`declaracoes_rebanho`/`prazos_declaracao_estado` +
+`definir_prazo_declaracao_estado()`/`obter_prazo_declaracao_estado()`. **Ainda não passou pelo
+gate do `cyber_chief`** — próximo passo obrigatório antes de `supabase db push`. Ver seção 5 e
+`.agents/memory/log/2026-07-20-db_sage-schema-fase3-financeiro.md`.
+
+**Pendência de segurança monitorada (não bloqueante, PARCIALMENTE corrigida pelo `cyber_chief`
+em 2026-07-20 — não eliminada):** `fazendas` ganhou a coluna `estado` (UF, nullable, migration
+`20260720150000_fase3_financeiro_declaracoes_prazos.sql`, seção 1.0) e
+`definir_prazo_declaracao_estado()` agora exige, quando a fazenda do chamador TEM `estado`
+preenchido, que ele coincida com o estado sendo editado — fechando estruturalmente o risco
+original (qualquer usuário cadastrado, via self-signup automático do ADR-0001, conseguia
+sobrescrever o prazo regulatório de qualquer UF, não só a de fazendas reais daquele estado).
+**Efeito honesto:** nenhuma fazenda existente hoje tem `estado` preenchido (coluna nasce vazia,
+sem backfill, decisão explícita do gate para não regredir funcionalidade nem exigir fluxo de
+produto novo) — então o risco **segue presente na prática** para todo o parque atual, caindo no
+fallback permissivo antigo ("qualquer vínculo `papel <> financeiro` em alguma fazenda"). Só
+deixa de estar presente para uma fazenda específica quando ela preencher `estado` (já editável
+hoje pelo próprio admin/membro, mesma policy de `nome`). Fecha por completo quando existir um
+fluxo de produto que colete esse dado (signup novo e/ou "complete seu cadastro" para fazendas já
+cadastradas — não implementado, fora do escopo técnico que `cyber_chief` resolve sozinho). Ver
+`.agents/memory/log/2026-07-20-cyber_chief-review-fase3-financeiro.md` para a análise completa
+de risco e a decisão de bloquear/corrigir em vez de só documentar.
 
 **Pendência de trabalho (não bloqueante — gate de segurança JÁ CONCLUÍDO, falta só aplicar):**
 migration da Fase 3, item 11 (`supabase/migrations/20260720133000_fase3_gtas_transacoes.sql`) —
@@ -308,6 +371,133 @@ responde HTTP 200, não que a UI renderiza/interage corretamente.
 ---
 
 ## 5. Histórico de Tarefas Complexas (mais recente primeiro)
+
+### 2026-07-20 — Security review Fase 3, item 13: lancamentos_financeiros/declaracoes_rebanho/prazos_declaracao_estado — `cyber_chief` (CONSTANTINE, via Claude)
+
+- **O que foi feito:** gate de segurança formal de
+  `supabase/migrations/20260720150000_fase3_financeiro_declaracoes_prazos.sql`, entregue pela
+  `db_sage` no mesmo dia (entrada abaixo). A tarefa pedia uma decisão explícita entre aceitar o
+  limite documentado por `db_sage` em `definir_prazo_declaracao_estado()` (mitigação só por
+  auditoria) ou bloquear a migration até correção real.
+- **Veredito:** 🟢 Seguro — **depois** da correção aplicada neste mesmo gate. Liberada para
+  `supabase db push` (decisão de aplicar continua humana/orchestrator).
+- **Decisão central: opção (a), BLOQUEAR e CORRIGIR na hora, não (b) aceitar documentado.**
+  Motivo: a checagem original ("papel <> financeiro em QUALQUER fazenda") não é uma barreira
+  significativa, porque o ADR-0001 dá `papel='admin'` automático em fazenda própria a todo
+  signup novo — na prática, **qualquer pessoa que cria uma conta grátis no sistema**, sem
+  nenhuma relação com a fazenda/estado alvo, já tinha permissão para chamar
+  `definir_prazo_declaracao_estado('RS', ...)` e sobrescrever o prazo que TODAS as fazendas
+  gaúchas usam para saber se estão em dia com uma obrigação regulatória — via chamada direta à
+  API (RPC), independente de qualquer tela de UI existir. Isso é sabotagem plausível contra
+  terceiros sem relação com o atacante, não "admin de boa-fé errando de estado por engano" — uma
+  categoria de risco desproporcional para aceitar só com auditoria como mitigação, ainda mais
+  porque a correção estava dentro do escopo já pré-autorizado pela tarefa e tinha custo baixo
+  (sem exigir coluna obrigatória nem fluxo de produto novo).
+- **Correção 1 — `fazendas.estado` + autorização corrigida:** `alter table public.fazendas add
+  column estado text` (nullable, `check (estado is null or estado ~ '^[A-Z]{2}$')`, seção 1.0
+  nova da migration). `definir_prazo_declaracao_estado()` passou a exigir, quando a fazenda do
+  chamador TEM `estado` preenchido, que ele coincida com o estado sendo editado; fazendas sem
+  `estado` (hoje, 100% do parque — coluna nasce vazia, sem backfill, por decisão explícita da
+  tarefa) continuam no fallback permissivo antigo, sem regressão de funcionalidade.
+  **Efeito honesto documentado no próprio SQL e aqui:** para o parque de fazendas existente
+  HOJE, o risco não é eliminado (nenhuma tem `estado` preenchido ainda) — é uma correção
+  estrutural progressiva, que fecha por completo assim que o produto passar a coletar `estado`
+  (fluxo "complete seu cadastro", fora do escopo técnico deste gate). Mantido como pendência de
+  segurança monitorada na seção 4, não removido.
+- **Correção 2 — NULL-bypass, achado próprio deste gate (não sinalizado por `db_sage`):** os 4
+  parâmetros de `definir_prazo_declaracao_estado()` não tratavam `NULL` explicitamente nas
+  checagens de formato (`if v_estado !~ regex` com `v_estado = NULL` avalia `NULL`, tratado como
+  falso em PL/pgSQL — a validação era pulada silenciosamente, e o erro só aparecia depois, cru,
+  do `not null constraint` da tabela). Corrigido com `is null` explícito antes de cada validação,
+  com mensagens próprias.
+- **Restante da migration revisado linha a linha, sem outros achados:** as 3 fronteiras de
+  `financeiro` (SELECT liberado em `lancamentos_financeiros`/`declaracoes_rebanho`, zero escrita;
+  SELECT aberto sem filtro em `prazos_declaracao_estado`) conferidas contra spec 5.4 — corretas;
+  `usuarios_fazendas.papel not null` confirmado (sem o vetor de bypass via NULL do achado do
+  ADR-0002); upsert por `(estado, ano_referencia)` correto; `categoria` texto livre e ausência de
+  DELETE em `lancamentos_financeiros`/`declaracoes_rebanho` avaliados como decisões corretas,
+  consistentes com padrões já aceitos.
+- **Validação real executada (local, não remota):** `supabase db reset` aplicou as 6 migrations
+  sem erro. Smoke test funcional real via `docker exec`/`psql`, sessões `authenticated`
+  simuladas via `set_config`/`set local role` (não superuser), dentro de transação com
+  `rollback` final: (1) coluna/CHECK confirmados; (2) admin de fazenda sem `estado` chamando
+  para RS — passou (fallback preservado); (3) admin de fazenda com `estado=RS` chamando para RS
+  — passou; (4) admin de fazenda com `estado=RS` chamando para PR — **rejeitado**, confirma que
+  a correção bloqueia o cenário central do risco; (5) `p_estado=NULL` — rejeitado com mensagem
+  própria, não erro cru; (6) `p_ano_referencia`/datas NULL — rejeitados com mensagens próprias.
+  7/7 cenários conferindo o esperado, nenhum dado de teste ficou no banco.
+- **Mudanças de arquivo:**
+  `supabase/migrations/20260720150000_fase3_financeiro_declaracoes_prazos.sql` editado (seção
+  1.0 nova, autorização da função corrigida, comentários atualizados); novo
+  `.agents/memory/log/2026-07-20-cyber_chief-review-fase3-financeiro.md`; esta entrada + seções
+  1 e 4 de `PROJECT_CONTEXT.md`.
+- **Pendências:** `qa` recomendado a escrever cobertura pgTAP formal dos dois achados (fazenda
+  com estado divergente rejeitada; NULL-bypass fechado). Pendência de produto (fora do escopo
+  técnico deste gate): fluxo que colete `fazendas.estado` de usuários novos e existentes, para
+  a correção deixar de depender do fallback permissivo. `supabase db push` não executado
+  (decisão humana/orchestrator).
+- **Log completo:** `.agents/memory/log/2026-07-20-cyber_chief-review-fase3-financeiro.md`
+
+### 2026-07-20 — Schema Fase 3, item 13: lancamentos_financeiros/declaracoes_rebanho/prazos_declaracao_estado (Eixo 2) — `db_sage` (SOFIA, via Claude)
+
+- **O que foi feito:** modelada e escrita em SQL a terceira parte da Fase 3 (spec seção 10, item
+  13) — migration nova e aditiva
+  `supabase/migrations/20260720150000_fase3_financeiro_declaracoes_prazos.sql`, com as tabelas
+  `lancamentos_financeiros`, `declaracoes_rebanho`, `prazos_declaracao_estado` e as funções
+  `definir_prazo_declaracao_estado()` (SECURITY DEFINER) e `obter_prazo_declaracao_estado()`
+  (SQL, STABLE).
+- **Decisão 1 — `categoria` de `lancamentos_financeiros`:** texto livre, sem CHECK e sem tabela
+  de categorias configurável nova. A spec deixa em aberto entre "enum fixo" e "tabela
+  configurável"; um CHECK travando nos 7 exemplos da spec contradiria a premissa de "não fixo",
+  e uma tabela nova é cara agora sem ganho real de integridade (categoria não é FK de ninguém).
+  Migração futura pode promover a coluna para FK se o cliente pedir customização (spec 5.3).
+- **Decisão 2 — `prazos_declaracao_estado` (a mais importante da tarefa):** tabela mantida
+  GLOBAL (sem `fazenda_id`, como a spec 3.2 já define — é dado publicado pelo órgão estadual,
+  igual para toda fazenda na mesma UF/ano). O risco real (um admin de uma fazenda alterando o
+  prazo que afeta TODAS as fazendas do mesmo estado) é mitigado fechando a escrita para um único
+  caminho: zero policy de INSERT/UPDATE/DELETE na tabela (default-deny, mesmo padrão de
+  `usuarios`/`fazendas`/`convites`), toda escrita passa por `definir_prazo_declaracao_estado()`
+  (SECURITY DEFINER), que exige vínculo `papel <> financeiro` em pelo menos uma fazenda, valida
+  formato de UF e consistência de datas, faz upsert por `(estado, ano_referencia)` e grava uma
+  coluna nova `atualizado_por_usuario_id` para auditoria. **Limite honesto e documentado
+  extensivamente:** a checagem não valida que a fazenda do chamador está NO estado editado,
+  porque `fazendas` não tem coluna de UF hoje (achado desta tarefa — ver pendência nova na seção
+  4). Rejeitada a alternativa "uma linha por fazenda" por contradizer a natureza do dado.
+- **Decisão 3 — fallback do padrão RS sem seed anual:** tabela nasce vazia; a função
+  `obter_prazo_declaracao_estado(estado, ano)` calcula o padrão RS (01/04-30/06, via
+  `make_date()`, nunca hardcoded) só quando não há linha cadastrada e o estado é RS; para outros
+  estados sem cadastro, retorna NULL — só o RS tem padrão validado com o cliente.
+- **Bug encontrado e corrigido na própria validação (antes do gate):**
+  `returning p into v_row` (referenciando o alias do INSERT dentro de um `ON CONFLICT DO
+  UPDATE ... RETURNING`) fazia o Postgres tentar converter a linha inteira em `uuid` —
+  corrigido para `returning * into v_row`, forma correta e idiomática de PL/pgSQL. Registrado no
+  log como armadilha de sintaxe para outros agentes evitarem.
+- **Validação real executada (local, não remota):** `supabase db reset` aplicou as 6 migrations
+  sem erro. `pg_policies` confirmou as 7 policies esperadas (3+3+1, a última tabela só com
+  SELECT). Suíte pgTAP manual real (não parte da suíte formal do `qa`) com 11/11 asserções
+  passando, usando sessões `authenticated` simuladas via `set_config('request.jwt.claims', ...)`
+  + `set local role authenticated` (validação de POLICY real, não superuser bypassando RLS):
+  upsert idempotente por UF/ano, rejeição de UF inválida e datas invertidas, UPDATE direto
+  (client) em `prazos_declaracao_estado` afeta 0 linhas tanto para admin quanto para financeiro
+  (só a função escreve), `financeiro` com vínculo único (sem fazenda própria, cenário real de
+  convite) tem SELECT em `lancamentos_financeiros`/`declaracoes_rebanho`/prazos mas é bloqueado
+  em toda escrita (`42501` em INSERT nas duas tabelas, erro customizado da função para prazos),
+  e o fallback RS/outros-estados confirmado por leitura direta. Rollback confirmado ao final —
+  nenhum dado de teste ficou no banco.
+- **Mudanças de arquivo:** novo
+  `supabase/migrations/20260720150000_fase3_financeiro_declaracoes_prazos.sql`; novo
+  `.agents/memory/log/2026-07-20-db_sage-schema-fase3-financeiro.md`; esta entrada + seções 1 e
+  4 de `PROJECT_CONTEXT.md`. Nenhuma tabela de fase anterior tocada; view de saldo de rebanho
+  (item 12, bloqueada por falta dos prints de referência) e buckets de Storage (item 14) não
+  implementados.
+- **Pendências:** gate obrigatório do `cyber_chief` antes de `supabase db push` — atenção
+  especial ao limite honesto da decisão 2 (mitigação via função + auditoria, não impedimento
+  estrutural), à ausência de CHECK em `categoria`, e à distinção de policy de DELETE entre
+  `lancamentos_financeiros` (decisão própria) e `declaracoes_rebanho` (decisão já dada pela
+  spec, item 9 seção 9). Pendência arquitetural nova registrada na seção 4: `fazendas.estado`
+  não existe, útil para uma migração futura fechar a validação de autorização por completo.
+  `supabase db push` não executado (decisão humana/orchestrator).
+- **Log completo:** `.agents/memory/log/2026-07-20-db_sage-schema-fase3-financeiro.md`
 
 ### 2026-07-20 — Security review Fase 3, item 11: gtas/transacoes/transacoes_detalhe/transacoes_animais — `cyber_chief` (CONSTANTINE, via Claude)
 
