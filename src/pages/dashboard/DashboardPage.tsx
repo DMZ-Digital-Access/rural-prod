@@ -131,7 +131,20 @@ export function DashboardPage() {
           onValueChange={(v) => setLoteFiltro(v ?? TODOS_OS_LOTES)}
         >
           <SelectTrigger className="w-56">
-            <SelectValue />
+            {/* Base UI (@base-ui/react/select) só resolve o rótulo do
+                SelectItem correspondente depois que o popup já foi aberto
+                pelo menos uma vez — antes disso, <SelectValue /> sem
+                children mostra o `value` bruto ("__todos__"). A forma de
+                render-prop evita depender desse comportamento, calculando
+                o rótulo diretamente do estado da aplicação. */}
+            <SelectValue>
+              {(value: string) =>
+                value === TODOS_OS_LOTES
+                  ? "Todos os lotes"
+                  : (lotesQuery.data?.find((lote) => lote.id === value)?.nome ??
+                    "Todos os lotes")
+              }
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
             <SelectItem value={TODOS_OS_LOTES}>Todos os lotes</SelectItem>
