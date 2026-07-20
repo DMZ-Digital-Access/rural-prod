@@ -1,4 +1,5 @@
 import { Link, useParams } from "react-router-dom"
+import { ArrowLeftIcon } from "lucide-react"
 import { useAnimal } from "@/hooks/useAnimais"
 import { usePesagens } from "@/hooks/usePesagens"
 import { useLotes } from "@/hooks/useLotes"
@@ -44,12 +45,21 @@ export function AnimalDetailPage() {
 
   if (animalQuery.isError || !animalQuery.data) {
     return (
-      <p className="text-sm text-destructive">
-        Erro ao carregar animal:{" "}
-        {animalQuery.error instanceof Error
-          ? animalQuery.error.message
-          : "animal não encontrado"}
-      </p>
+      <div className="flex flex-col gap-4">
+        <Link
+          to="/app/animais"
+          className="inline-flex w-fit items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+        >
+          <ArrowLeftIcon className="size-4" />
+          Voltar para Animais
+        </Link>
+        <p className="text-sm text-destructive">
+          Erro ao carregar animal:{" "}
+          {animalQuery.error instanceof Error
+            ? animalQuery.error.message
+            : "animal não encontrado"}
+        </p>
+      </div>
     )
   }
 
@@ -58,6 +68,14 @@ export function AnimalDetailPage() {
 
   return (
     <div className="flex flex-col gap-6">
+      <Link
+        to="/app/animais"
+        className="inline-flex w-fit items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+      >
+        <ArrowLeftIcon className="size-4" />
+        Voltar para Animais
+      </Link>
+
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold">{animal.identificacao}</h1>
