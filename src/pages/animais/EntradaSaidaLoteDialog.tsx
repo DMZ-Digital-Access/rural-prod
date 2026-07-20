@@ -5,6 +5,7 @@ import { ArrowRightLeftIcon } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { NumericInput } from "@/components/ui/numeric-input"
 import {
   Dialog,
   DialogContent,
@@ -141,7 +142,16 @@ export function EntradaSaidaLoteDialog({
                   <Select value={field.value} onValueChange={field.onChange}>
                     <FormControl>
                       <SelectTrigger className="w-full">
-                        <SelectValue />
+                        {/* Base UI (@base-ui/react/select) só resolve o
+                            rótulo do SelectItem correspondente depois que o
+                            popup já foi aberto pelo menos uma vez — a forma
+                            de render-prop evita depender disso (mesmo padrão
+                            de DashboardPage). */}
+                        <SelectValue>
+                          {(value: string) =>
+                            tipoOperacaoLabels[value as keyof typeof tipoOperacaoLabels]
+                          }
+                        </SelectValue>
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
@@ -168,7 +178,12 @@ export function EntradaSaidaLoteDialog({
                   <Select value={field.value} onValueChange={field.onChange}>
                     <FormControl>
                       <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Selecione a espécie" />
+                        <SelectValue placeholder="Selecione a espécie">
+                          {(value: string) =>
+                            especiesQuery.data?.find((e) => e.id === value)?.nome ??
+                            "Selecione a espécie"
+                          }
+                        </SelectValue>
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
@@ -294,20 +309,12 @@ export function EntradaSaidaLoteDialog({
                   <FormItem>
                     <FormLabel>Valor financeiro (opcional)</FormLabel>
                     <FormControl>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        inputMode="decimal"
+                      <NumericInput
+                        casasDecimais={2}
                         name={field.name}
+                        value={field.value}
+                        onChange={field.onChange}
                         onBlur={field.onBlur}
-                        ref={field.ref}
-                        value={field.value ?? ""}
-                        onChange={(e) =>
-                          field.onChange(
-                            e.target.value === "" ? null : e.target.valueAsNumber
-                          )
-                        }
                       />
                     </FormControl>
                     <FormMessage />
@@ -322,20 +329,12 @@ export function EntradaSaidaLoteDialog({
                   <FormItem>
                     <FormLabel>Peso total, kg (opcional)</FormLabel>
                     <FormControl>
-                      <Input
-                        type="number"
-                        step="0.1"
-                        min="0"
-                        inputMode="decimal"
+                      <NumericInput
+                        casasDecimais={0}
                         name={field.name}
+                        value={field.value}
+                        onChange={field.onChange}
                         onBlur={field.onBlur}
-                        ref={field.ref}
-                        value={field.value ?? ""}
-                        onChange={(e) =>
-                          field.onChange(
-                            e.target.value === "" ? null : e.target.valueAsNumber
-                          )
-                        }
                       />
                     </FormControl>
                     <FormMessage />
