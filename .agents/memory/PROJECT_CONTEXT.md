@@ -51,6 +51,26 @@
   atualização automática de `animais.status`, fronteira de permissão do papel `financeiro`,
   integridade cross-fazenda, reversibilidade, revenda) antes de `db_sage` escrever a migration
   do item 11. Ver seção 5 e `.agents/memory/adr/ADR-0004-vinculo-transacoes-animais.md`.
+  **Item 11 da seção 10 entregue em 2026-07-20** (`db_sage`) — migration nova
+  `20260720133000_fase3_gtas_transacoes.sql` com `gtas`/`transacoes`/`transacoes_detalhe`/
+  `transacoes_animais`. Referência circular `gtas.transacao_id`↔`transacoes.gta_id` resolvida
+  por ordem de criação + `ALTER TABLE ... ADD CONSTRAINT`; `transacoes_animais` implementa o
+  ADR-0004 (D1-D6) sem desvio; RLS com três fronteiras distintas de `financeiro` na mesma
+  migration (`gtas`=zero acesso, `transacoes`/`transacoes_detalhe`=SELECT only,
+  `transacoes_animais`=zero acesso). Validado por `supabase db reset` local + smoke test
+  funcional manual dos triggers (inclusive o cenário de `DELETE` em cascata da transação pai
+  antecipado pelo ADR-0004 D1). Ver seção 5 e
+  `.agents/memory/log/2026-07-20-db_sage-schema-fase3-transacoes.md`. **Gate do `cyber_chief`
+  CONCLUÍDO (🟢) em 2026-07-20** — as 13 policies de RLS das 3 fronteiras de `financeiro`
+  conferidas linha a linha sem achado (nenhuma diluição por cópia-e-cola entre `gtas`/
+  `transacoes`/`transacoes_detalhe`/`transacoes_animais`); 1 correção aplicada: corrida (TOCTOU)
+  na guarda de coexistência de D5 do ADR-0004 (`reverter_status_animal_apos_desvinculo()`) —
+  dois `DELETE`s concorrentes de vínculos de venda distintos do mesmo animal podiam deixar
+  `animais.status` preso em `'venda'` permanentemente; corrigido com `select ... for update`,
+  mesmo padrão já usado em `promover_papel()` (ADR-0002). Ver seção 5 e
+  `.agents/memory/log/2026-07-20-cyber_chief-review-fase3-transacoes.md`. **Ainda não aplicada a
+  nenhum banco remoto** (`supabase db push` é decisão humana/orchestrator). Itens 12-14 da mesma
+  fase (saldo de rebanho, financeiro, declarações, storage) NÃO iniciados — próximas tarefas.
 - **Repositório:** criado — `https://github.com/DMZ-Digital-Access/rural-prod` (branch `main`)
 - **Stack confirmada:** React 18 + TypeScript + Vite, Tailwind + shadcn/ui (componentes
   `table`/`dialog`/`select`/`badge`/`textarea` adicionados na Fase 2), react-hook-form + zod,
@@ -141,6 +161,27 @@
 ---
 
 ## 4. Bloqueios e Pendências Abertas
+
+**Pendência de trabalho (não bloqueante — gate de segurança JÁ CONCLUÍDO, falta só aplicar):**
+migration da Fase 3, item 11 (`supabase/migrations/20260720133000_fase3_gtas_transacoes.sql`) —
+`gtas`/`transacoes`/`transacoes_detalhe`/`transacoes_animais`. `transacoes_animais` implementa
+o ADR-0004 (D1-D6) sem desvio (confirmado linha a linha no gate). **Passou pelo gate do
+`cyber_chief` (🟢)** em 2026-07-20 — as 13 policies de RLS das 3 fronteiras distintas de
+`financeiro` (`gtas`=zero, `transacoes`/`transacoes_detalhe`=SELECT only, `transacoes_animais`=
+zero) conferidas uma a uma sem nenhum achado de diluição por cópia-e-cola (a preocupação que a
+própria `db_sage` tinha sinalizado não se concretizou); os dois triggers de integridade cruzada
+`gtas`↔`transacoes` (`validar_gta_transacao_mesma_fazenda`/`validar_transacao_gta_mesma_fazenda`,
+iniciativa própria da `db_sage`) revisados como código novo, NULL-safe, sem achado. **1 correção
+aplicada:** corrida (TOCTOU) na guarda de coexistência de D5 do ADR-0004
+(`reverter_status_animal_apos_desvinculo()`) — dois `DELETE`s concorrentes de vínculos de venda
+distintos do mesmo animal podiam fazer `animais.status` ficar preso em `'venda'`
+permanentemente mesmo depois de todos os vínculos removidos; corrigido com `select ... for
+update` na linha de `animais`, serializando as duas execuções, mesmo padrão já usado em
+`registrar_pesagem()` (Fase 2) e `promover_papel()` (ADR-0002). `especie_id`/
+`agrupamento_etario_id` com `on delete restrict` e ausência de policy de DELETE em `gtas`/
+`transacoes`/`transacoes_detalhe` avaliados como decisões corretas de segurança, sem achado. Ver
+seção 5 e `.agents/memory/log/2026-07-20-cyber_chief-review-fase3-transacoes.md`. **Ainda não
+aplicada a nenhum banco remoto** (`supabase db push` é decisão humana/orchestrator).
 
 **Pendência de trabalho (não bloqueante — schema modelado, gate de segurança ainda NÃO
 rodado):** migration da Fase 3, item 10
@@ -267,6 +308,106 @@ responde HTTP 200, não que a UI renderiza/interage corretamente.
 ---
 
 ## 5. Histórico de Tarefas Complexas (mais recente primeiro)
+
+### 2026-07-20 — Security review Fase 3, item 11: gtas/transacoes/transacoes_detalhe/transacoes_animais — `cyber_chief` (CONSTANTINE, via Claude)
+
+- **O que foi feito:** gate de segurança formal de
+  `supabase/migrations/20260720133000_fase3_gtas_transacoes.sql`, entregue pela `db_sage` no
+  mesmo dia (entrada abaixo). Escopo: as 13 policies de RLS das 3 fronteiras distintas de
+  `financeiro` na mesma migration, os 2 triggers de integridade cruzada `gtas`↔`transacoes`
+  (iniciativa própria da `db_sage`, fora do escopo original de tarefa), e os 3 triggers de
+  `transacoes_animais` que implementam o ADR-0004 (D1-D6).
+- **Veredito:** 🟢 Seguro, liberada para `supabase db push` (decisão de aplicar continua
+  humana/orchestrator).
+- **As 3 fronteiras de `financeiro` — sem achado:** conferidas uma a uma contra a regra correta
+  de cada tabela (`gtas`=zero acesso; `transacoes`/`transacoes_detalhe`=SELECT permitido, zero
+  escrita; `transacoes_animais`=zero acesso, ADR-0004 D3). Nenhuma diluição por cópia-e-cola
+  entre as 4 tabelas — o maior risco que a própria `db_sage` tinha sinalizado para este gate não
+  se concretizou. `usuarios_fazendas.papel` confirmado `not null` desde a Fase 1, então
+  `papel <> 'financeiro'` não tem o mesmo vetor de bypass via NULL do achado crítico do
+  ADR-0002 (coluna diferente, sempre não-nula por schema).
+- **Os 2 triggers `gtas`↔`transacoes` — sem achado:** `is distinct from` (NULL-safe) + `if not
+  found` explícito, mensagens de erro genéricas idênticas para "não encontrado" e "fazenda
+  diferente", `fazenda_id` imutável em ambas as tabelas (sem janela de corrida possível depois
+  do vínculo validado).
+- **1 achado corrigido — corrida (TOCTOU) na guarda de coexistência de D5 do ADR-0004:**
+  `reverter_status_animal_apos_desvinculo()` fazia `select status from animais where id =
+  old.animal_id` sem lock antes de checar se existe outro vínculo de venda remanescente. Duas
+  transações `DELETE` concorrentes desvinculando dois vínculos de venda DISTINTOS do MESMO
+  animal (cenário que o próprio ADR-0004 D6 permite por design) cada uma via a linha da outra
+  como "ainda existente" (não commitada), e **nenhuma** revertia `animais.status` para
+  `'ativo'` — o dado ficava preso em `'venda'` para sempre, sem nenhum caminho de UI que
+  corrigisse sozinho. Mesma classe de bug do achado nº2 do gate do ADR-0002
+  (`promover_papel()`), com efeito oposto (guarda conservadora demais em vez de permissiva
+  demais). Corrigido com `for update` na consulta, serializando as duas execuções — a segunda a
+  obter o lock sempre enxerga o estado pós-commit real e decide corretamente.
+- **Mudanças de arquivo:**
+  `supabase/migrations/20260720133000_fase3_gtas_transacoes.sql` editado (1 `for update`
+  adicionado + comentário de função atualizado); novo
+  `.agents/memory/log/2026-07-20-cyber_chief-review-fase3-transacoes.md`; esta entrada + seções
+  1 e 4 de `PROJECT_CONTEXT.md`.
+- **Pendências:** `qa` recomendado a escrever teste de concorrência real (duas sessões `psql`)
+  reproduzindo o cenário do achado corrigido, mesmo padrão já usado para a corrida de
+  `promover_papel()`. `supabase db push` não executado (decisão humana/orchestrator).
+- **Log completo:** `.agents/memory/log/2026-07-20-cyber_chief-review-fase3-transacoes.md`
+
+### 2026-07-20 — Schema Fase 3, item 11: gtas/transacoes/transacoes_detalhe/transacoes_animais (Eixo 2) — `db_sage` (SOFIA, via Claude)
+
+- **O que foi feito:** modelada e escrita em SQL a segunda parte da Fase 3 (spec seção 10, item
+  11) — migration nova e aditiva
+  `supabase/migrations/20260720133000_fase3_gtas_transacoes.sql`, com as tabelas `gtas`,
+  `transacoes`, `transacoes_detalhe` (spec seção 3.2, schema já fechado) e `transacoes_animais`
+  (ADR-0004, D1-D6, implementado sem desvio).
+- **Referência circular `gtas.transacao_id`↔`transacoes.gta_id`:** resolvida por ordem de
+  criação — `transacoes` criada primeiro com `gta_id` sem FK (aponta para frente); `gtas` criada
+  em seguida já com a FK completa para `transacoes`; `ALTER TABLE transacoes ADD CONSTRAINT`
+  fecha o lado que faltava. Complementada por dois triggers próprios desta migration
+  (`validar_gta_transacao_mesma_fazenda()`/`validar_transacao_gta_mesma_fazenda()`, não pedidos
+  pela spec/ADR) que garantem que o vínculo bidirecional, quando preenchido, só liga registros
+  da MESMA `fazenda_id` — mesmo princípio de `validar_lote_mesma_fazenda()` (Fase 2).
+- **`transacoes_animais` — ADR-0004 implementado literalmente:** coluna `tipo_operacao_transacao`
+  denormalizada e imutável (D1); `preparar_vinculo_transacao_animal()` (`BEFORE INSERT`, D2+D4)
+  valida cross-fazenda e denormaliza; `aplicar_status_animal_apos_vinculo()` (`AFTER INSERT`, D2)
+  aplica `animais.status='venda'` só para `tipo_operacao_transacao='venda'`;
+  `reverter_status_animal_apos_desvinculo()` (`AFTER DELETE`, D5) reverte com as guardas de
+  idempotência e coexistência; todos `SECURITY INVOKER` (D2); sem trava de revenda (D6). Um
+  smoke test funcional confirmou inclusive o cenário mais delicado que o D1 do ADR antecipava —
+  `DELETE` em cascata da `transacoes` pai disparando o trigger `AFTER DELETE` de
+  `transacoes_animais` sem erro de ordenação, graças à denormalização.
+- **RLS — três fronteiras distintas de `financeiro` na mesma migration:** `gtas` = zero acesso
+  (nem SELECT, spec 5.4 lista GTAs explicitamente em "sem acesso"); `transacoes`/
+  `transacoes_detalhe` = SELECT permitido, zero INSERT/UPDATE/DELETE (fecha a "nota de
+  dependência" que o ADR-0004 D3 deixou em aberto, na direção que o próprio ADR já antecipava
+  como mais consistente com a spec); `transacoes_animais` = zero acesso (ADR-0004 D3, sem
+  desvio). Sem policy de DELETE em `gtas`/`transacoes`/`transacoes_detalhe` (decisão própria,
+  justificada pelo efeito colateral em cascata sobre `transacoes_animais` que um DELETE de
+  transação teria).
+- **Divergência deliberada da migration anterior:** `especie_id` (em `gtas`/`transacoes`) e
+  `agrupamento_etario_id` (em `transacoes_detalhe`) usam `on delete restrict`, não `cascade`
+  como `agrupamentos_etarios.especie_id` na migration de catálogos — ali é catálogo→catálogo
+  (aceitável cascatear), aqui é catálogo→dado transacional real (nunca apagar histórico de
+  GTA/transação por efeito colateral de limpeza de catálogo).
+- **Validação real executada (local, não remota):** `supabase db reset` aplicou as 5 migrations
+  do zero sem erro. `pg_policies` confirmou as 12 policies esperadas. Smoke test funcional
+  manual (via `docker exec`/`psql`, sempre com `rollback`, nenhum dado deixado no banco) cobriu:
+  referência circular, rejeição cross-fazenda em `gtas`↔`transacoes` e em `transacoes_animais`,
+  ciclo completo INSERT-venda→status/DELETE→reversão, guarda de coexistência de múltiplos
+  vínculos de venda, `numero_gta` único por fazenda (mas repetível entre fazendas), e o cenário
+  de `DELETE` em cascata da transação pai — todos passaram.
+- **Mudanças de arquivo:** novo
+  `supabase/migrations/20260720133000_fase3_gtas_transacoes.sql`; novo
+  `.agents/memory/log/2026-07-20-db_sage-schema-fase3-transacoes.md`; esta entrada + seções 1 e
+  4 de `PROJECT_CONTEXT.md`. Nenhuma tabela de fase anterior tocada; saldo de rebanho,
+  `lancamentos_financeiros`, `declaracoes_rebanho`, `prazos_declaracao_estado` e buckets de
+  Storage (itens 12-14 da mesma fase) não implementados.
+- **Pendências:** gate obrigatório do `cyber_chief` antes de `supabase db push` — atenção
+  especial às três fronteiras distintas de `financeiro`, à confirmação linha a linha do
+  ADR-0004 em `transacoes_animais`, aos dois triggers de integridade cruzada `gtas`↔`transacoes`
+  (decisão própria, não pedida), à divergência de `on delete restrict` vs. `cascade`, e à
+  ausência de policy de DELETE em `transacoes`/`gtas`/`transacoes_detalhe`. `supabase db push`
+  não executado (decisão humana/orchestrator). Depois do gate: itens 12-14 da mesma fase — não
+  iniciados aqui.
+- **Log completo:** `.agents/memory/log/2026-07-20-db_sage-schema-fase3-transacoes.md`
 
 ### 2026-07-20 — ADR-0004: desenho técnico de `transacoes_animais` (Opção B) — `architect` (ALEX, via Claude)
 
