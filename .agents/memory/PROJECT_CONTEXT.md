@@ -51,11 +51,16 @@
   `authenticated` sem vínculo de fazenda vê as 8/9/24 linhas completas, INSERT cross-espécie/
   subtipo rejeitado pela FK composta, escrita bloqueada nas 3 tabelas, `pg_policies` confirma
   exatamente 3 policies (SELECT/authenticated, sem sobra). Ver seção 5 e
-  `.agents/memory/log/2026-07-20-cyber_chief-review-fase3-especies.md`. **Com este gate, as 3
-  migrations da Fase 3 escritas até agora (itens 10/11/13) estão todas liberadas para `supabase
-  db push`** — ainda não aplicada a nenhum banco remoto (decisão humana/orchestrator). Itens
-  11-14 da mesma fase: item 11 e 13 já com gate concluído (ver abaixo); itens 12/14
-  (saldo/storage) NÃO iniciados — próximas tarefas.
+  `.agents/memory/log/2026-07-20-cyber_chief-review-fase3-especies.md`. **CORREÇÃO DE REGISTRO
+  (2026-07-20, achado ao verificar antes de um `db push` manual):** as 3 migrations da Fase 3
+  (itens 10/11/13) já estavam de fato aplicadas no banco remoto `bsoofshttpboaaokejwt` — esta
+  seção e a seção 4 diziam "ainda não aplicada", desatualizado. Confirmado por conexão direta
+  (`psql` via pooler `aws-1-us-west-2.pooler.supabase.com`, não só `supabase migration list`):
+  `especies` com as 8 linhas do seed, `gtas`/`lancamentos_financeiros` existentes (0 linhas,
+  esperado, sem transação real ainda); `supabase db push --dry-run` confirmou "Remote database
+  is up to date". Não se sabe, a partir da memória existente, quando/por quem o push foi
+  executado — nenhum log documenta essa ação. Itens 12/14 (saldo/storage) seguem NÃO
+  iniciados — próximas tarefas.
   **ADR-0004 aceito em 2026-07-20** (`architect`) — fecha a dívida de processo pendente desde
   2026-07-16 (spec seção 3.3): formaliza o desenho técnico de `transacoes_animais` (mecanismo de
   atualização automática de `animais.status`, fronteira de permissão do papel `financeiro`,
@@ -78,8 +83,9 @@
   dois `DELETE`s concorrentes de vínculos de venda distintos do mesmo animal podiam deixar
   `animais.status` preso em `'venda'` permanentemente; corrigido com `select ... for update`,
   mesmo padrão já usado em `promover_papel()` (ADR-0002). Ver seção 5 e
-  `.agents/memory/log/2026-07-20-cyber_chief-review-fase3-transacoes.md`. **Ainda não aplicada a
-  nenhum banco remoto** (`supabase db push` é decisão humana/orchestrator). **Item 13 da seção
+  `.agents/memory/log/2026-07-20-cyber_chief-review-fase3-transacoes.md`. **Confirmado aplicada
+  ao banco remoto** (verificado 2026-07-20 por conexão `psql` direta — ver correção de registro
+  logo acima nesta seção; não há log de quando o `db push` foi executado). **Item 13 da seção
   10 entregue em 2026-07-20** (`db_sage`) — migration nova
   `20260720150000_fase3_financeiro_declaracoes_prazos.sql` com `lancamentos_financeiros`,
   `declaracoes_rebanho`, `prazos_declaracao_estado` + funções `definir_prazo_declaracao_estado()`
@@ -114,8 +120,9 @@
   presente na prática até existir um fluxo de produto que colete `fazendas.estado` (pendência de
   produto, não deste gate — mantida como pendência de segurança monitorada, ver seção 4). Ver
   seção 5 e
-  `.agents/memory/log/2026-07-20-cyber_chief-review-fase3-financeiro.md`. **Ainda não aplicada a
-  nenhum banco remoto** (`supabase db push` é decisão humana/orchestrator). Item 12 (view de
+  `.agents/memory/log/2026-07-20-cyber_chief-review-fase3-financeiro.md`. **Confirmado aplicada
+  ao banco remoto** (verificado 2026-07-20 por conexão `psql` direta — `lancamentos_financeiros`
+  existente; ver correção de registro no início desta seção). Item 12 (view de
   saldo de rebanho, bloqueada por falta dos prints de referência) e item 14 (buckets de Storage)
   seguem NÃO iniciados.
 - **Repositório:** criado — `https://github.com/DMZ-Digital-Access/rural-prod` (branch `main`)
@@ -235,7 +242,7 @@ cadastradas — não implementado, fora do escopo técnico que `cyber_chief` res
 `.agents/memory/log/2026-07-20-cyber_chief-review-fase3-financeiro.md` para a análise completa
 de risco e a decisão de bloquear/corrigir em vez de só documentar.
 
-**Pendência de trabalho (não bloqueante — gate de segurança JÁ CONCLUÍDO, falta só aplicar):**
+**Item já resolvido — gate de segurança JÁ CONCLUÍDO e migration JÁ APLICADA ao remoto:**
 migration da Fase 3, item 11 (`supabase/migrations/20260720133000_fase3_gtas_transacoes.sql`) —
 `gtas`/`transacoes`/`transacoes_detalhe`/`transacoes_animais`. `transacoes_animais` implementa
 o ADR-0004 (D1-D6) sem desvio (confirmado linha a linha no gate). **Passou pelo gate do
@@ -253,10 +260,12 @@ update` na linha de `animais`, serializando as duas execuções, mesmo padrão j
 `registrar_pesagem()` (Fase 2) e `promover_papel()` (ADR-0002). `especie_id`/
 `agrupamento_etario_id` com `on delete restrict` e ausência de policy de DELETE em `gtas`/
 `transacoes`/`transacoes_detalhe` avaliados como decisões corretas de segurança, sem achado. Ver
-seção 5 e `.agents/memory/log/2026-07-20-cyber_chief-review-fase3-transacoes.md`. **Ainda não
-aplicada a nenhum banco remoto** (`supabase db push` é decisão humana/orchestrator).
+seção 5 e `.agents/memory/log/2026-07-20-cyber_chief-review-fase3-transacoes.md`. **Confirmado
+aplicada ao banco remoto** (verificado 2026-07-20 por conexão `psql` direta ao pooler
+`aws-1-us-west-2` — `gtas` existente; ver correção de registro na seção 1). Não há log de quando
+o `db push` foi executado.
 
-**Pendência de trabalho (não bloqueante — gate de segurança JÁ CONCLUÍDO, falta só aplicar):**
+**Item já resolvido — gate de segurança JÁ CONCLUÍDO e migration JÁ APLICADA ao remoto:**
 migration da Fase 3, item 10
 (`supabase/migrations/20260720120000_fase3_especies_agrupamentos.sql`) — catálogos
 `especies`/`subtipos_especie`/`agrupamentos_etarios`, seed completo (8/9/24 linhas, validado por
@@ -275,9 +284,10 @@ Os dois pontos de transcrição de dado que a `db_sage` tinha sinalizado (Muares
 Aves-Frango de Corte) foram avaliados como decisões de modelagem/produto já corretamente
 tomadas, sem nenhum vetor de segurança associado — não geraram correção. Ver
 `.agents/memory/log/2026-07-20-db_sage-schema-fase3-especies.md` e
-`.agents/memory/log/2026-07-20-cyber_chief-review-fase3-especies.md`. **Ainda não aplicada a
-nenhum banco remoto** (`supabase db push` é decisão humana/orchestrator) — com este gate, as 3
-migrations da Fase 3 (itens 10/11/13) já estão todas liberadas para isso.
+`.agents/memory/log/2026-07-20-cyber_chief-review-fase3-especies.md`. **Confirmado aplicada ao
+banco remoto** (verificado 2026-07-20 por conexão `psql` direta — `especies` com as 8 linhas do
+seed). Com isso, **as 3 migrations da Fase 3 (itens 10/11/13) estão todas com gate concluído E
+já aplicadas ao remoto** — não há `db push` pendente para nenhuma delas.
 
 **Pendência de trabalho (não bloqueante — gate de segurança JÁ CONCLUÍDO, falta só aplicar):**
 migration da Fase 2 (`supabase/migrations/20260717140000_fase2_lotes_animais_pesagens.sql`) —
