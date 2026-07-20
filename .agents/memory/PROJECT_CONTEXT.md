@@ -34,8 +34,19 @@
   asserções pgTAP passando (25 da Fase 1/ADR-0002 + 38 novas da Fase 2: fórmula de GMD incluindo
   a regressão do bug do protótipo, regra de correção de pesagem, e os 3 achados do gate
   `cyber_chief`), ver seção 5 e
-  `.agents/memory/log/2026-07-19-qa-testes-fase2-gmd.md`. **Falta para fechar a fase por
-  completo:** teste de UI num navegador real (nenhum agente teve acesso a navegador até agora).
+  `.agents/memory/log/2026-07-19-qa-testes-fase2-gmd.md`. **Teste de UI em navegador real
+  parcialmente resolvido em 2026-07-20** — Chromium headless (Playwright, via cache local
+  `npx`, binário já baixado em `%LOCALAPPDATA%\ms-playwright`) confirmou `npm run dev` servindo
+  em `http://localhost:5173`, `/login` renderizando corretamente (título "Livestock Control",
+  formulário E-mail/Senha, redirect `?redirect=` preservado pelo `ProtectedRoute`), e submissão
+  do formulário com credencial inválida retornando "Invalid login credentials" — confirma que o
+  frontend fala de verdade com o Supabase Auth remoto, não é só HTTP 200 de shell vazio (o smoke
+  test anterior de Fase 1 só confirmava isso). Zero erros de console além do 400 esperado da
+  tentativa de login inválida. Cobertura ainda parcial: só a tela de login foi exercitada, não
+  Dashboard/Animais/Lotes/Comparativo (exigiria uma conta de teste real). Nenhum skill de projeto
+  para rodar o app existia (`.claude/skills/`) — recomendado `/run-skill-generator` para
+  capturar a receita (NODE_PATH apontando pro cache `_npx` do playwright, sem instalação local
+  no projeto) para sessões futuras.
   **Fase 3 (Eixo 2 — Dados e Regras) INICIADA:** item 10 da seção 10 da spec (catálogos
   `especies`/`subtipos_especie`/`agrupamentos_etarios`, sem `fazenda_id` — primeira tabela não
   multi-tenant do projeto) escrito por `db_sage` em 2026-07-20 — migration nova
