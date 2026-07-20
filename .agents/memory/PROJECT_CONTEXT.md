@@ -234,6 +234,35 @@
 
 ## 4. Bloqueios e Pendências Abertas
 
+**Contexto de produto novo, registrado por JP em 2026-07-20 — para Fase 4 (Transações) e item 14
+(Storage), NÃO implementado ainda:**
+
+1. **"Doc Faltante" — estado por operação, distinto de "GTA Pendente".** Cada `transacao` pode
+   ter até 3 documentos: Nota, Contranota, GTA — o usuário pode cadastrar a operação com
+   qualquer subconjunto deles (inclusive só a nota própria). Quando falta a GTA → "GTA Pendente"
+   (já implementado, é o que `obter_saldo_rebanho()` usa, spec/print confirmam). Quando falta
+   Nota **e/ou** Contranota → deve ser identificado como **"Doc Faltante"**, um status
+   SEPARADO que não entra na conta de `Qtd. Registrada`/`Qtd. Pendente` do saldo (JP confirmou
+   explicitamente: misturar os dois sob "Pendente" confundiria o usuário, e divergiria do número
+   real do portal da Secretaria, que só conhece GTA). No card/item de cada operação (tela de
+   Transações, Fase 4), os campos pendentes devem aparecer, ou o link do documento para
+   visualização/download quando presente.
+2. **Falta schema para upload dos documentos de Nota/Contranota.** Hoje `transacoes` só tem
+   `numero_nota` (texto) e `tem_contranota` (boolean) — nenhuma coluna de arquivo. Para o "link
+   do documento" que JP descreveu, provavelmente precisa de colunas tipo `arquivo_path`/
+   `arquivo_mime_type` por documento (mesmo padrão já usado em `gtas`), o que cruza com o item
+   14 (Storage), ainda não iniciado. Não modelado nesta sessão — fica para quando o item 14
+   for retomado.
+3. **Fluxo Compra → Animal individual (Eixo 2 → Eixo 1), confirmado compatível com o schema
+   atual, sem mudança necessária:** ao registrar uma `transacao` de compra, os animais ainda NÃO
+   existem como registros individuais em `animais` — só o saldo agregado
+   (`transacoes_detalhe`) é conhecido no momento da compra. O cadastro individual (identificador,
+   pesagem, "brincagem"/identificação, lote opcional) acontece depois, como passo manual
+   separado do Eixo 1 — sem vínculo automático de volta à `transacao` de compra que originou a
+   entrada. `obter_saldo_rebanho()` (item 12, ver seção 5) já é compatível com esse fluxo, pois
+   opera inteiramente sobre `transacoes_detalhe` (agregado), sem depender de `animais` existir.
+   Relevante para o desenho da tela de Transações (Fase 4), registrado aqui para não se perder.
+
 **Pendência de trabalho (não bloqueante — schema modelado, gate de segurança ainda NÃO
 rodado):** migration da Fase 3, item 13
 (`supabase/migrations/20260720150000_fase3_financeiro_declaracoes_prazos.sql`) —
@@ -416,6 +445,37 @@ responde HTTP 200, não que a UI renderiza/interage corretamente.
 ---
 
 ## 5. Histórico de Tarefas Complexas (mais recente primeiro)
+
+### 2026-07-20 — Schema + gate de segurança, Fase 3 item 12: saldo de rebanho (view calculada) — `db_sage` + `cyber_chief` (via Claude)
+
+- **O que foi feito:** item 12 desbloqueado no mesmo dia pelos prints reais que JP forneceu
+  (`Bovinos/Ovino-saldo-atual.png` + `Controle-entradas-saidas.png` + `Declaracoes-de-animais.png`
+  + GTAs). Migration nova `20260720200000_fase3_saldo_rebanho.sql` — 3 objetos só-leitura:
+  view `saldo_rebanho_movimentos` (granular, sinalizada +/-, classificação registrada/pendente),
+  função `obter_saldo_rebanho(p_data_referencia date default current_date)` (agrega contra a
+  espinha completa fazenda×espécie×agrupamento×sexo, replicando os zeros do print), e a view de
+  conveniência `saldo_rebanho` (nome literal da spec, "saldo de hoje").
+- **Decisão de design mais importante:** classificar registrada/pendente via
+  `transacoes.status_gta_transacao` (que `financeiro` TEM acesso), não via JOIN em
+  `gtas.status_liberacao` (RLS exclui `financeiro` por completo) — evita que `financeiro` veja
+  um saldo ERRADO (todo mundo cairia em "registrada" por não enxergar a GTA) sem nenhum erro
+  visível. Validado na prática: `admin` e `financeiro` da MESMA fazenda leem números idênticos.
+- **Ambiguidade resolvida com JP:** venda com GTA pendente gera `qtd_pendente` negativo
+  (matematicamente correto, mas nenhum print mostra esse caso). JP confirmou: pendente se
+  aplica simetricamente a entrada E saída — "quando ainda não tem no sistema a GTA referente
+  àquela transação". Implementação já escrita validada sem mudança de código.
+- **Reprodução exata dos 2 prints reais** (Ovino: 4/4 combinações; Bovino: 8/8 combinações,
+  incluindo totais 201 registrada/184 pendente) — testado localmente com usuários reais via
+  GoTrue (`/auth/v1/signup`), não superuser simulado.
+- **Gate do `cyber_chief` CONCLUÍDO (🟢) no mesmo dia, sem correção necessária** — `security_
+  invoker=true` confirmado nas 2 views; isolamento cross-fazenda confirmado; `anon` vê 0 linhas.
+- **Limite honesto:** `transacoes_detalhe` é opcional (spec) — transações reais só com
+  `observações` em texto livre (comuns no print de JP) não entram no saldo calculado até serem
+  estruturadas.
+- **Checkpoint de Validação de Saldo:** comparação apresentada a JP na mesma sessão — ver
+  confirmação abaixo nesta seção 1/4.
+- **Logs completos:** `.agents/memory/log/2026-07-20-db_sage-schema-fase3-saldo.md` e
+  `.agents/memory/log/2026-07-20-cyber_chief-review-fase3-saldo.md`.
 
 ### 2026-07-20 — Retrofit de responsividade mobile: Shell + Eixo 1 — `developer` (RYAN, via Claude)
 
