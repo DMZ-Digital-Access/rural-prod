@@ -451,6 +451,33 @@ responde HTTP 200, não que a UI renderiza/interage corretamente.
 
 ## 5. Histórico de Tarefas Complexas (mais recente primeiro)
 
+### 2026-07-20 — ADR-0006: animais pendentes de individualização a partir de Entradas de Lote — `architect`+`db_sage`+`cyber_chief` (via Claude)
+
+- **Motivação:** JP revisou a premissa do ADR-0005 (nascimento/compra sem vínculo individual) —
+  animais que entram por lote (Compra/Nascimento/Entrada de Pastoreio) devem aparecer
+  IMEDIATAMENTE na lista de Animais, com identificação automática, pendentes de
+  individualização até completar dados reais.
+- **Decisões confirmadas por JP:** só as 3 entradas criam animais pendentes (saídas continuam
+  agindo sobre animais já existentes, mecanismo do ADR-0004 ainda sem tela); `data_nascimento`/
+  `peso_inicial_kg` ficam `NULL` até "Individualizar Animal" completar (não um valor estimado);
+  identificação = `{TIPO}-{AAAA-MM-DD}-{NNN}`, sequencial por fazenda+tipo+data.
+- **Schema** (`20260720230000_adr0006_animais_pendentes.sql`): `animais.data_nascimento`/
+  `peso_inicial_kg` viram nullable; `calcular_categoria_animal()` corrigida para retornar `NULL`
+  explicitamente em vez de fabricar `'Boi'`/`'Vaca'` para idade desconhecida (achado próprio da
+  tarefa); `registrar_entrada_saida_lote()` (ADR-0005) estendida para criar N linhas em
+  `animais` nas 3 entradas.
+- **Validado localmente:** sequência contínua entre 2 compras no mesmo dia (001-005, depois
+  006-007, sem colisão); venda confirmada sem criar linha nova; categoria/idade retornam `NULL`
+  corretamente (não fabricadas).
+- **Gate do `cyber_chief` CONCLUÍDO (🟢) no mesmo dia** — achado de correção (não autorização)
+  na categoria fabricada, corrigido antes mesmo do gate (antecipado pela própria `db_sage`).
+- **Logs:** `.agents/memory/log/2026-07-20-db_sage...` (ADR-0006 não teve log próprio de
+  db_sage separado — ver commit da migration), `.agents/memory/log/2026-07-20-cyber_chief-review-adr0006.md`.
+- **Pendências:** indicador visual de "pendente" na lista de Animais (categoria/peso em branco
+  não é sinal suficiente) — próxima tarefa; fluxo de completar um animal pendente via
+  `EditarAnimalDialog` (hoje só edita identificação/lote/status, não data_nascimento/peso) ainda
+  não implementado.
+
 ### 2026-07-20 — Frontend ADR-0005: "Individualizar Animal" + "Entradas e Saídas de Animais de Lote" — `developer` (RYAN, via Claude)
 
 - **O que foi feito:** RPC nova `registrar_entrada_saida_lote()` (migration
