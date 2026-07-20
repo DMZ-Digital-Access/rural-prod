@@ -62,7 +62,8 @@ export function AnimalDetailPage() {
         <div>
           <h1 className="text-2xl font-semibold">{animal.identificacao}</h1>
           <p className="text-muted-foreground">
-            {animal.categoria} · {animal.sexo === "macho" ? "Macho" : "Fêmea"}
+            {animal.categoria ?? "Pendente de individualização"} ·{" "}
+            {animal.sexo === "macho" ? "Macho" : "Fêmea"}
           </p>
         </div>
         <EditarAnimalDialog animal={animal} lotes={lotesQuery.data ?? []} />
@@ -105,7 +106,9 @@ export function AnimalDetailPage() {
             </div>
             <div>
               <dt className="text-xs text-muted-foreground">Idade</dt>
-              <dd className="mt-1 text-sm">{animal.idade_meses} meses</dd>
+              <dd className="mt-1 text-sm">
+                {animal.idade_meses === null ? "—" : `${animal.idade_meses} meses`}
+              </dd>
             </div>
             <div>
               <dt className="text-xs text-muted-foreground">Peso inicial</dt>

@@ -21,9 +21,12 @@ export type Animal = {
   fazenda_id: string
   lote_id: string | null
   identificacao: string
-  data_nascimento: string
+  // ADR-0006: nullable — animal criado por Entradas de Lote
+  // (Compra/Nascimento/Entrada de Pastoreio) nasce sem esses dados,
+  // "pendente de individualização" até completar via Individualizar Animal.
+  data_nascimento: string | null
   sexo: SexoAnimal
-  peso_inicial_kg: number
+  peso_inicial_kg: number | null
   peso_atual_kg: number | null
   gmd_medio_kg: number | null
   ultima_pesagem_data: string | null
@@ -35,11 +38,21 @@ export type Animal = {
 
 /** Linha de public.animais_com_detalhes — SELECT sempre nesta view, nunca em `animais` direto. */
 export type AnimalComDetalhes = Animal & {
-  idade_dias: number
-  idade_meses: number
-  categoria: CategoriaAnimal
+  // ADR-0006: null quando data_nascimento é null (animal pendente) —
+  // calcular_categoria_animal() retorna NULL explicitamente, não fabrica
+  // uma categoria de adulto.
+  idade_dias: number | null
+  idade_meses: number | null
+  categoria: CategoriaAnimal | null
   ganho_total_kg: number | null
   numero_pesagens: number
+}
+
+/** Um animal está pendente de individualização (ADR-0006) quando falta
+ *  data de nascimento ou peso inicial — preenchidos juntos por
+ *  "Individualizar Animal". */
+export function animalPendenteIndividualizacao(animal: Animal): boolean {
+  return animal.data_nascimento === null || animal.peso_inicial_kg === null
 }
 
 /** Linha crua de public.lotes. */

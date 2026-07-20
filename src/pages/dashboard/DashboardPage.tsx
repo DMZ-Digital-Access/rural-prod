@@ -95,8 +95,13 @@ export function DashboardPage() {
       {} as Record<StatusAnimal, number>
     )
 
+    // Animais pendentes de individualização (ADR-0006) não têm categoria
+    // calculável ainda (data_nascimento null) — ficam fora da distribuição
+    // por categoria, contados à parte.
+    const pendentesIndividualizacao = ativos.filter((a) => a.categoria === null).length
     const porCategoriaMap = ativos.reduce(
       (acc, a) => {
+        if (a.categoria === null) return acc
         acc[a.categoria] = (acc[a.categoria] ?? 0) + 1
         return acc
       },
@@ -113,6 +118,7 @@ export function DashboardPage() {
       pesoMedioGeral,
       porStatus,
       porCategoria,
+      pendentesIndividualizacao,
     }
   }, [animaisQuery.data])
 
@@ -218,7 +224,7 @@ export function DashboardPage() {
                 <CardTitle>Distribuição por categoria</CardTitle>
                 <CardDescription>Só animais ativos.</CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="flex flex-col gap-2">
                 {stats.porCategoria.length === 0 ? (
                   <p className="text-sm text-muted-foreground">
                     Sem animais ativos.
@@ -264,6 +270,15 @@ export function DashboardPage() {
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
+                )}
+                {stats.pendentesIndividualizacao > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    {stats.pendentesIndividualizacao}{" "}
+                    {stats.pendentesIndividualizacao === 1
+                      ? "animal pendente de individualização"
+                      : "animais pendentes de individualização"}{" "}
+                    (fora desta distribuição).
+                  </p>
                 )}
               </CardContent>
             </Card>

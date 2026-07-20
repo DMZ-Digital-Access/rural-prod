@@ -451,6 +451,22 @@ responde HTTP 200, não que a UI renderiza/interage corretamente.
 
 ## 5. Histórico de Tarefas Complexas (mais recente primeiro)
 
+### 2026-07-20 — Frontend ADR-0006: badge "Pendente" na lista de Animais — `developer` (RYAN, via Claude)
+
+- **O que foi feito:** tipos atualizados (`data_nascimento`/`peso_inicial_kg`/`categoria`/
+  `idade_meses` agora nullable) + função `animalPendenteIndividualizacao()`; badge "Pendente"
+  (âmbar) na lista de Animais ao lado do status; `AnimalDetailPage`/`LoteDetailPage` tratam
+  `categoria`/`idade` nulos sem quebrar; Dashboard exclui pendentes do gráfico de categoria (evita
+  barra "null") com nota de contagem.
+- **Validação:** `build`/`lint`/`test` limpos; teste visual real (Playwright, desktop+mobile)
+  contra o Supabase remoto — compra real de 5 Bovinos criada via RPC, os 5 animais
+  (`COMPRA-2026-07-20-001`..`005`) aparecem imediatamente na lista com badge "Pendente",
+  categoria/peso em "—", em ambas as resoluções.
+- **Log:** `.agents/memory/log/2026-07-20-developer-frontend-adr0006.md`.
+- **Pendências:** fluxo de completar um animal pendente (`EditarAnimalDialog` estendido para
+  coletar `data_nascimento`/`peso_inicial_kg`) ainda não implementado; tela de seleção de
+  animal individual para Venda/Óbito/Consumo (ADR-0004) ainda não construída.
+
 ### 2026-07-20 — ADR-0006: animais pendentes de individualização a partir de Entradas de Lote — `architect`+`db_sage`+`cyber_chief` (via Claude)
 
 - **Motivação:** JP revisou a premissa do ADR-0005 (nascimento/compra sem vínculo individual) —

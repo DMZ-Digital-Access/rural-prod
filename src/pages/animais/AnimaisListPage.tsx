@@ -10,10 +10,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { Badge } from "@/components/ui/badge"
 import { StatusAnimalBadge } from "@/components/rebanho/StatusAnimalBadge"
 import { CriarAnimalDialog } from "@/pages/animais/CriarAnimalDialog"
 import { EditarAnimalDialog } from "@/pages/animais/EditarAnimalDialog"
 import { EntradaSaidaLoteDialog } from "@/pages/animais/EntradaSaidaLoteDialog"
+import { animalPendenteIndividualizacao } from "@/lib/types/rebanho"
 
 function formatPeso(kg: number | null) {
   return kg === null ? "—" : `${kg.toFixed(1)} kg`
@@ -98,10 +100,20 @@ export function AnimaisListPage() {
                   </Link>
                 </TableCell>
                 <TableCell className="hidden md:table-cell">
-                  {animal.categoria}
+                  {animal.categoria ?? "—"}
                 </TableCell>
                 <TableCell>
-                  <StatusAnimalBadge status={animal.status} />
+                  <div className="flex flex-wrap items-center gap-1">
+                    <StatusAnimalBadge status={animal.status} />
+                    {animalPendenteIndividualizacao(animal) && (
+                      <Badge
+                        variant="outline"
+                        className="border-amber-600/20 bg-amber-600/10 text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/15 dark:text-amber-400"
+                      >
+                        Pendente
+                      </Badge>
+                    )}
+                  </div>
                 </TableCell>
                 <TableCell>{formatPeso(animal.peso_atual_kg)}</TableCell>
                 <TableCell className="hidden sm:table-cell">

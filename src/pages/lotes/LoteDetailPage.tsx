@@ -163,7 +163,7 @@ export function LoteDetailPage() {
                       </Link>
                     </TableCell>
                     <TableCell className="hidden md:table-cell">
-                      {animal.categoria}
+                      {animal.categoria ?? "—"}
                     </TableCell>
                     <TableCell>
                       <StatusAnimalBadge status={animal.status} />
