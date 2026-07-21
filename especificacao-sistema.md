@@ -644,4 +644,92 @@ Ref.: `.agents/memory/log/2026-07-21-completar-animal-pendente.md`,
 `.agents/memory/log/2026-07-21-selecao-animais-saida-individual.md` e
 `.agents/memory/log/2026-07-21-storage-buckets-item14.md`.
 
+### 2026-07-21 — Fase 4: Módulos de Transações, Saldo de Rebanho e GTAs (itens 15-17) + correções de modelagem
+
+**Seções afetadas:** 3.2 (`transacoes`/`gtas`), 5.2 (módulos), 7 (buckets).
+
+Três primeiros módulos de telas da Fase 4 (de 6) entregues, na ordem escolhida por JP
+(Transações → Saldo de Rebanho → GTAs). Duas correções reais de modelagem, pedidas por JP
+durante a construção do Módulo de GTAs:
+
+- **Cardinalidade transação↔GTA corrigida.** A spec original (seção 3.2) e a migration do item
+  11 desenharam um vínculo **1:1 circular** (`transacoes.gta_id` ↔ `gtas.transacao_id`). Isso
+  estava errado: "as GTAs são feitas uma para cada caminhão que transporta a carga — em uma
+  transação pode existir 1 nota e 1 contranota mas mais de 1 GTA relacionada à mesma operação."
+  `transacoes.gta_id` foi removido (nunca teve dado real em produção); `gtas.transacao_id`
+  (muitos-para-um) já modelava certo essa relação — uma transação agora pode ter N GTAs
+  vinculadas, uma por caminhão.
+- **`gtas.quantidade_animais`** (campo novo, fora da spec original) — número de animais
+  incluídos em cada documento de GTA, nullable (histórico anterior sem esse campo).
+- **Liberação de GTA por upload** (novo, fora da spec original): ao enviar o documento de uma
+  GTA pendente, o sistema oferece marcar como liberada na hora (com data), em vez de exigir
+  edição manual separada.
+- **Bucket `declaracoes-rebanho` passa a aceitar imagem**, não só PDF (spec seção 3.2/7 previa
+  só PDF para este documento especificamente) — alinhado ao mesmo conjunto de formatos que
+  `gtas-documentos`/`transacoes-documentos` já aceitavam.
+- **Módulo de Transações ganhou edição completa de todos os campos** na tela de detalhe
+  (inclusive `outra_parte`, `quantidade_animais`, `data_operacao`, `especie_id`) — só
+  `tipo_operacao` permanece fixo, por risco real de inconsistência com vínculos já criados
+  (`transacoes_animais`/animais pendentes).
+
+Ref.: `.agents/memory/log/2026-07-21-fase4-modulo-transacoes.md`,
+`.agents/memory/log/2026-07-21-fase4-modulo-saldo-rebanho.md`,
+`.agents/memory/log/2026-07-21-fase4-modulo-gtas.md`.
+
+### 2026-07-21 — Planejado: classificação assistida por IA de lançamentos financeiros (Módulo Financeiro, item 18)
+
+**Seção afetada:** 5.2 (Módulo Financeiro) — **decisão de planejamento, ainda não implementada.**
+
+JP propôs, e ficou combinado incluir no escopo do Módulo Financeiro (próximo módulo da Fase 4):
+o usuário envia a imagem/PDF de um documento (nota, boleto, recibo) e o sistema **pré-preenche**
+os campos do lançamento (valor, data, categoria, contraparte, tipo receita/despesa) para o
+usuário validar ou corrigir — o lançamento só é gravado no banco e entra nos cálculos depois da
+confirmação explícita do usuário (nenhuma escrita automática).
+
+- **Abordagem escolhida:** LLM com visão (Anthropic API), não um pipeline OCR clássico
+  (Tesseract/regex) nem um serviço Python separado — mais robusto para nota manuscrita/foto de
+  celular, e mais simples de manter. Implementação natural: uma Supabase Edge Function (Deno/
+  TS, mesmo padrão já usado no fluxo de convite, ADR-0003) recebe o arquivo, chama a API da
+  Anthropic pedindo um JSON estruturado com os campos do formulário, devolve pro frontend só
+  pré-preencher — sem gravação automática.
+- **Modelo:** Claude Haiku 4.5 como padrão (tarefa de classificação/extração, não exige
+  raciocínio complexo — custo estimado bem abaixo de R$ 10/mês mesmo em uso intenso); modelo
+  mais forte (Sonnet/Opus) como fallback pontual só se documentos muito degradados
+  (manuscrito ilegível, foto de baixa qualidade) gerarem erro de extração na prática.
+- **UX:** nenhuma mudança de schema necessária — o dado extraído fica só no estado do
+  formulário de "Novo Lançamento" até o usuário confirmar/editar e salvar; o INSERT em
+  `lancamentos_financeiros` continua sendo o mesmo de sempre.
+
+Sem ADR/log formal ainda — entra no escopo de implementação quando o Módulo Financeiro (item
+18) for construído.
+
+### 2026-07-21 — Módulo Financeiro (item 18) implementado por completo
+
+**Seção afetada:** 5.2 (Módulo Financeiro).
+
+O módulo foi construído em passos ao longo do dia 2026-07-21, com duas mudanças de escopo em
+relação ao planejado acima:
+
+- **Classificação assistida por IA:** implementada via **Gemini**, não Anthropic como cogitado
+  inicialmente — decisão de JP ao criar o ambiente de "Configuração de Modelo de IA"
+  (`/app/configuracoes/ia`, item novo fora da spec original), que permite ao admin da fazenda
+  escolher entre Anthropic/OpenAI/Gemini (chave de API compartilhada da plataforma, não
+  bring-your-own-key); só Gemini tem integração real nesta primeira leva. Edge Function
+  `classificar-documento` faz a extração e devolve os campos pro frontend pré-preencher — sem
+  gravação automática, exatamente como planejado.
+- **Campo "Pago" (Sim/Não) + data do pagamento:** pedido explícito de JP, fora da spec
+  original — todo lançamento agora tem esse par de campos (`pago`/`data_pagamento`).
+- **Repositório de Documentos Fiscais:** também fora do planejamento original acima — cada
+  lançamento pode ter um documento fiscal anexado (nota/boleto/recibo), guardado num bucket
+  próprio agrupado por mês da nota, com tela dedicada de filtro/download e exportação em ZIP do
+  mês (nomeação de arquivo garantindo ordem cronológica ao descompactar).
+- **Fluxo de Caixa consolidado + exportação CSV:** visão de receitas × despesas por período,
+  somando vendas/compras de animais (Módulo de Transações) aos lançamentos financeiros gerais
+  sem duplicar o valor dos que já estão vinculados a uma transação de animal.
+
+Detalhe completo de cada passo em `.agents/memory/PROJECT_CONTEXT.md` (seção 1) e nos logs
+`.agents/memory/log/2026-07-21-fase4-modulo-financeiro-lancamentos.md`,
+`2026-07-21-configuracao-modelo-ia.md`, `2026-07-21-edge-function-classificar-documento.md`,
+`2026-07-21-documentos-fiscais-repositorio.md` e `2026-07-21-fluxo-caixa-consolidado.md`.
+
 ---

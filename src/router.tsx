@@ -16,6 +16,11 @@ import { TransacaoDetailPage } from "@/pages/rebanho/TransacaoDetailPage"
 import { SaldoRebanhoPage } from "@/pages/rebanho/SaldoRebanhoPage"
 import { GtasListPage } from "@/pages/gtas/GtasListPage"
 import { GtaDetailPage } from "@/pages/gtas/GtaDetailPage"
+import { LancamentosListPage } from "@/pages/financeiro/LancamentosListPage"
+import { LancamentoDetailPage } from "@/pages/financeiro/LancamentoDetailPage"
+import { ConfiguracaoIaPage } from "@/pages/configuracoes/ConfiguracaoIaPage"
+import { DocumentosFiscaisPage } from "@/pages/financeiro/DocumentosFiscaisPage"
+import { FluxoCaixaPage } from "@/pages/financeiro/FluxoCaixaPage"
 
 // Mapa de rotas da área logada (especificacao-sistema.md, seção 8).
 // Fase 2 — Eixo 1 (Gestão Individual de Rebanho: dashboard, animais, lotes,
@@ -29,7 +34,6 @@ const appRoutes: {
   fase: string
 }[] = [
   { path: "rebanho", title: "Painel Inteligente", fase: "Fase 4" },
-  { path: "rebanho/financeiro", title: "Financeiro", fase: "Fase 4" },
   { path: "rebanho/declaracoes", title: "Declaração Anual de Rebanho", fase: "Fase 4" },
   { path: "configuracoes", title: "Configurações", fase: "Fase 4" },
   {
@@ -65,6 +69,11 @@ export const router = createBrowserRouter([
       { path: "rebanho/saldo", element: <SaldoRebanhoPage /> },
       { path: "rebanho/gtas", element: <GtasListPage /> },
       { path: "rebanho/gtas/:id", element: <GtaDetailPage /> },
+      { path: "rebanho/financeiro", element: <LancamentosListPage /> },
+      { path: "rebanho/financeiro/:id", element: <LancamentoDetailPage /> },
+      { path: "rebanho/financeiro-documentos", element: <DocumentosFiscaisPage /> },
+      { path: "rebanho/fluxo-caixa", element: <FluxoCaixaPage /> },
+      { path: "configuracoes/ia", element: <ConfiguracaoIaPage /> },
       ...appRoutes.map((route) => ({
         path: route.path,
         element: <PlaceholderPage title={route.title} fase={route.fase} />,

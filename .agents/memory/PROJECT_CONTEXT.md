@@ -300,6 +300,98 @@
   porque seta o valor inteiro de uma vez, sem disparar o `useEffect` no meio do caminho. Afeta
   TODOS os campos de peso/valor do app (compartilhado) — `build`/`lint`/`test` (36/36) limpos,
   sem log dedicado (fix pontual de componente, não decisão de arquitetura).
+- **Módulo Financeiro iniciado (2026-07-21): listagem/CRUD de lançamentos** (item 18, passo
+  1/3, `/app/rebanho/financeiro` + `/app/rebanho/financeiro/:id`) — filtros (tipo/categoria/
+  pago/período), paginação, resumo de receitas/despesas, vínculo opcional a uma transação de
+  animal. **Campo novo pedido por JP, fora da spec original:** "Pago" (Sim/Não) + data do
+  pagamento obrigatória quando Sim (migration
+  `20260721070000_lancamentos_financeiros_pago.sql`, mesmo padrão de
+  `gtas.status_liberacao`/`data_liberacao`). Papel `financeiro` só lê (RLS já bloqueava escrita
+  desde a Fase 3, item 13) — botão "Novo Lançamento" e formulário de edição escondidos para
+  esse papel. Validado com `build`/`lint`/`test` (36/36, build limpo já na primeira tentativa)
+  e teste funcional real com reload de página confirmando persistência do campo `pago`. Gate do
+  `cyber_chief` não rodado (só frontend). Ver
+  `.agents/memory/log/2026-07-21-fase4-modulo-financeiro-lancamentos.md`. **Próximos passos do
+  módulo:** classificação assistida por IA (ver decisão de planejamento acima) e visão
+  consolidada de fluxo de caixa + exportação.
+- **Configuração de Modelo de IA (2026-07-21):** JP pediu "ambiente para os admin da conta
+  escolherem a LLM usada no sistema" (Anthropic/OpenAI/Gemini). **Decisão confirmada:** chave
+  de API compartilhada/nossa, não BYOK — admin só escolhe entre provedor/modelo já configurado
+  no backend. Migration `20260721080000_fazendas_config_llm.sql` —
+  `fazendas.llm_provider`/`llm_model` + trigger `restringir_alteracao_config_llm` (só papel
+  `admin` pode alterar — achado real: a policy `fazendas_update_vinculada` existente autorizava
+  qualquer papel vinculado, sem essa guarda `membro`/`financeiro` poderiam mudar a config).
+  Nova tela `/app/configuracoes/ia` ("Modelo de IA" no menu). Catálogo de modelos em
+  `src/lib/llmCatalog.ts` — Anthropic (Haiku 4.5/Sonnet 5/Opus 4.8, fonte verificada), OpenAI
+  (gpt-4o-mini/gpt-4o, sugestão de confiança média, não verificada ao vivo), Gemini (lista
+  fornecida diretamente por JP: gemini-2.5-pro/gemini-2.5-flash/gemini-3.5-flash/
+  gemini-3.1-pro-preview/gemini-3-pro-preview). **Validado com teste real de segurança**
+  (usuário de teste temporário vinculado como `membro`, logado de verdade via
+  `@supabase/supabase-js`, UPDATE bloqueado com a mensagem exata do trigger). **Achado
+  operacional:** o trigger bloqueia até UPDATE via `psql` superusuário direto (`auth.uid()` é
+  NULL fora de sessão autenticada) — para corrigir esses campos via SQL direto no futuro,
+  precisa `alter table public.fazendas disable/enable trigger
+  restringir_alteracao_config_llm`. Ainda NÃO implementado: a Edge Function que de fato chama o
+  provedor escolhido (esta tarefa só persiste a escolha). Ver
+  `.agents/memory/log/2026-07-21-configuracao-modelo-ia.md`.
+- **Edge Function `classificar-documento` construída (2026-07-21)** — pedido de JP: "constroi a
+  edge function usando gemini como padrao". Recebe imagem/PDF, lê `fazendas.llm_provider/
+  llm_model` (via client do usuário, RLS já restringe), chama o Gemini (`generateContent` +
+  `responseSchema` para JSON estruturado) e devolve os 7 campos de `lancamentos_financeiros`
+  pro frontend pré-preencher — **nunca grava no banco**. DEFAULT de
+  `fazendas.llm_provider`/`llm_model` trocado para `'gemini'`/`'gemini-2.5-flash'` (migration
+  `20260721090000`, só Gemini está implementado). Deployada com sucesso
+  (`supabase functions deploy`). **Pendência de infraestrutura (mesma classe do
+  RESEND_API_KEY/ADR-0003):** `GEMINI_API_KEY` não configurada ainda — a function detecta e
+  retorna erro claro em vez de falhar confuso; ninguém gerou a chave ainda. Validado de ponta a
+  ponta contra a function real deployada (Playwright): toda a cadeia funciona (auth, leitura de
+  config via RLS, checagem de provedor/chave), só a chamada real ao Gemini não foi validada
+  (sem chave disponível). Testes Deno escritos mas não executados (CLI Deno ausente no Windows
+  de desenvolvimento). Ver `.agents/memory/log/2026-07-21-edge-function-classificar-documento.md`.
+- **Repositório de Documentos Fiscais construído (2026-07-21)** — pedido de JP: guardar o
+  documento original (nota/boleto/recibo) de cada lançamento financeiro, separado dos
+  documentos de transação de pecuária, agrupado por mês da nota, com tela para financeiro/
+  contábil + admin (filtros ano/mês) e download em ZIP do mês. Migration
+  `20260721100000_lancamentos_documentos_fiscais.sql` — `lancamentos_financeiros.arquivo_path/
+  arquivo_mime_type` + bucket `lancamentos-documentos` (caminho
+  `{fazenda_id}/{AAAA-MM do data_lancamento}/{id}.{ext}`). **Compressão de imagem no cliente**
+  antes do upload (`src/lib/comprimirImagem.ts`, canvas → JPEG qualidade 0.8, só se realmente
+  menor) — PDF e HEIC/HEIF não são comprimidos (risco/suporte de navegador). Tela
+  `/app/rebanho/financeiro-documentos` ("Documentos Fiscais" no menu). **Edge Function nova
+  `gerar-zip-lancamentos`** — monta ZIP do mês com `npm:jszip`, nomeando cada arquivo
+  `{AAAA-MM-DD}_{NNN}_{entrada|saida}_{categoria}.{ext}` (pedido explícito de JP: ordem
+  alfabética = ordem cronológica, NNN = sequencial no mês). Deployada com sucesso. **Validado de
+  ponta a ponta de verdade:** Playwright criou 2 lançamentos reais, enviou imagem real (testando
+  compressão) e PDF, baixou o ZIP via evento real de download do navegador e **extraiu o ZIP
+  para conferir o conteúdo** — nomes e ordem exatamente como pedido. Ver
+  `.agents/memory/log/2026-07-21-documentos-fiscais-repositorio.md`.
+- **Fluxo de Caixa consolidado + exportação CSV construído (2026-07-21)** — último passo do
+  Módulo Financeiro (item 18, spec seção 5.2). View nova `fluxo_caixa_consolidado`
+  (`security_invoker=true`, migration `20260721110000_fluxo_caixa_consolidado.sql`) faz `UNION
+  ALL` de (a) `transacoes` com `tipo_operacao in ('compra','venda')` e `valor_nota` preenchido
+  (categoria "Venda de Animais"/"Compra de Animais") e (b) `lancamentos_financeiros` **onde
+  `transacao_animal_id is null`** — exclusão deliberada para não contar duas vezes o dinheiro de
+  um lançamento já vinculado a uma transação de animal (o comentário original dessa coluna, da
+  migration do item 13, já previa esse uso). Sem tabela/RPC nova — RLS das duas tabelas de
+  origem já cobre a fronteira de `financeiro` (só leitura). Tela nova
+  `/app/rebanho/fluxo-caixa` ("Fluxo de Caixa" no menu, entre Financeiro e Documentos Fiscais) —
+  cards de Total Receitas/Despesas/Saldo Líquido, filtros ano/mês/tipo/categoria, tabela com link
+  de volta pra origem (transação ou lançamento, conforme `origem`/`origem_id` da view).
+  **Exportação:** só CSV (não `.xlsx` binário — exigiria dependência nova tipo `xlsx`/`exceljs`,
+  não usada no projeto; escopo combinado com JP era "CSV/Excel" e CSV abre no Excel sem
+  problema). Geração client-side (Blob + BOM UTF-8, sem Edge Function). **Validado de ponta a
+  ponta com dados reais:** Playwright criou 2 lançamentos de teste (despesa 05/07 e receita
+  20/07, R$250 cada), confirmou que a view já trazia uma transação de venda de animal real
+  (R$20.000, Frigorífico Zimmer) somada corretamente às receitas antes mesmo de criar os testes,
+  confirmou filtro por tipo (Despesa isola só o lançamento despesa), baixou o CSV de verdade e
+  leu o conteúdo (linhas e valores batendo), e confirmou que o link da linha de origem navega
+  pro lançamento financeiro certo (`input[name="descricao"]` com o valor esperado). Teste mobile
+  (390px) sem overflow horizontal. Dados de teste removidos do banco ao final via SQL direto.
+  `build`/`lint`/`test` (36/36) limpos. Gate do `cyber_chief` não rodado (só view read-only +
+  frontend, sem tabela nova nem RPC). Ver
+  `.agents/memory/log/2026-07-21-fluxo-caixa-consolidado.md`. **Módulo Financeiro (item 18)
+  agora completo** do ponto de vista funcional: lançamentos, Pago/data pagamento, classificação
+  por IA, documentos fiscais + ZIP, fluxo de caixa consolidado + CSV.
 - **Atualização anterior:** 2026-07-19 — `qa` (Emma) escreveu e **rodou de verdade** a suíte pgTAP
   de RLS/RPC/GMD da Fase 2 (63/63 asserções, incluindo a regressão do bug de GMD do protótipo e
   os 3 achados do gate `cyber_chief`). Ver seção 5 e
@@ -336,6 +428,7 @@
 | 2026-07-16 | Supabase: **projeto novo** (não reaproveita o do protótipo Bolt.new) | JP | Resolve item 2 da Fase 0, seção 10 da spec |
 | 2026-07-16 | **ADR-0001 aceito:** provisionamento de conta no signup via **trigger de banco** `on_auth_user_created` (não Edge Function) — função `SECURITY DEFINER` em `auth.users` cria `usuarios`+`fazendas`+`usuarios_fazendas` (`papel='dono'`) na mesma transação | `architect` (Alex) | Escolhido pela atomicidade real (falha em qualquer insert reverte tudo, inclusive `auth.users` — nunca há conta "meio criada"); Edge Function foi rejeitada por não ser atômica com o signup (janela de rede entre `signUp()` e a chamada da função). Implicação de RLS: nenhuma policy de INSERT necessária/permitida para `authenticated`/`anon` nessas 3 tabelas. Revisar quando o papel Financeiro/Contábil (Fase 6) entrar — hoje a função assume que todo signup cria fazenda nova. Ver `.agents/memory/adr/ADR-0001-provisionamento-conta.md` |
 | 2026-07-16 | **ADR-0002 aceito:** papel único hierárquico `admin/membro/financeiro` (substitui `dono`) + convite para fazenda existente (novo usuário ou já cadastrado) já nesta fase, não só Fase 6. Escrita em `usuarios_fazendas`/`convites` só via 4 funções `SECURITY DEFINER` (`aceitar_convite`, `promover_papel`, `criar_convite`, `cancelar_convite`) — zero policy de INSERT/UPDATE/DELETE nova para `authenticated`/`anon`, generalizando a correção do `cyber_chief` na Fase 1. Envio de convite a quem não tem conta exige Edge Function nova (`enviar-convite`, `service_role`) | `architect` (Alex) | Substitui parcialmente o ADR-0001 (só a premissa "todo signup cria fazenda nova"; resto do ADR-0001 continua válido). Ver `.agents/memory/adr/ADR-0002-convites-e-papeis-admin.md` |
+| 2026-07-21 | **Módulo Financeiro (item 18) vai incluir classificação assistida por IA de lançamentos:** usuário envia imagem/PDF de um documento (nota/boleto/recibo), sistema pré-preenche valor/data/categoria/contraparte/tipo via Supabase Edge Function chamando a API da Anthropic (Claude Haiku 4.5 — extração/classificação, custo estimado <R$10/mês mesmo em uso intenso), usuário confirma/edita antes de qualquer gravação. Sem mudança de schema — dado extraído fica só no estado do formulário até confirmação | JP | Decisão de planejamento, ainda não implementada — entra no escopo quando o Módulo Financeiro for construído. Ver spec seção 12, entrada "Planejado: classificação assistida por IA de lançamentos financeiros" |
 | 2026-07-17 | **ADR-0003 aceito:** provedor de e-mail transacional = **Resend** (API HTTP simples sem SDK Node-específico, tier gratuito de 3.000 e-mails/mês, deliverability adequada) para o branch "convidado já tem conta" de `enviarEmailConvite()`. Código implementado gated por `RESEND_API_KEY` (opcional, ausente hoje — fallback de log preservado). `APP_URL` de dev local = `http://localhost:5173` (porta padrão do Vite, sem `server.port` customizado) | `devops` (Oliver) | Precisa de ação humana para completar: criar conta Resend, gerar API key, rodar `supabase secrets set RESEND_API_KEY=...`/`APP_URL=...` e `supabase functions deploy`. Atualizar `APP_URL` para a URL pública real quando o frontend for deployado (Vercel/Netlify). Ver `.agents/memory/adr/ADR-0003-provedor-email-transacional.md` |
 
 ---
@@ -382,14 +475,18 @@
    como referência histórica de que a decisão já foi revisitada.
 
 **Pendência de trabalho (não bloqueante — schema/frontend prontos, gate de segurança ainda NÃO
-rodado):** Módulos de Transações (item 15), Saldo de Rebanho (item 16) e GTAs (item 17) da Fase 4
-— construídos e testados visual+funcionalmente por `developer` em 2026-07-21 (ver seção 1/5), mas
-**sem gate do `cyber_chief`** em nenhum dos três. Nenhuma migration nova em nenhuma das três
-tarefas (só frontend/PostgREST), mas o RLS que as telas expõem já passou pelos gates da Fase 3
+rodado):** Módulos de Transações (item 15), Saldo de Rebanho (item 16), GTAs (item 17) e todo o
+Módulo Financeiro (item 18 — lançamentos/Pago, Configuração de IA, `classificar-documento`,
+Documentos Fiscais/ZIP, Fluxo de Caixa/CSV) da Fase 4 — construídos e testados
+visual+funcionalmente por `developer` ao longo de 2026-07-21 (ver seção 1/5), mas **sem gate do
+`cyber_chief`** em nenhum deles. A maior parte não tem migration de RLS nova (só frontend/
+PostgREST/view read-only), mas o RLS que as telas expõem já passou pelos gates da Fase 3
 (`gtas`/`transacoes`/Storage/`obter_saldo_rebanho()`) — revisar se vale um gate leve focado em
 frontend (ex.: upload client-side respeita `allowed_mime_types`? o filtro `accept` do
 `<input type="file">` é só UX, não é validação de segurança — a validação real já é o
-`allowed_mime_types` do bucket, que rejeita no servidor).
+`allowed_mime_types` do bucket, que rejeita no servidor) mais as migrations que sim são novas
+desta fase (`pago`/`data_pagamento`, config de LLM + trigger `restringir_alteracao_config_llm`,
+buckets `lancamentos-documentos`, view `fluxo_caixa_consolidado`).
 
 **Nota técnica para o Módulo de GTAs (item 17, próximo depois de Saldo de Rebanho):** o embed
 PostgREST entre `transacoes` e `gtas` exige o hint de constraint (`gtas!transacoes_gta_id_fkey` ou
@@ -583,6 +680,46 @@ responde HTTP 200, não que a UI renderiza/interage corretamente.
 
 ## 5. Histórico de Tarefas Complexas (mais recente primeiro)
 
+### 2026-07-21 — Fase 4, Módulo Financeiro: Fluxo de Caixa consolidado + exportação CSV (item 18, passo 3/3, final) — `developer` (via Claude)
+
+- **O que foi feito:** view `fluxo_caixa_consolidado` (migration
+  `20260721110000_fluxo_caixa_consolidado.sql`, `security_invoker=true`) — `UNION ALL` de
+  `transacoes` (compra/venda com `valor_nota`) e `lancamentos_financeiros` (excluindo os
+  vinculados a `transacao_animal_id`, pra não contar o mesmo dinheiro duas vezes). Tela
+  `/app/rebanho/fluxo-caixa` ("Fluxo de Caixa" no menu) — cards de totais, filtros ano/mês/tipo/
+  categoria, link de volta pra origem. Exportação CSV client-side (sem Edge Function).
+- **Escopo decidido:** só CSV, não `.xlsx` binário (exigiria dependência nova não usada no
+  projeto; CSV já abre bem no Excel com BOM UTF-8).
+- **Validação:** `build`/`lint`/`test` (36/36) limpos; teste funcional real (Playwright,
+  Supabase remoto) confirmou a UNION funcionando com dado real pré-existente (venda de animal
+  real de R$20.000) e com lançamentos de teste criados na hora, filtros ano/mês/tipo, CSV
+  baixado e lido de verdade, link de origem navegando pro lançamento certo. Teste mobile sem
+  overflow. Dados de teste limpos via SQL direto ao final.
+- **Gate do `cyber_chief`:** NÃO rodado (mesma pendência acumulada da Fase 4 — ver seção 4).
+- **Log:** `.agents/memory/log/2026-07-21-fluxo-caixa-consolidado.md`.
+- **Módulo Financeiro (item 18) agora completo:** lançamentos + Pago/data pagamento +
+  classificação por IA + documentos fiscais/ZIP + fluxo de caixa/CSV.
+- **Próximos passos combinados com JP:** Declaração Anual (item 19), Configurações/Prazos de
+  Declaração (item 20), Painel Inteligente (item 21).
+
+### 2026-07-21 — Fase 4, Módulo Financeiro: listagem/CRUD de lançamentos (item 18, passo 1/3) — `developer` (via Claude)
+
+- **O que foi feito:** `/app/rebanho/financeiro` (listagem, filtros tipo/categoria/pago/
+  período, resumo receitas/despesas, paginação, "Novo Lançamento") +
+  `/app/rebanho/financeiro/:id` (detalhe, edição inline, transação de animal vinculada). Papel
+  `financeiro` só lê (RLS já bloqueava escrita desde a Fase 3).
+- **Campo novo pedido por JP:** "Pago" (Sim/Não) + data do pagamento obrigatória quando Sim —
+  migration `20260721070000_lancamentos_financeiros_pago.sql`, mesmo padrão de
+  `gtas.status_liberacao`/`data_liberacao`.
+- **Validação:** `build`/`lint`/`test` (36/36) limpos, build passou de primeira; teste
+  funcional real (Playwright, desktop+mobile, Supabase remoto) com reload de página
+  confirmando persistência do campo `pago`.
+- **Gate do `cyber_chief`:** NÃO rodado (só frontend, sem migration de RLS nova).
+- **Log:** `.agents/memory/log/2026-07-21-fase4-modulo-financeiro-lancamentos.md`.
+- **Próximos passos combinados com JP:** classificação assistida por IA de lançamentos
+  (Edge Function + Anthropic API, Claude Haiku 4.5 — decisão de planejamento, seção 2/12 da
+  spec) e visão consolidada de fluxo de caixa + exportação CSV/Excel.
+
 ### 2026-07-21 — Correções pós-entrega do Módulo de GTAs: cardinalidade N, quantidade_animais, liberação por upload, bucket de declarações aceita imagem — `db_sage`+`developer` (via Claude)
 
 - **O que foi feito:** três correções reais pedidas por JP logo após a primeira entrega do
@@ -619,7 +756,13 @@ responde HTTP 200, não que a UI renderiza/interage corretamente.
   final (SQL direto — `gtas` não tem policy de DELETE pela app, decisão deliberada da Fase 3).
 - **Gate do `cyber_chief`:** NÃO rodado (só frontend, sem migration nova).
 - **Log:** `.agents/memory/log/2026-07-21-fase4-modulo-gtas.md`.
-- **Próximo passo combinado com JP:** Módulo Financeiro (item 18).
+- **Próximo passo combinado com JP:** Módulo Financeiro (item 18) — **escopo ampliado em
+  2026-07-21** (ver seção 2, decisão de planejamento) para incluir classificação assistida por
+  IA de lançamentos financeiros: usuário envia imagem/PDF de um documento, sistema pré-preenche
+  os campos (valor/data/categoria/contraparte/tipo) via Supabase Edge Function chamando a API
+  da Anthropic (Claude Haiku 4.5 — custo estimado <R$10/mês mesmo em uso intenso), usuário
+  confirma/edita antes de qualquer gravação em `lancamentos_financeiros`. Sem mudança de schema
+  — dado extraído fica só no estado do formulário até confirmação. Ainda não implementado.
 
 ### 2026-07-21 — Fase 4, Módulo de Saldo de Rebanho (item 16) — `developer` (via Claude)
 

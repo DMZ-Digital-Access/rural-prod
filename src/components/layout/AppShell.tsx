@@ -38,12 +38,15 @@ const rebanhoCompliance: NavItem[] = [
   { to: "/app/rebanho/gtas", label: "GTAs" },
   { to: "/app/rebanho/transacoes", label: "Transações" },
   { to: "/app/rebanho/financeiro", label: "Financeiro" },
+  { to: "/app/rebanho/fluxo-caixa", label: "Fluxo de Caixa" },
+  { to: "/app/rebanho/financeiro-documentos", label: "Documentos Fiscais" },
   { to: "/app/rebanho/declaracoes", label: "Declarações" },
 ]
 
 const configuracoes: NavItem[] = [
   { to: "/app/configuracoes", label: "Configurações", end: true },
   { to: "/app/configuracoes/prazos-declaracao", label: "Prazos de Declaração" },
+  { to: "/app/configuracoes/ia", label: "Modelo de IA" },
   { to: "/app/configuracoes/equipe", label: "Equipe" },
 ]
 
