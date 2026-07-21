@@ -155,7 +155,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="flex min-h-svh flex-col lg:flex-row">
-      <header className="flex items-center justify-between gap-2 border-b border-border p-3 lg:hidden">
+      <header className="flex items-center justify-between gap-2 border-b border-border p-3 lg:hidden print:hidden">
         <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
           <SheetTrigger
             render={
@@ -179,7 +179,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         <div className="w-7" aria-hidden="true" />
       </header>
 
-      <aside className="hidden w-60 shrink-0 flex-col gap-6 border-r border-border bg-sidebar p-4 lg:flex">
+      <aside className="hidden w-60 shrink-0 flex-col gap-6 border-r border-border bg-sidebar p-4 lg:flex print:hidden">
         <div className="px-2 text-lg font-semibold">Livestock Control</div>
         <SidebarNav email={user?.email} onLogout={handleLogout} />
       </aside>

@@ -11,6 +11,11 @@ import { AnimalDetailPage } from "@/pages/animais/AnimalDetailPage"
 import { LotesListPage } from "@/pages/lotes/LotesListPage"
 import { LoteDetailPage } from "@/pages/lotes/LoteDetailPage"
 import { ComparativoPage } from "@/pages/comparativo/ComparativoPage"
+import { TransacoesListPage } from "@/pages/rebanho/TransacoesListPage"
+import { TransacaoDetailPage } from "@/pages/rebanho/TransacaoDetailPage"
+import { SaldoRebanhoPage } from "@/pages/rebanho/SaldoRebanhoPage"
+import { GtasListPage } from "@/pages/gtas/GtasListPage"
+import { GtaDetailPage } from "@/pages/gtas/GtaDetailPage"
 
 // Mapa de rotas da área logada (especificacao-sistema.md, seção 8).
 // Fase 2 — Eixo 1 (Gestão Individual de Rebanho: dashboard, animais, lotes,
@@ -24,9 +29,6 @@ const appRoutes: {
   fase: string
 }[] = [
   { path: "rebanho", title: "Painel Inteligente", fase: "Fase 4" },
-  { path: "rebanho/saldo", title: "Saldo de Rebanho", fase: "Fase 4" },
-  { path: "rebanho/gtas", title: "GTAs", fase: "Fase 4" },
-  { path: "rebanho/transacoes", title: "Entradas e Saídas", fase: "Fase 4" },
   { path: "rebanho/financeiro", title: "Financeiro", fase: "Fase 4" },
   { path: "rebanho/declaracoes", title: "Declaração Anual de Rebanho", fase: "Fase 4" },
   { path: "configuracoes", title: "Configurações", fase: "Fase 4" },
@@ -58,6 +60,11 @@ export const router = createBrowserRouter([
       { path: "lotes", element: <LotesListPage /> },
       { path: "lotes/:id", element: <LoteDetailPage /> },
       { path: "comparativo", element: <ComparativoPage /> },
+      { path: "rebanho/transacoes", element: <TransacoesListPage /> },
+      { path: "rebanho/transacoes/:id", element: <TransacaoDetailPage /> },
+      { path: "rebanho/saldo", element: <SaldoRebanhoPage /> },
+      { path: "rebanho/gtas", element: <GtasListPage /> },
+      { path: "rebanho/gtas/:id", element: <GtaDetailPage /> },
       ...appRoutes.map((route) => ({
         path: route.path,
         element: <PlaceholderPage title={route.title} fase={route.fase} />,

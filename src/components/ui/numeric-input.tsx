@@ -43,12 +43,21 @@ export function NumericInput({
     value === null || value === undefined ? "" : formatarPtBr(value, casasDecimais)
   )
 
-  // Reformata quando o valor externo muda por um caminho que não é a
+  // Reformata quando o valor externo muda por um caminho que NÃO é a
   // digitação neste próprio input (ex.: form.reset() ao fechar o dialog).
+  // A guarda `paraNumero(texto) === value` é essencial: como este efeito
+  // depende de `value`, e o próprio onChange abaixo já atualiza `value` a
+  // cada tecla digitada, sem a guarda o efeito reformatava (arredondando
+  // para `casasDecimais`) a CADA tecla — na prática travando a digitação
+  // em 1 dígito assim que casasDecimais > 0 (ex.: digitar "1" virava
+  // "1,00" imediatamente, e a tecla seguinte já entrava depois da vírgula
+  // em vez de continuar o número inteiro). Só reformata quando o valor
+  // externo realmente diverge do que já está digitado.
   useEffect(() => {
+    if (paraNumero(texto) === value) return
     setTexto(value === null || value === undefined ? "" : formatarPtBr(value, casasDecimais))
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [value])
+  }, [value, casasDecimais])
 
   return (
     <Input

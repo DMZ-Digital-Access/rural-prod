@@ -214,7 +214,7 @@ export function SaidaAnimaisIndividuaisForm({
                 <FormLabel>Peso total, kg (opcional)</FormLabel>
                 <FormControl>
                   <NumericInput
-                    casasDecimais={0}
+                    casasDecimais={1}
                     name={field.name}
                     value={field.value}
                     onChange={field.onChange}

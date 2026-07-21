@@ -6,8 +6,8 @@
 ## O que foi feito
 
 Migration `20260721030000_fase3_storage_buckets.sql` — 3 buckets privados:
-1. `declaracoes-rebanho` (só PDF, spec original) — `financeiro` lê, admin/membro escreve, sem
-   DELETE (spec: nunca apagável).
+1. `declaracoes-rebanho` (PDF, spec original — **correção em 2026-07-21, ver abaixo:** também
+   aceita imagem) — `financeiro` lê, admin/membro escreve, sem DELETE (spec: nunca apagável).
 2. `gtas-documentos` (PDF ou imagem, spec original) — `financeiro` ZERO acesso (mesma fronteira
    de `gtas`), admin/membro lê/escreve, sem DELETE.
 3. `transacoes-documentos` (**novo, não estava na spec original — ADR-0005 D3**) — para os
@@ -29,6 +29,16 @@ Declarações.
 
 Gate do `cyber_chief` concluído (🟢) — ver
 `.agents/memory/log/2026-07-21-cyber_chief-review-storage-buckets.md`.
+
+## Correção posterior (2026-07-21, durante o Módulo de GTAs)
+
+JP corrigiu: "as declarações de rebanho também podem ser imagem, além do formato pdf" — a spec
+original só previa PDF para este documento especificamente (diferente de GTAs/Notas/Contranotas,
+que já aceitavam imagem desde o início). Migration
+`20260721060000_declaracoes_rebanho_aceita_imagem.sql` atualiza
+`storage.buckets.allowed_mime_types` do bucket `declaracoes-rebanho` para o mesmo conjunto já
+usado nos outros dois buckets (PDF + JPEG/PNG/WebP/HEIC/HEIF). Aplicada e confirmada no remoto —
+os 3 buckets agora aceitam exatamente o mesmo conjunto de formatos.
 
 ## Pendências
 

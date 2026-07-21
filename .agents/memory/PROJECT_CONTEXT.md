@@ -177,7 +177,130 @@
   teste visual real em viewport mobile do projeto (Playwright, 390×844, contra o remoto). Eixo 2
   fica de fora (placeholder). Ver seção 5 e
   `.agents/memory/log/2026-07-20-developer-retrofit-mobile-eixo1.md`.
-- **Última atualização:** 2026-07-19 — `qa` (Emma) escreveu e **rodou de verdade** a suíte pgTAP
+- **Última atualização:** 2026-07-21 — **Fase 4 iniciada** (telas reais do Eixo 2), primeiro
+  módulo: **Módulo de Transações** (item 15 da seção 10, `/app/rebanho/transacoes` +
+  `/app/rebanho/transacoes/:id`), escolhido por JP como o primeiro dos 6 módulos ("um módulo por
+  vez, começando por Transações, ordem da spec"). Lista com resumo de saldo início/fim de ano por
+  espécie (reaproveita `obter_saldo_rebanho()`), filtros (ano/espécie/operação/contraparte) e
+  paginação (spec seção 6, requisito crítico para tabelas densas). Detalhe individual mostra
+  sexo/faixa etária (`transacoes_detalhe`), GTA vinculada, e o fluxo de doc-tracking progressivo
+  descrito por JP na sessão anterior: Nota/Contranota com badge Presente/Pendente + upload real
+  para o bucket `transacoes-documentos` (item 14, primeira tela a usar de fato o upload que tinha
+  ficado pendente) + "Ver documento" via signed URL; formulário para completar número/valor da
+  nota, peso total, status da GTA e observações a qualquer momento, sem exigir nada no lançamento
+  inicial. Acesso de `financeiro` tratado como somente-leitura (esconde upload/formulário de
+  edição, mas SELECT no restante da tela funciona — RLS já cobria isso desde a Fase 3).
+  **Achado real durante o teste visual, corrigido nesta mesma tarefa:** o embed PostgREST
+  `transacoes -> gtas` retornava **HTTP 300 Multiple Choices** (não um erro visível no console,
+  a tela ficava presa em "Carregando…" para sempre) — causa: a referência circular deliberada
+  `transacoes.gta_id <-> gtas.transacao_id` (ADR/migration item 11, decisão 1) dá ao PostgREST
+  duas FKs candidatas para o mesmo embed, e ele não escolhe sozinha. Corrigido com o hint
+  explícito de constraint `gtas!transacoes_gta_id_fkey(...)` no `select`. Vale o registro para
+  qualquer embed futuro envolvendo `transacoes`/`gtas` (Módulo de GTAs, item 17, vai precisar do
+  mesmo cuidado no sentido inverso). Também reincidiu (e foi corrigido do mesmo jeito já
+  documentado antes) o bug de `useForm({ values: ... })` trocando de não-controlado para
+  controlado quando os dados assíncronos chegam — `Select` de Status da GTA ficava em branco;
+  resolvido com `useEffect` + `form.reset()` explícito, mesmo padrão já usado em
+  `SaidaAnimaisIndividuaisForm`/`EntradaAgregadaForm`.
+  **Validação:** `npm run build`/`lint`/`test` (36/36) limpos; teste visual real (Playwright,
+  desktop 1440×900 + mobile 390×844, Supabase remoto, conta de teste real) — lista e detalhe
+  sem overflow nem erro de console em nenhum dos dois viewports; teste funcional de ponta a
+  ponta (não só visual): editou número/valor da nota e status da GTA, **recarregou a página** e
+  confirmou persistência real no banco (não só estado local do form); fez upload real de um PDF
+  de teste para o bucket `transacoes-documentos`, confirmou o badge mudar para "Presente" e o
+  botão "Ver documento" abrir a signed URL de verdade. Dados de teste (número/valor/status/
+  observações/arquivo da transação usada) resetados ao original ao final — o arquivo de teste em
+  si fica no bucket (mesma limitação já documentada no log do item 14: sem `service_role` no
+  `.env` para limpar via Storage API, sem risco real).
+  **Gate do `cyber_chief`:** ainda não rodado nesta tarefa — pendente antes de considerar o
+  módulo definitivamente fechado (ver seção 4).
+  **Log:** `.agents/memory/log/2026-07-21-fase4-modulo-transacoes.md`.
+- **Segundo módulo da Fase 4 concluído (2026-07-21): Módulo de Saldo de Rebanho** (item 16,
+  `/app/rebanho/saldo`) — 100% reaproveitando `obter_saldo_rebanho()` (item 12/ADR-0005), zero
+  migration nova. Seletor de espécie (catálogo completo, não só 3 fixas) + seletor de data de
+  corte + tabela agrupamento etário × sexo com Qtd. Registrada/Pendente + "Imprimir Saldo" via
+  `window.print()` (sidebar/topbar escondidos na impressão via `print:hidden` no `AppShell`).
+  **Achado real corrigido:** a seleção padrão de espécie tinha race condition — decidia assim
+  que o catálogo de espécies carregava, sem esperar a RPC de saldo, e sempre travava em
+  "Abelhas" (primeira alfabética, sem dado nenhum) em vez de "Bovinos" (saldo real de 25);
+  corrigido fazendo o efeito esperar as duas queries. Validado com `build`/`lint`/`test`
+  (36/36) e teste visual real desktop+mobile contra o remoto, confirmando o bug antes da
+  correção e o comportamento certo depois. Gate do `cyber_chief` não rodado (só frontend). Ver
+  `.agents/memory/log/2026-07-21-fase4-modulo-saldo-rebanho.md`.
+- **Terceiro módulo da Fase 4 concluído (2026-07-21): Módulo de GTAs** (item 17,
+  `/app/rebanho/gtas` + `/app/rebanho/gtas/:id`) — listagem com filtros (status/espécie/período),
+  paginação, cadastro (`CriarGtaDialog`) e edição inline no detalhe (mesmo `GtaForm.tsx`
+  compartilhado nos dois), upload real do documento original (bucket `gtas-documentos`) com botão
+  "Ver GTA" só dentro do detalhe (nunca na listagem, conforme spec), vínculo opcional a uma
+  transação (Select das últimas 100 transações). Papel `financeiro` bloqueado explicitamente na
+  UI com mensagem clara (RLS já bloqueava desde a Fase 3, isso é só UX). Reaproveitou o mesmo
+  cuidado do hint de constraint (`transacoes!gtas_transacao_id_fkey`) para o embed
+  `gtas -> transacoes` — confirmado o nome exato via `pg_constraint` antes de escrever, para não
+  repetir o erro 300 já visto no Módulo de Transações. Validado com `build`/`lint`/`test`
+  (36/36) e teste funcional completo (cadastro real + upload real + "Ver GTA" abrindo signed URL)
+  desktop+mobile contra o remoto; dado de teste removido ao final. Gate do `cyber_chief` não
+  rodado (só frontend). Ver `.agents/memory/log/2026-07-21-fase4-modulo-gtas.md`.
+- **Duas correções reais de JP durante o Módulo de GTAs (2026-07-21), ambas aplicadas ao
+  remoto:**
+  1. **Cardinalidade transação↔GTA estava errada.** JP: "as GTAs são feitas uma para cada
+     caminhão que transporta a carga... em uma transação pode existir 1 nota e 1 contranota mas
+     mais de 1 GTA relacionada à mesma operação". A migration original do item 11 desenhou um
+     vínculo circular 1:1 (`transacoes.gta_id` <-> `gtas.transacao_id`) — errado. Corrigido
+     (`20260721050000_corrige_cardinalidade_transacao_gta.sql`) removendo só
+     `transacoes.gta_id` (0/2 preenchido em produção, sem perda de dado) —
+     `gtas.transacao_id` (muitos-para-um) já era a modelagem certa. `TransacaoDetailPage.tsx`
+     agora mostra uma LISTA de GTAs vinculadas (`useGtasDaTransacao`, novo hook), não mais um
+     campo único. Confirmado organicamente no teste: a transação de teste já tinha uma GTA real
+     de sessão anterior (`AC-871811`) vinculada — depois da correção, as DUAS GTAs (a antiga +
+     uma nova de teste) aparecem juntas na lista, prova real da cardinalidade N.
+  2. **`gtas.quantidade_animais` (campo novo, fora da spec original)** — JP pediu para
+     identificar quantos animais estão incluídos em cada documento de GTA
+     (`20260721040000_gtas_quantidade_animais.sql`, nullable — 1 GTA real já existia sem esse
+     campo). Exigido no formulário (zod) a partir de agora.
+  3. **Fluxo de liberação automática ao enviar o documento** — JP pediu que, ao fazer upload do
+     arquivo de uma GTA pendente, o sistema pergunte se deve marcar como liberada (documento
+     chegando é, na prática, o sinal de liberação). Implementado como um card inline em
+     `GtaDetailPage.tsx` com campo de data (default hoje) e as opções "Marcar como liberada"/
+     "Manter pendente". **Achado corrigido no processo:** o form "Editar GTA" precisou de
+     `key={gta.updated_at}` para remontar (react-hook-form só lê `defaultValues` no primeiro
+     mount) — sem isso, confirmar a liberação atualizava o banco mas o form continuava
+     mostrando os valores antigos.
+  Validado com `build`/`lint`/`test` (36/36) e teste funcional real (Playwright, desktop,
+  Supabase remoto) cobrindo as três mudanças de uma vez. Ver
+  `.agents/memory/log/2026-07-21-fase4-modulo-gtas.md` (seção de correção) para o detalhe
+  completo.
+- **Terceira correção de JP, mesma sessão: bucket `declaracoes-rebanho` também aceita imagem**
+  (não só PDF). Migration `20260721060000_declaracoes_rebanho_aceita_imagem.sql` — os 3 buckets
+  do item 14 agora aceitam exatamente o mesmo conjunto de formatos (PDF + JPEG/PNG/WebP/HEIC/
+  HEIF). Ver `.agents/memory/log/2026-07-21-storage-buckets-item14.md` (seção de correção).
+- **Correção no Módulo de Transações (2026-07-21): todos os campos editáveis.** JP pediu que a
+  tela de detalhe da transação permita editar TODOS os campos, "inclusive o número de animais, o
+  nome da outra parte... todos os campos" — antes só numero_nota/valor_nota/peso_total_kg/
+  status_gta_transacao/observacoes eram editáveis. Agora outra_parte/data_operacao/especie_id/
+  quantidade_animais também são, no mesmo form (renomeado "Completar dados da operação" →
+  "Editar operação"). **Única exceção deliberada, confirmada com JP:** `tipo_operacao` continua
+  fixo — trocar o tipo depois de criado deixaria inconsistentes os vínculos já feitos
+  (`transacoes_animais` para Venda/Óbito/Consumo, animais pendentes já criados para Compra/
+  Nascimento/Entrada de Pastoreio). Sem migration (colunas já existiam). Validado com
+  `build`/`lint`/`test` (36/36) e teste funcional real com reload de página confirmando
+  persistência. Ver `.agents/memory/log/2026-07-21-fase4-modulo-transacoes.md` (seção de
+  correção).
+- **Bug real corrigido em `NumericInput` (componente compartilhado, 2026-07-21):** JP reportou
+  que o campo de peso só aceitava "uma casa de número inteiro" antes de travar. Causa raiz: o
+  `useEffect` que resincroniza o texto exibido a partir do `value` externo (pensado só para
+  `form.reset()`) na verdade disparava a CADA tecla digitada (o próprio `onChange` do input já
+  atualiza esse `value`), reformatando/arredondando para `casasDecimais` imediatamente — com
+  `casasDecimais=0` isso não tinha efeito visível (formatar um inteiro sem decimais devolve o
+  mesmo texto), mas assim que qualquer campo passou a usar `casasDecimais>0` (peso total, ver
+  correção anterior desta mesma sessão) digitar "1" virava "1,00" na hora, e a tecla seguinte já
+  entrava depois da vírgula em vez de continuar o número inteiro — impossível digitar números de
+  mais de 1 dígito. Corrigido com uma guarda (`paraNumero(texto) === value`) que só reformata
+  quando o valor externo realmente diverge do que já está digitado. Reproduzido e confirmado só
+  com Playwright `pressSequentially` (digitação tecla-por-tecla real) — `fill()` mascarava o bug
+  porque seta o valor inteiro de uma vez, sem disparar o `useEffect` no meio do caminho. Afeta
+  TODOS os campos de peso/valor do app (compartilhado) — `build`/`lint`/`test` (36/36) limpos,
+  sem log dedicado (fix pontual de componente, não decisão de arquitetura).
+- **Atualização anterior:** 2026-07-19 — `qa` (Emma) escreveu e **rodou de verdade** a suíte pgTAP
   de RLS/RPC/GMD da Fase 2 (63/63 asserções, incluindo a regressão do bug de GMD do protótipo e
   os 3 achados do gate `cyber_chief`). Ver seção 5 e
   `.agents/memory/log/2026-07-19-qa-testes-fase2-gmd.md`. Antes disso, 2026-07-17: `developer`
@@ -239,34 +362,43 @@
 
 ## 4. Bloqueios e Pendências Abertas
 
-**Contexto de produto novo, registrado por JP em 2026-07-20 — para Fase 4 (Transações) e item 14
-(Storage), NÃO implementado ainda:**
+**Contexto de produto registrado por JP em 2026-07-20 (itens 1-2 abaixo) — RESOLVIDO em
+2026-07-21 pelo Módulo de Transações (ver seção 1/5):**
 
-1. **"Doc Faltante" — estado por operação, distinto de "GTA Pendente".** Cada `transacao` pode
-   ter até 3 documentos: Nota, Contranota, GTA — o usuário pode cadastrar a operação com
-   qualquer subconjunto deles (inclusive só a nota própria). Quando falta a GTA → "GTA Pendente"
-   (já implementado, é o que `obter_saldo_rebanho()` usa, spec/print confirmam). Quando falta
-   Nota **e/ou** Contranota → deve ser identificado como **"Doc Faltante"**, um status
-   SEPARADO que não entra na conta de `Qtd. Registrada`/`Qtd. Pendente` do saldo (JP confirmou
-   explicitamente: misturar os dois sob "Pendente" confundiria o usuário, e divergiria do número
-   real do portal da Secretaria, que só conhece GTA). No card/item de cada operação (tela de
-   Transações, Fase 4), os campos pendentes devem aparecer, ou o link do documento para
-   visualização/download quando presente.
-2. **Falta schema para upload dos documentos de Nota/Contranota.** Hoje `transacoes` só tem
-   `numero_nota` (texto) e `tem_contranota` (boolean) — nenhuma coluna de arquivo. Para o "link
-   do documento" que JP descreveu, provavelmente precisa de colunas tipo `arquivo_path`/
-   `arquivo_mime_type` por documento (mesmo padrão já usado em `gtas`), o que cruza com o item
-   14 (Storage), ainda não iniciado. Não modelado nesta sessão — fica para quando o item 14
-   for retomado.
-3. **Fluxo Compra → Animal individual (Eixo 2 → Eixo 1), confirmado compatível com o schema
-   atual, sem mudança necessária:** ao registrar uma `transacao` de compra, os animais ainda NÃO
-   existem como registros individuais em `animais` — só o saldo agregado
-   (`transacoes_detalhe`) é conhecido no momento da compra. O cadastro individual (identificador,
-   pesagem, "brincagem"/identificação, lote opcional) acontece depois, como passo manual
-   separado do Eixo 1 — sem vínculo automático de volta à `transacao` de compra que originou a
-   entrada. `obter_saldo_rebanho()` (item 12, ver seção 5) já é compatível com esse fluxo, pois
-   opera inteiramente sobre `transacoes_detalhe` (agregado), sem depender de `animais` existir.
-   Relevante para o desenho da tela de Transações (Fase 4), registrado aqui para não se perder.
+1. ~~"Doc Faltante" — estado por operação, distinto de "GTA Pendente".~~ Implementado: cada
+   `transacao` mostra Nota/Contranota como badge Presente/Pendente **independente** de
+   `status_gta_transacao` (que continua fora da conta de saldo, só a GTA entra em
+   `Qtd. Registrada`/`Qtd. Pendente`, ver item 12). Não existe um status agregado único
+   "Doc Faltante" na UI — cada documento tem seu próprio badge, que é o que o formulário de
+   completar dados edita a qualquer momento.
+2. ~~Falta schema para upload dos documentos de Nota/Contranota.~~ Implementado via ADR-0005
+   (`arquivo_nota_path`/`arquivo_nota_mime_type`/`arquivo_contranota_path`/
+   `arquivo_contranota_mime_type` em `transacoes`) + item 14 (bucket `transacoes-documentos`) +
+   upload real de fato ligado na UI nesta tarefa (2026-07-21).
+3. **Fluxo Compra → Animal individual (Eixo 2 → Eixo 1) — SUPERADO por ADR-0006.** A nota
+   original dizia que a compra não criava `animais` automaticamente; ADR-0006
+   (2026-07-20) mudou isso: `registrar_entrada_saida_lote()` agora cria os `animais` pendentes de
+   individualização automaticamente para compra/nascimento/entrada_pastoreio. Mantido aqui só
+   como referência histórica de que a decisão já foi revisitada.
+
+**Pendência de trabalho (não bloqueante — schema/frontend prontos, gate de segurança ainda NÃO
+rodado):** Módulos de Transações (item 15), Saldo de Rebanho (item 16) e GTAs (item 17) da Fase 4
+— construídos e testados visual+funcionalmente por `developer` em 2026-07-21 (ver seção 1/5), mas
+**sem gate do `cyber_chief`** em nenhum dos três. Nenhuma migration nova em nenhuma das três
+tarefas (só frontend/PostgREST), mas o RLS que as telas expõem já passou pelos gates da Fase 3
+(`gtas`/`transacoes`/Storage/`obter_saldo_rebanho()`) — revisar se vale um gate leve focado em
+frontend (ex.: upload client-side respeita `allowed_mime_types`? o filtro `accept` do
+`<input type="file">` é só UX, não é validação de segurança — a validação real já é o
+`allowed_mime_types` do bucket, que rejeita no servidor).
+
+**Nota técnica para o Módulo de GTAs (item 17, próximo depois de Saldo de Rebanho):** o embed
+PostgREST entre `transacoes` e `gtas` exige o hint de constraint (`gtas!transacoes_gta_id_fkey` ou
+o equivalente do lado de `gtas`) por causa da referência circular deliberada — sem isso, o
+PostgREST responde **HTTP 300 Multiple Choices** silenciosamente (sem erro de console, só a tela
+trava carregando para sempre). Achado real durante o teste desta tarefa, documentado em
+`.agents/memory/log/2026-07-21-fase4-modulo-transacoes.md` — qualquer embed novo envolvendo essas
+duas tabelas (a tela de GTAs vai precisar do embed no sentido inverso, `transacoes` a partir de
+`gtas`) precisa do mesmo cuidado.
 
 **Pendência de trabalho (não bloqueante — schema modelado, gate de segurança ainda NÃO
 rodado):** migration da Fase 3, item 13
@@ -450,6 +582,80 @@ responde HTTP 200, não que a UI renderiza/interage corretamente.
 ---
 
 ## 5. Histórico de Tarefas Complexas (mais recente primeiro)
+
+### 2026-07-21 — Correções pós-entrega do Módulo de GTAs: cardinalidade N, quantidade_animais, liberação por upload, bucket de declarações aceita imagem — `db_sage`+`developer` (via Claude)
+
+- **O que foi feito:** três correções reais pedidas por JP logo após a primeira entrega do
+  Módulo de GTAs (ver entrada anterior): (1) `transacoes.gta_id` (1:1 errado) removido —
+  `gtas.transacao_id` (muitos-para-um) já modelava certo "uma transação pode ter N GTAs, uma por
+  caminhão"; `TransacaoDetailPage` passa a listar todas; (2) `gtas.quantidade_animais` (campo
+  novo, fora da spec original); (3) upload de documento de GTA pendente oferece liberação
+  imediata (data + confirmação inline).
+- **3 migrations novas, todas aplicadas ao remoto:** `20260721040000_gtas_quantidade_animais.sql`,
+  `20260721050000_corrige_cardinalidade_transacao_gta.sql`,
+  `20260721060000_declaracoes_rebanho_aceita_imagem.sql` (esta última: bucket de Declarações
+  também aceita imagem, não só PDF).
+- **Achado real corrigido:** `GtaForm` precisou de `key={gta.updated_at}` para remontar depois
+  da liberação via upload — sem isso, o form de edição ficava com dado velho.
+- **Validação:** `build`/`lint`/`test` (36/36) limpos; teste funcional real (Playwright,
+  desktop, Supabase remoto) confirmou organicamente a cardinalidade N (uma GTA real de sessão
+  anterior + uma nova de teste, ambas na mesma transação, ambas aparecendo na lista).
+- **Gate do `cyber_chief`:** NÃO rodado (mesma pendência acumulada dos módulos de Transações/
+  Saldo/GTAs desta fase).
+- **Log:** `.agents/memory/log/2026-07-21-fase4-modulo-gtas.md` (seção de correção) e
+  `.agents/memory/log/2026-07-21-storage-buckets-item14.md` (seção de correção, bucket).
+
+### 2026-07-21 — Fase 4, Módulo de GTAs (item 17) — `developer` (via Claude)
+
+- **O que foi feito:** `/app/rebanho/gtas` (listagem, filtros status/espécie/período, paginação,
+  "Nova GTA") + `/app/rebanho/gtas/:id` (detalhe, "Ver GTA" só no detalhe conforme spec, upload
+  do documento em `gtas-documentos`, edição inline, vínculo opcional a uma transação). `GtaForm`
+  compartilhado entre criação e edição.
+- **Reaproveitou o achado do Módulo de Transações:** embed `gtas -> transacoes` também precisa do
+  hint de constraint (`transacoes!gtas_transacao_id_fkey`, confirmado via `pg_constraint` antes
+  de escrever) pela mesma FK circular.
+- **Validação:** `build`/`lint`/`test` (36/36) limpos; teste funcional de ponta a ponta real
+  (cadastro + upload + "Ver GTA") desktop+mobile contra o remoto; dado de teste removido ao
+  final (SQL direto — `gtas` não tem policy de DELETE pela app, decisão deliberada da Fase 3).
+- **Gate do `cyber_chief`:** NÃO rodado (só frontend, sem migration nova).
+- **Log:** `.agents/memory/log/2026-07-21-fase4-modulo-gtas.md`.
+- **Próximo passo combinado com JP:** Módulo Financeiro (item 18).
+
+### 2026-07-21 — Fase 4, Módulo de Saldo de Rebanho (item 16) — `developer` (via Claude)
+
+- **O que foi feito:** `/app/rebanho/saldo` — seletor de espécie + data de corte + tabela
+  agrupamento etário × sexo (Qtd. Registrada/Pendente) + total + "Imprimir Saldo". Zero migration
+  nova, 100% reaproveitando `obter_saldo_rebanho()` do item 12.
+- **Achado real corrigido:** race condition na seleção padrão de espécie (`useEspecies()`
+  resolvia antes de `obter_saldo_rebanho()`, travando em "Abelhas" em vez de "Bovinos") —
+  corrigido esperando as duas queries antes de decidir o padrão.
+- **Validação:** `build`/`lint`/`test` (36/36) limpos; teste visual real (Playwright,
+  desktop+mobile, Supabase remoto) reproduziu o bug antes da correção e confirmou o padrão certo
+  depois.
+- **Gate do `cyber_chief`:** NÃO rodado (só frontend, sem migration nova).
+- **Log:** `.agents/memory/log/2026-07-21-fase4-modulo-saldo-rebanho.md`.
+- **Próximo passo combinado com JP:** Módulo de GTAs (item 17).
+
+### 2026-07-21 — Fase 4, Módulo de Transações (item 15) — `developer` (via Claude)
+
+- **O que foi feito:** primeiro módulo da Fase 4 (Eixo 2), escolhido por JP na ordem da spec.
+  Lista paginada/filtrada (`TransacoesListPage.tsx`) com resumo de saldo início/fim de ano por
+  espécie; detalhe individual (`TransacaoDetailPage.tsx`) com doc-tracking progressivo real
+  (upload de Nota/Contranota no bucket `transacoes-documentos`, "Ver documento" via signed URL,
+  formulário para completar número/valor da nota, peso total, status da GTA e observações a
+  qualquer momento). Ver detalhe completo em seção 1 e no log.
+- **Achados reais corrigidos:** embed PostgREST `transacoes -> gtas` retornava HTTP 300 Multiple
+  Choices por causa da FK circular (corrigido com hint de constraint
+  `gtas!transacoes_gta_id_fkey`); reincidência do bug de `useForm({ values })` deixando o Select
+  de Status da GTA em branco (corrigido com `useEffect` + `form.reset()`).
+- **Validação:** `build`/`lint`/`test` (36/36) limpos; teste visual real (Playwright,
+  desktop+mobile, Supabase remoto); teste funcional de ponta a ponta com reload de página
+  confirmando persistência real (não só estado do form) + upload real de documento confirmado
+  abrindo via signed URL. Dados de teste resetados ao final.
+- **Gate do `cyber_chief`:** NÃO rodado nesta tarefa (só frontend, sem migration nova) —
+  pendência explícita, ver seção 4.
+- **Log:** `.agents/memory/log/2026-07-21-fase4-modulo-transacoes.md`.
+- **Próximo passo combinado com JP:** Módulo de Saldo de Rebanho (item 16), depois GTAs (17).
 
 ### 2026-07-21 — Item 14 (Storage): 3 buckets, RLS por fazenda — `db_sage`+`cyber_chief` (via Claude)
 

@@ -117,7 +117,10 @@ export type Transacao = {
   numero_nota: string | null
   quantidade_animais: number
   valor_nota: number | null
-  gta_id: string | null
+  // ATENÇÃO: uma transação NÃO tem "a" GTA — pode ter N GTAs vinculadas
+  // (uma por caminhão de transporte, ver gtas.transacao_id). O campo
+  // transacoes.gta_id (1:1) foi removido em 2026-07-21 por modelar errado
+  // essa cardinalidade — nunca reintroduzir.
   status_gta_transacao: "despendenciada" | "n_a" | "pendente"
   arquivo_nota_path: string | null
   arquivo_nota_mime_type: string | null
@@ -127,4 +130,58 @@ export type Transacao = {
   observacoes: string | null
   created_at: string
   updated_at: string
+}
+
+/** transacoes + espécie relacionada — usado pela listagem (Fase 4, item 15). */
+export type TransacaoComDetalhes = Transacao & {
+  especies: { nome: string } | null
+}
+
+export type StatusLiberacaoGta = "pendente" | "liberada"
+
+/** GTA vinculada a uma transação (spec: N GTAs por transação, uma por caminhão). */
+export type GtaResumo = {
+  id: string
+  numero_gta: string
+  status_liberacao: StatusLiberacaoGta
+}
+
+/** Linha crua de public.gtas — Fase 3, item 11. */
+export type Gta = {
+  id: string
+  fazenda_id: string
+  numero_gta: string
+  municipio_origem: string
+  origem: string
+  municipio_destino: string
+  destino: string
+  especie_id: string
+  status_liberacao: StatusLiberacaoGta
+  data_liberacao: string | null
+  transacao_id: string | null
+  arquivo_path: string | null
+  arquivo_mime_type: string | null
+  // Pedido de JP (2026-07-21), fora da spec original — nullable no banco
+  // (histórico antes deste campo existir), exigido pelo formulário.
+  quantidade_animais: number | null
+  created_at: string
+  updated_at: string
+}
+
+/** gtas + espécie/transação relacionados — usado pela listagem/detalhe (Fase 4, item 17). */
+export type GtaComDetalhes = Gta & {
+  especies: { nome: string } | null
+  transacoes: { outra_parte: string; tipo_operacao: TipoOperacaoTransacao } | null
+}
+
+/** Retorno de public.obter_saldo_rebanho() — Fase 3, item 12. */
+export type SaldoRebanhoLinha = {
+  fazenda_id: string
+  especie_id: string
+  especie_nome: string
+  agrupamento_etario_id: string | null
+  agrupamento_label: string
+  sexo: SexoAnimal
+  qtd_registrada: number
+  qtd_pendente: number
 }

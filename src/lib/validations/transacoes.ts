@@ -76,3 +76,36 @@ export const saidaAnimaisIndividuaisSchema = z.object({
 export type SaidaAnimaisIndividuaisFormValues = z.infer<
   typeof saidaAnimaisIndividuaisSchema
 >
+
+// Editar uma transação já lançada (Fase 4, Módulo de Transações) — o usuário
+// pode salvar a operação com o mínimo (ver
+// entradaSaidaLoteSchema/saidaAnimaisIndividuaisSchema) e voltar depois para
+// corrigir/completar qualquer campo, conforme os documentos forem chegando.
+// `tipo_operacao` é a ÚNICA exceção deliberada, NÃO editável aqui (pedido
+// explícito de JP, 2026-07-21): trocar o tipo depois de criado deixaria
+// inconsistentes os vínculos já feitos (transacoes_animais para Venda/Óbito/
+// Consumo, animais pendentes já criados para Compra/Nascimento/Entrada de
+// Pastoreio) com a nova natureza da operação.
+export const statusGtaTransacaoSchema = z.enum(["despendenciada", "n_a", "pendente"])
+
+const hojeISOTransacao = () => new Date().toISOString().slice(0, 10)
+
+export const atualizarTransacaoSchema = z.object({
+  outra_parte: z.string().trim().min(1, "Informe a outra parte da operação"),
+  data_operacao: z
+    .string()
+    .min(1, "Informe a data da operação")
+    .refine((v) => v <= hojeISOTransacao(), "A data da operação não pode ser no futuro"),
+  especie_id: z.string().min(1, "Selecione a espécie"),
+  quantidade_animais: z
+    .number({ error: "Informe o número de animais" })
+    .int("O número de animais precisa ser inteiro")
+    .positive("O número de animais precisa ser maior que zero"),
+  numero_nota: z.string().trim(),
+  valor_nota: z.number().min(0, "O valor não pode ser negativo").nullable(),
+  peso_total_kg: z.number().min(0, "O peso total não pode ser negativo").nullable(),
+  status_gta_transacao: statusGtaTransacaoSchema,
+  observacoes: z.string().trim(),
+})
+
+export type AtualizarTransacaoFormValues = z.infer<typeof atualizarTransacaoSchema>
