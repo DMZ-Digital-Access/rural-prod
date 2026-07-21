@@ -619,4 +619,29 @@ mesma entrega** — não é mais aceitável tratar mobile como uma fase de polim
 (diferente do que a seção 10, item 24 "QA de responsividade mobile em todas as telas" sugere
 como uma Fase 5 separada — na prática, virou requisito contínuo desde a Fase 3).
 
+### 2026-07-21 — Fluxo de completar animal pendente + seleção de animal individual para Venda/Óbito/Consumo + item 14 (Storage)
+
+**Seções afetadas:** 3.1 (`animais`), 3.2 (buckets de Storage), 5.1/5.2, 7, 10 (item 14).
+
+Continuação direta do ADR-0006 (retomada em 2026-07-21, "próximos passos" combinados com JP):
+
+- **Completar pendência:** `EditarAnimalDialog` ganhou os campos `data_nascimento`/
+  `peso_inicial_kg` (com banner de aviso) — ao preencher pela primeira vez, `peso_atual_kg` é
+  inicializado automaticamente (mesmo baseline que um animal criado normal já tinha).
+- **Seleção de animal individual:** RPC nova `registrar_saida_animais_individuais()` — Venda/
+  Óbito/Consumo agora deixam o usuário escolher quais animais já individualizados participam
+  da operação (checklist na UI), em vez de só uma contagem agregada. O agrupamento etário do
+  saldo é calculado com precisão real (pela idade de cada animal na data da operação), mais
+  preciso que o "Não classificado" da entrada agregada.
+- **Item 14 (Storage) implementado** — 3 buckets, não 2: além de `declaracoes-rebanho` e
+  `gtas-documentos` (já previstos na seção 7 original), um bucket novo
+  **`transacoes-documentos`** (não previsto na spec original) guarda os arquivos de Nota/
+  Contranota (ADR-0005 D3). Mesma convenção de RLS por `fazenda_id` dos demais buckets;
+  `financeiro` só lê (mesma fronteira de `transacoes`). Validado direto no banco remoto (CLI
+  local desatualizada não roda o serviço de Storage — pendência conhecida desde a Fase 1).
+
+Ref.: `.agents/memory/log/2026-07-21-completar-animal-pendente.md`,
+`.agents/memory/log/2026-07-21-selecao-animais-saida-individual.md` e
+`.agents/memory/log/2026-07-21-storage-buckets-item14.md`.
+
 ---

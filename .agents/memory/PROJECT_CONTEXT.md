@@ -451,6 +451,28 @@ responde HTTP 200, não que a UI renderiza/interage corretamente.
 
 ## 5. Histórico de Tarefas Complexas (mais recente primeiro)
 
+### 2026-07-21 — Item 14 (Storage): 3 buckets, RLS por fazenda — `db_sage`+`cyber_chief` (via Claude)
+
+- **O que foi feito:** terceiro dos 4 próximos passos combinados com JP. Migration
+  `20260721030000_fase3_storage_buckets.sql` — buckets `declaracoes-rebanho` (só PDF,
+  `financeiro` lê), `gtas-documentos` (PDF/imagem, `financeiro` zero acesso, mesma fronteira de
+  `gtas`) e **`transacoes-documentos`** (novo, ADR-0005 D3, `financeiro` lê, mesma fronteira de
+  `transacoes`) — para Nota/Contranota. Sem policy de DELETE em nenhum (spec: declarações nunca
+  apagáveis; GTA/transações por analogia às tabelas). RLS via
+  `(storage.foldername(name))[1]::uuid`, mesmo padrão de multi-tenancy do resto do schema.
+- **Validação atípica:** CLI local (2.26.9) não inicializa o serviço `storage-api` — `supabase
+  db reset` falha antes mesmo de chegar na migration (schema `storage` não existe localmente,
+  pendência conhecida desde a Fase 1). Migration aplicada e validada **direto no remoto**
+  (`supabase db push` + chamadas HTTP reais à Storage API com usuários reais via GoTrue):
+  upload/download como admin nos 3 buckets; `financeiro` bloqueado em GTA, liberado (só leitura)
+  em Declarações/Transações.
+- **Gate do `cyber_chief`:** concluído (🟢).
+- **Pendência não bloqueante:** 3 arquivos de teste (fake) ficaram nos buckets do remoto —
+  Supabase bloqueia `DELETE` direto via SQL em `storage.objects`, limpeza via API exigiria
+  `service_role` (não disponível no `.env`). Sem risco real.
+- **Log:** `.agents/memory/log/2026-07-21-storage-buckets-item14.md`.
+- **Próximo passo combinado com JP:** 4) Fase 4 (telas do Eixo 2) — último da lista.
+
 ### 2026-07-21 — Tela de seleção de animal individual para Venda/Óbito/Consumo — `db_sage`+`cyber_chief`+`developer` (via Claude)
 
 - **O que foi feito:** segundo dos 4 próximos passos combinados com JP. RPC nova
