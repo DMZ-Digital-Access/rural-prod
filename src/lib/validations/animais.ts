@@ -38,14 +38,26 @@ export const criarAnimalSchema = z.object({
 
 export type CriarAnimalFormValues = z.infer<typeof criarAnimalSchema>
 
-// Edição: nunca inclui peso_inicial_kg/data_nascimento/sexo — spec desta
-// tarefa restringe edição a nome(identificação)/lote/status.
+// Edição: identificação/lote/status (Fase 2) + data_nascimento/peso_inicial_kg
+// opcionais (ADR-0006) — animal criado por Entradas de Lote nasce com esses
+// dois campos nulos ("pendente de individualização"); este mesmo formulário
+// de edição é o caminho para completá-los, sem forçar o preenchimento em
+// toda edição (ex.: mudar só o lote de um animal ainda pendente continua
+// válido).
 export const editarAnimalSchema = z.object({
   identificacao: z.string().trim().min(1, "Informe a identificação do animal"),
   lote_id: z.string().nullable(),
   status: z.enum(["ativo", "venda", "morte", "baixa"], {
     error: "Selecione o status do animal",
   }),
+  data_nascimento: z
+    .string()
+    .refine((v) => v === "" || v <= hojeISO(), "A data de nascimento não pode ser no futuro")
+    .nullable(),
+  peso_inicial_kg: z
+    .number()
+    .positive("O peso inicial precisa ser maior que zero")
+    .nullable(),
 })
 
 export type EditarAnimalFormValues = z.infer<typeof editarAnimalSchema>

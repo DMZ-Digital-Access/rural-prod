@@ -69,7 +69,19 @@ describe("editarAnimalSchema", () => {
     identificacao: "BR-001",
     lote_id: null,
     status: "ativo" as const,
+    data_nascimento: "2024-01-15",
+    peso_inicial_kg: 35,
   }
+
+  it("aceita animal pendente (data_nascimento/peso_inicial_kg nulos)", () => {
+    expect(
+      editarAnimalSchema.safeParse({
+        ...base,
+        data_nascimento: null,
+        peso_inicial_kg: null,
+      }).success
+    ).toBe(true)
+  })
 
   it("aceita payload válido", () => {
     expect(editarAnimalSchema.safeParse(base).success).toBe(true)

@@ -31,7 +31,16 @@ export function LoteSelectField({
     >
       <FormControl>
         <SelectTrigger className="w-full">
-          <SelectValue placeholder="Selecione um lote (opcional)" />
+          {/* Base UI só resolve o rótulo do SelectItem depois que o popup
+              abre uma vez — render-prop evita depender disso (mesmo padrão
+              de DashboardPage). */}
+          <SelectValue placeholder="Selecione um lote (opcional)">
+            {(v: string) =>
+              v === SEM_LOTE
+                ? "Sem lote"
+                : (lotes.find((lote) => lote.id === v)?.nome ?? "Sem lote")
+            }
+          </SelectValue>
         </SelectTrigger>
       </FormControl>
       <SelectContent>

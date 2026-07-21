@@ -451,6 +451,25 @@ responde HTTP 200, não que a UI renderiza/interage corretamente.
 
 ## 5. Histórico de Tarefas Complexas (mais recente primeiro)
 
+### 2026-07-21 — Fluxo de completar animal pendente de individualização — `db_sage`+`cyber_chief`+`developer` (via Claude)
+
+- **O que foi feito:** primeiro dos 4 próximos passos combinados com JP. Trigger novo
+  (`20260721010000_inicializa_peso_atual_ao_completar_pendencia.sql`) inicializa
+  `peso_atual_kg = peso_inicial_kg` quando um animal pendente tem `peso_inicial_kg` preenchido
+  pela primeira vez (mesmo baseline que animal criado normal já tinha) — validado que o guard
+  de proteção dos campos calculados (Fase 2) não dispara aqui (só reage a UPDATE que lista
+  essas colunas explicitamente) e continua bloqueando falsificação direta. `EditarAnimalDialog`
+  ganhou banner de pendência + campos de Data de Nascimento/Peso Inicial. Achado extra: mesmo
+  bug de `Select` (Base UI) corrigido em `LoteSelectField` (compartilhado) e no Status deste
+  dialog.
+- **Validação:** build/lint/test (36/36) limpos; teste real de ponta a ponta (Playwright,
+  desktop+mobile, Supabase remoto) completando um animal pendente de verdade — badge some,
+  categoria calculada, peso atual inicializado.
+- **Gate do `cyber_chief`:** concluído (🟢).
+- **Log:** `.agents/memory/log/2026-07-21-completar-animal-pendente.md`.
+- **Próximos passos combinados com JP (nesta ordem):** 2) tela de seleção de animal individual
+  para Venda/Óbito/Consumo; 3) item 14 (Storage); 4) Fase 4 (telas do Eixo 2).
+
 ### 2026-07-20 — Changelog de implementação em especificacao-sistema.md (seção 12 nova) — via Claude
 
 - **O que foi feito:** a pedido de JP ("importante fazer uma v2 da spec?"), em vez de reescrever

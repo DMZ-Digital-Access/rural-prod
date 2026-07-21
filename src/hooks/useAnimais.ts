@@ -100,6 +100,11 @@ export function useAtualizarAnimal(animalId: string) {
           identificacao: values.identificacao.trim(),
           lote_id: values.lote_id,
           status: values.status,
+          // ADR-0006: completa data_nascimento/peso_inicial_kg de um animal
+          // pendente de individualização — ou permanecem null se ainda não
+          // informados (a edição não força completude).
+          data_nascimento: values.data_nascimento || null,
+          peso_inicial_kg: values.peso_inicial_kg,
         })
         .eq("id", animalId)
 
