@@ -80,6 +80,7 @@ export function AnimaisListPage() {
               <TableHead>Identificação</TableHead>
               <TableHead className="hidden md:table-cell">Categoria</TableHead>
               <TableHead>Status</TableHead>
+              <TableHead className="hidden sm:table-cell">Lote</TableHead>
               <TableHead>Peso atual</TableHead>
               <TableHead className="hidden sm:table-cell">GMD</TableHead>
               <TableHead className="hidden lg:table-cell">
@@ -114,6 +115,9 @@ export function AnimaisListPage() {
                       </Badge>
                     )}
                   </div>
+                </TableCell>
+                <TableCell className="hidden sm:table-cell">
+                  {animal.lote_id ? "Sim" : "Não"}
                 </TableCell>
                 <TableCell>{formatPeso(animal.peso_atual_kg)}</TableCell>
                 <TableCell className="hidden sm:table-cell">

@@ -451,6 +451,17 @@ responde HTTP 200, não que a UI renderiza/interage corretamente.
 
 ## 5. Histórico de Tarefas Complexas (mais recente primeiro)
 
+### 2026-07-20 — Desvincular animais ao arquivar lote + coluna "Lote" (Sim/Não) na lista de Animais — `db_sage`+`cyber_chief`+`developer` (via Claude)
+
+- **O que foi feito:** trigger novo (`20260721000000_lotes_desvincula_animais_ao_arquivar.sql`)
+  faz arquivar um lote (ativo true→false) desvincular os animais associados
+  (`lote_id = null`), mesmo efeito que excluir já tinha via `on delete set null`. Reativar não
+  re-vincula (assimétrico, deliberado). Gate do `cyber_chief` concluído (🟢). Coluna nova "Lote"
+  (Sim/Não) em `AnimaisListPage.tsx`, derivada de `lote_id`.
+- **Validação:** teste real (lote com 2 animais, arquivado → ambos ficam sem lote); visual
+  desktop+mobile confirmando a coluna.
+- **Log:** `.agents/memory/log/2026-07-20-desvincula-arquivar-e-coluna-lote.md`.
+
 ### 2026-07-20 — "Encerrar Lote" (Arquivar/Excluir com dupla confirmação) — `db_sage`+`cyber_chief`+`developer` (via Claude)
 
 - **O que foi feito:** a pedido de JP, campo de edição de lotes ganhou "Encerrar Lote" com
