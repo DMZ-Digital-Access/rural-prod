@@ -4,6 +4,14 @@
 **Documento único de referência para o time de desenvolvimento**
 Versão: 2.0 (consolida MVP validado + especificação de produção + novos módulos regulatórios/financeiros)
 
+> ⚠️ **Este documento tem um changelog de implementação (seção 12)** cobrindo decisões reais
+> tomadas durante a Fase 3 que divergem ou estendem o que está descrito nas seções 1-11
+> abaixo — mantidas intactas como registro histórico da especificação original. **Leia a
+> seção 12 depois das seções relevantes**, não só esta introdução — ela existe porque, na
+> prática, o sistema real já não é 100% idêntico ao que este documento descreve linha a
+> linha, e um changelog no fim é mais seguro que reescrever o conteúdo original (perderia o
+> "porquê" da decisão original vs. a evolução real).
+
 > Este documento substitui e consolida os dois briefings anteriores (`briefing-tecnico-sistema-gestao-rebanho.md` e `briefing-webapp-producao-area-logada.md`), incorporando os novos módulos de controle de GTA, saldo de rebanho por espécie, entradas/saídas (compra e venda), controle financeiro (insumos/despesas) e declaração anual à Secretaria de Agricultura.
 >
 > **Decisão de projeto importante:** o código construído no protótipo Bolt.new **não será reaproveitado**. Este documento funciona como especificação funcional e de modelo de dados de referência (o MVP validou as regras de negócio com uso real), mas a implementação será um **projeto novo, do zero, em repositório Git próprio**, desenvolvido com **Claude Code dentro do ambiente Antigravity**. Ver seção 10 para o plano de implementação greenfield.
@@ -495,5 +503,120 @@ O projeto tem dois eixos complementares: um já validado (gestão de desempenho 
 O novo eixo introduz a noção de **rebanho como saldo contábil por espécie**, movimentado por transações (compra, venda, entrada e saída de pastoreio), rastreado por GTA e prestado formalmente ao Estado via Declaração Anual. A peça de maior valor de produto é o **Painel Inteligente**, que deve substituir a necessidade do produtor de manter uma planilha paralela e consultar portais governamentais separados para saber sua própria situação regulatória.
 
 O projeto será construído **do zero**, em repositório Git novo, com desenvolvimento via Claude Code no Antigravity — o protótipo Bolt.new não é migrado, funciona apenas como especificação funcional validada. A recomendação de sequenciamento (seção 10) é: fundação de autenticação/roteamento correta desde o primeiro commit, depois Eixo 1 (gestão individual) com as correções de fórmula já incorporadas, depois Eixo 2 de baixo para cima (dados → transações → saldo → GTA → financeiro → declaração → painel), validando o cálculo de saldo contra os números reais fornecidos como referência antes de seguir para as telas de consumo. O papel de usuário financeiro/contábil e os prazos de declaração configuráveis por estado/ano já entram no schema desde a base, mesmo que a interface completa para eles venha em fase posterior.
+
+---
+
+## 12. Changelog de Implementação (pós-v2.0)
+
+> As seções 1-11 acima são a especificação original — **mantidas intactas**. Esta seção
+> registra decisões reais, tomadas durante a implementação (principalmente Fase 3), que
+> corrigem, estendem ou divergem do que está escrito acima. Cada entrada referencia o ADR ou
+> log do squad onde a decisão completa (contexto, alternativas, justificativa) está
+> documentada — este changelog resume, não repete. Ordem cronológica.
+
+### 2026-07-20 — Correção: faixa etária de Ovino
+
+**Seção afetada:** 3.2 (`agrupamentos_etarios`), tabela de seed.
+
+A spec definia Ovino como `0–6 · Mais de 6` meses. Prints reais do sistema da Secretaria
+(módulo "Saldo Atual", fornecidos por JP) mostram Ovino usando `0–12 · Mais de 12` meses — a
+spec original estava errada nesse ponto específico (Bovino, no mesmo print, bateu 100% com o
+já especificado). Corrigido no banco via migration aditiva.
+Ref.: `.agents/memory/log/2026-07-20-db_sage-fix-ovino-agrupamento.md`.
+
+### 2026-07-20 — ADR-0005: `tipo_operacao` expandido + rastreamento independente de documentos
+
+**Seções afetadas:** 3.2 (`transacoes`), 4.2 (regra de Qtd. Registrada/Pendente).
+
+- `transacoes.tipo_operacao` ganhou 3 valores **aditivos** aos 4 originais:
+  `nascimento`, `obito`, `consumo` (além de `compra`/`venda`/`entrada_pastoreio`/
+  `saida_pastoreio`, que continuam existindo sem mudança).
+- **GTA continua exatamente como a spec descreve** (`status_gta_transacao`, seção 3.2) — é o
+  único critério oficial de Qtd. Registrada/Pendente (seção 4.2), inalterado.
+- **Novidade não prevista na spec:** Nota e Contranota agora têm rastreamento **independente**
+  de GTA — cada documento é "presente" ou "pendente" separadamente (`arquivo_nota_path`/
+  `arquivo_contranota_path`, novos; `tem_contranota` boolean removido). Um produtor pode
+  registrar uma operação com **zero documentos** (só quantidade de animais + a outra parte) e
+  completar GTA/Nota/Contranota progressivamente, às vezes ao longo de dias — o saldo já
+  reflete a operação desde o registro mínimo, independente da documentação estar completa.
+  "Doc Faltante" (Nota/Contranota) é um conceito distinto de "GTA Pendente" (seção 4.2) — não
+  se misturam no mesmo rótulo, para não confundir o usuário nem divergir do número oficial da
+  Secretaria (que só conhece GTA).
+- `transacoes` ganhou `peso_total_kg` (opcional, novo — não estava na spec original).
+- `transacoes_detalhe.agrupamento_etario_id` (seção 3.2) deixou de ser obrigatório — ver
+  entrada do ADR-0006 abaixo.
+
+Ref.: `.agents/memory/adr/ADR-0005-expansao-transacoes-doc-tracking.md`.
+
+### 2026-07-20 — ADR-0006: animais pendentes de individualização, criados a partir de Entradas de Lote
+
+**Seções afetadas:** 3.1 (`animais`), 3.3 (reconciliação Eixo 1 ↔ Eixo 2), 5.1/5.2 (módulos).
+
+Mudança mais substancial deste changelog — não é uma correção pontual, é um fluxo novo que a
+spec original não previa:
+
+- **`animais.data_nascimento` e `animais.peso_inicial_kg` agora são nullable** (spec original
+  não previa isso — assumia que todo animal individual sempre tem esses dados desde o
+  cadastro). Um animal "pendente de individualização" é aquele com qualquer um dos dois
+  campos nulo.
+- **Compra, Nascimento e Entrada de Pastoreio agora criam automaticamente N registros
+  individuais em `animais`** (N = quantidade de machos + fêmeas informada), com identificação
+  automática no formato `{TIPO}-{AAAA-MM-DD}-{NNN}` (ex.: `COMPRA-2026-07-20-001`) — sequencial
+  por fazenda+tipo+data, sem colidir entre operações do mesmo dia. Isso é uma extensão real da
+  Opção B da seção 3.3 (que só cobria Venda vinculando a animais **já existentes**) — agora o
+  lado de entrada também gera o registro individual, só que incompleto/pendente.
+- **Venda, Óbito e Consumo continuam agindo sobre animais já existentes** (mecanismo
+  `transacoes_animais` da seção 3.3, estendido: Óbito → `status='morte'`, Consumo →
+  `status='baixa'`, usando o mesmo domínio de status já definido na seção 4.1) — não criam
+  registro novo.
+- **UX nova, não prevista na spec:** o botão "Novo Animal" (seção 5.1) foi renomeado para
+  **"Individualizar Animal"** (mesmos campos, só o rótulo do peso virou "Peso de hoje"); um
+  botão novo, **"Entradas e Saídas de Animais de Lote"**, cobre o lançamento agregado e rápido
+  (Tipo de animal, Número de animais, Machos/Fêmeas, Valor e Peso opcionais) sem pedir faixa
+  etária — mais simples que o "Módulo de Transações" completo que a seção 5.2 descreve (que
+  continua sendo o destino natural para lançamentos com detalhamento completo).
+- **Consequência para o saldo (seção 3.2, `saldo_rebanho`):** como essa tela rápida não coleta
+  faixa etária, `transacoes_detalhe.agrupamento_etario_id` deixou de ser obrigatório
+  (nullable) — o saldo calculado ganhou uma linha extra **"Não classificado"** por
+  espécie/sexo (não persistida no catálogo `agrupamentos_etarios`, só na agregação), para não
+  esconder esses animais do saldo nem inventar uma faixa etária que ninguém informou.
+- **Consequência para `animais_com_detalhes` (seção 3.1):** `categoria`/`idade_dias`/
+  `idade_meses` agora podem ser `NULL` (animal pendente) — a spec original assumia esses
+  campos sempre calculáveis.
+
+Ref.: `.agents/memory/adr/ADR-0006-animais-pendentes-de-individualizacao.md`.
+
+### 2026-07-20 — "Encerrar Lote": exclusão física passa a existir, com desvinculação de animais
+
+**Seções afetadas:** 3.1 (`lotes`), 5.1 (módulo Lotes).
+
+A spec (seção 5.1) só previa arquivamento de lote (`ativo` boolean), sem exclusão física —
+essa era uma decisão implícita de implementação da Fase 2 (nunca escrita explicitamente aqui).
+JP pediu uma opção real de exclusão permanente, com dupla confirmação, ao lado do
+arquivamento:
+
+- Editar um lote agora oferece **"Encerrar Lote"** → escolha entre **Arquivar** (reversível,
+  comportamento original) ou **Excluir** (novo, permanente — exige uma segunda confirmação
+  dedicada mostrando quantos animais serão afetados).
+- **Ambos os caminhos agora desvinculam os animais associados** (`animais.lote_id` volta a
+  `NULL`, "sem lote") — antes, só a exclusão fazia isso; arquivar deixava os animais "presos" a
+  um lote arquivado. Reativar um lote arquivado **não** re-vincula os animais.
+- Novo: coluna "Lote" (Sim/Não) na listagem de Animais (seção 5.1), indicando se o animal
+  pertence a algum lote atualmente.
+
+Ref.: `.agents/memory/log/2026-07-20-desvincula-arquivar-e-coluna-lote.md` e
+`.agents/memory/log/2026-07-20-cyber_chief-review-lotes-delete.md`.
+
+### 2026-07-20 — Diretriz de desenvolvimento: mobile-first desde o início
+
+**Seção afetada:** 6 (Interface/Design).
+
+A seção 6 já previa "acessível via navegador desktop e mobile (responsivo)" (seção 1) como
+requisito, mas o Shell e as telas do Eixo 1 foram implementadas desktop-only na Fase 1/2 e só
+receberam retrofit de responsividade depois (drawer mobile, tabelas com colunas priorizadas
+por breakpoint). A partir de 2026-07-20, **toda tela/componente novo nasce responsivo na
+mesma entrega** — não é mais aceitável tratar mobile como uma fase de polimento posterior
+(diferente do que a seção 10, item 24 "QA de responsividade mobile em todas as telas" sugere
+como uma Fase 5 separada — na prática, virou requisito contínuo desde a Fase 3).
 
 ---

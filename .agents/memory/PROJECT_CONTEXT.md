@@ -451,6 +451,21 @@ responde HTTP 200, não que a UI renderiza/interage corretamente.
 
 ## 5. Histórico de Tarefas Complexas (mais recente primeiro)
 
+### 2026-07-20 — Changelog de implementação em especificacao-sistema.md (seção 12 nova) — via Claude
+
+- **O que foi feito:** a pedido de JP ("importante fazer uma v2 da spec?"), em vez de reescrever
+  o documento original, foi adicionada uma **seção 12 (Changelog de Implementação)** ao final
+  de `especificacao-sistema.md`, cobrindo as divergências/adições reais desde a v2.0: correção
+  da faixa etária de Ovino, ADR-0005 (tipo_operacao expandido + docs independentes), ADR-0006
+  (animais pendentes de individualização — a mudança mais substancial), "Encerrar Lote"
+  (exclusão física + desvinculação de animais), e a diretriz de mobile-first contínuo. Um aviso
+  no topo do documento (logo após o título) direciona o leitor à seção 12.
+- **Por que changelog em vez de reescrita:** preserva o "porquê" da decisão original vs. a
+  evolução real, sem perder histórico — cada entrada referencia o ADR/log completo em vez de
+  duplicar conteúdo.
+- **Pendência:** nenhuma — documento apenas, sem mudança de schema/código. Seções 1-11
+  permanecem intactas.
+
 ### 2026-07-20 — Desvincular animais ao arquivar lote + coluna "Lote" (Sim/Não) na lista de Animais — `db_sage`+`cyber_chief`+`developer` (via Claude)
 
 - **O que foi feito:** trigger novo (`20260721000000_lotes_desvincula_animais_ao_arquivar.sql`)
