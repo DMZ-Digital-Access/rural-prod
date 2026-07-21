@@ -5,6 +5,11 @@ import { SparklesIcon } from "lucide-react"
 import { toast } from "sonner"
 import { useTransacoesParaVincular } from "@/hooks/useGtas"
 import { supabase } from "@/lib/supabase"
+import {
+  arquivoParaBase64,
+  TAMANHO_MAXIMO_ARQUIVO_DOCUMENTO_BYTES,
+  TIPOS_ARQUIVO_DOCUMENTO_ACEITOS,
+} from "@/lib/arquivoDocumento"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { NumericInput } from "@/components/ui/numeric-input"
@@ -28,25 +33,6 @@ import {
   type LancamentoFinanceiroFormValues,
 } from "@/lib/validations/financeiro"
 import type { TipoLancamento } from "@/lib/types/financeiro"
-
-// Mesma lista aceita pela Edge Function classificar-documento
-// (MIME_TYPES_PERMITIDOS em supabase/functions/classificar-documento/logica.ts)
-// e pelos buckets de Storage do item 14.
-const TIPOS_ARQUIVO_ACEITOS =
-  "application/pdf,image/jpeg,image/png,image/webp,image/heic,image/heif"
-const TAMANHO_MAXIMO_ARQUIVO_BYTES = 10 * 1024 * 1024
-
-function arquivoParaBase64(arquivo: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => {
-      const resultado = reader.result as string
-      resolve(resultado.split(",")[1] ?? "")
-    }
-    reader.onerror = () => reject(reader.error)
-    reader.readAsDataURL(arquivo)
-  })
-}
 
 type CamposExtraidos = {
   tipo: TipoLancamento
@@ -98,7 +84,7 @@ export function LancamentoForm({
 
   async function handleUploadDocumento(arquivo: File) {
     if (!fazendaId) return
-    if (arquivo.size > TAMANHO_MAXIMO_ARQUIVO_BYTES) {
+    if (arquivo.size > TAMANHO_MAXIMO_ARQUIVO_DOCUMENTO_BYTES) {
       toast.error("Arquivo excede o tamanho máximo permitido (10MB).")
       return
     }
@@ -146,7 +132,7 @@ export function LancamentoForm({
           <input
             ref={inputArquivoRef}
             type="file"
-            accept={TIPOS_ARQUIVO_ACEITOS}
+            accept={TIPOS_ARQUIVO_DOCUMENTO_ACEITOS}
             className="hidden"
             onChange={(e) => {
               const arquivo = e.target.files?.[0]

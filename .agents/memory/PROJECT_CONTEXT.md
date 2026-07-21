@@ -392,6 +392,23 @@
   `.agents/memory/log/2026-07-21-fluxo-caixa-consolidado.md`. **Módulo Financeiro (item 18)
   agora completo** do ponto de vista funcional: lançamentos, Pago/data pagamento, classificação
   por IA, documentos fiscais + ZIP, fluxo de caixa consolidado + CSV.
+- **Captura de documento como entrada de "Novo Lançamento" — modal reutilizável (2026-07-21):**
+  pedido de JP para mudar o comportamento do botão "Novo Lançamento": agora abre primeiro a
+  captura de documento (desktop: um seletor de arquivo aceitando imagem+PDF; mobile: três
+  botões separados — Câmera/Galeria/Arquivos, como app nativo) e só depois o formulário
+  (pré-preenchido pela IA). **Confirmado com JP:** continua existindo "Preencher manualmente"
+  (upload não é obrigatório) e o seletor de desktop aceita imagem além de PDF. Componente novo
+  `src/components/documentos/CapturarDocumentoDialog.tsx` — deliberadamente genérico (não sabe
+  nada de "lançamento financeiro", só devolve um `File` ou sinaliza "pular"), pensado para
+  qualquer entrada de documento futura no app reusar a mesma UI. `CriarLancamentoDialog.tsx`
+  virou uma máquina de 2 etapas (captura → formulário), só monta o `LancamentoForm` quando os
+  dados já estão prontos (mesmo padrão já usado no projeto pra evitar bug de `Select`
+  controlado/não-controlado). **Validado de verdade com Playwright** (desktop e mobile): UI
+  correta em cada breakpoint, "Preencher manualmente" abre formulário vazio, upload real
+  disparou a Edge Function `classificar-documento` de verdade e mostrou o erro esperado de
+  `GEMINI_API_KEY` ausente sem travar o fluxo (a modal de captura ficou aberta pra nova
+  tentativa). `build`/`lint`/`test` (36/36) limpos. Ver
+  `.agents/memory/log/2026-07-21-captura-documento-novo-lancamento.md`.
 - **Atualização anterior:** 2026-07-19 — `qa` (Emma) escreveu e **rodou de verdade** a suíte pgTAP
   de RLS/RPC/GMD da Fase 2 (63/63 asserções, incluindo a regressão do bug de GMD do protótipo e
   os 3 achados do gate `cyber_chief`). Ver seção 5 e
@@ -679,6 +696,28 @@ responde HTTP 200, não que a UI renderiza/interage corretamente.
 ---
 
 ## 5. Histórico de Tarefas Complexas (mais recente primeiro)
+
+### 2026-07-21 — Captura de documento como entrada de "Novo Lançamento" — modal reutilizável — `developer` (via Claude)
+
+- **O que foi feito:** botão "Novo Lançamento" agora abre primeiro `CapturarDocumentoDialog`
+  (novo, `src/components/documentos/`) — desktop: um seletor de arquivo (imagem+PDF); mobile:
+  Câmera/Galeria/Arquivos separados — e só depois o formulário, pré-preenchido pela extração da
+  IA. "Preencher manualmente" sempre disponível (confirmado com JP, upload não é obrigatório).
+  Componente deliberadamente genérico/reutilizável — não conhece "lançamento financeiro", só
+  devolve um `File` ou sinaliza "pular", pra qualquer entrada de documento futura no app plugar
+  sua própria lógica sobre a mesma UI.
+- **Refatoração:** `CriarLancamentoDialog.tsx` virou máquina de 2 etapas
+  (`captura`/`formulario`); a chamada à Edge Function `classificar-documento` (antes dentro de
+  `LancamentoForm`) migrou pra cá. Constantes de tipo/tamanho de arquivo consolidadas em
+  `src/lib/arquivoDocumento.ts` (antes duplicadas em `LancamentoForm.tsx` e
+  `LancamentoDetailPage.tsx`).
+- **Validação:** `build`/`lint`/`test` (36/36) limpos; teste real via Playwright (desktop e
+  mobile) confirmou a UI certa em cada breakpoint, o "pular" abrindo formulário vazio, e um
+  upload real disparando a Edge Function de verdade (erro esperado de `GEMINI_API_KEY` ausente,
+  sem travar o fluxo — mesma pendência de infraestrutura já conhecida).
+- **Gate do `cyber_chief`:** NÃO rodado (sem migration nova, só reorganização de frontend).
+- **Log:** `.agents/memory/log/2026-07-21-captura-documento-novo-lancamento.md`.
+- **Próximos passos combinados com JP:** item 19 da spec (Declaração Anual de Rebanho).
 
 ### 2026-07-21 — Fase 4, Módulo Financeiro: Fluxo de Caixa consolidado + exportação CSV (item 18, passo 3/3, final) — `developer` (via Claude)
 

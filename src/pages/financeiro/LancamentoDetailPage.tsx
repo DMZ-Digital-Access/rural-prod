@@ -17,11 +17,9 @@ import { TipoLancamentoBadge } from "@/components/rebanho/TipoLancamentoBadge"
 import { StatusPagoBadge } from "@/components/rebanho/StatusPagoBadge"
 import { TipoOperacaoBadge } from "@/components/rebanho/TipoOperacaoBadge"
 import { LancamentoForm } from "@/pages/financeiro/LancamentoForm"
+import { TIPOS_ARQUIVO_DOCUMENTO_ACEITOS } from "@/lib/arquivoDocumento"
 import type { LancamentoFinanceiroFormValues } from "@/lib/validations/financeiro"
 import type { LancamentoComDetalhes } from "@/lib/types/financeiro"
-
-const TIPOS_ARQUIVO_ACEITOS =
-  "application/pdf,image/jpeg,image/png,image/webp,image/heic,image/heif"
 
 function DocumentoFiscalField({
   lancamentoId,
@@ -95,7 +93,7 @@ function DocumentoFiscalField({
             <input
               ref={inputRef}
               type="file"
-              accept={TIPOS_ARQUIVO_ACEITOS}
+              accept={TIPOS_ARQUIVO_DOCUMENTO_ACEITOS}
               className="hidden"
               onChange={(e) => {
                 const arquivo = e.target.files?.[0]
