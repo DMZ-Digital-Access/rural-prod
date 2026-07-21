@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { supabase } from "@/lib/supabase"
-import { comprimirArquivoSeImagem } from "@/lib/comprimirImagem"
+import { uploadDocumentoLancamento } from "@/lib/uploadDocumentoLancamento"
 import type { LancamentoComDetalhes } from "@/lib/types/financeiro"
 
 const LANCAMENTOS_SELECT = "*, transacoes(outra_parte, tipo_operacao)"
@@ -22,22 +22,7 @@ export function useUploadDocumentoLancamento(
   return useMutation({
     mutationFn: async (arquivoOriginal: File) => {
       if (!fazendaId) throw new Error("Fazenda não identificada.")
-
-      const arquivo = await comprimirArquivoSeImagem(arquivoOriginal)
-      const extensao = arquivo.name.split(".").pop()?.toLowerCase() || "bin"
-      const mesDaNota = dataLancamento.slice(0, 7) // "AAAA-MM-DD" -> "AAAA-MM"
-      const caminho = `${fazendaId}/${mesDaNota}/${lancamentoId}.${extensao}`
-
-      const { error: uploadError } = await supabase.storage
-        .from("lancamentos-documentos")
-        .upload(caminho, arquivo, { upsert: true, contentType: arquivo.type })
-      if (uploadError) throw uploadError
-
-      const { error: updateError } = await supabase
-        .from("lancamentos_financeiros")
-        .update({ arquivo_path: caminho, arquivo_mime_type: arquivo.type })
-        .eq("id", lancamentoId)
-      if (updateError) throw updateError
+      await uploadDocumentoLancamento(fazendaId, lancamentoId, dataLancamento, arquivoOriginal)
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["lancamentos-financeiros"] })

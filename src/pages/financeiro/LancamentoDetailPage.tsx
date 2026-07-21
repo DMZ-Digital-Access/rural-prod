@@ -1,5 +1,5 @@
 import { useRef, useState } from "react"
-import { Link, useParams } from "react-router-dom"
+import { Link, useNavigate, useParams } from "react-router-dom"
 import { ArrowLeftIcon, FileTextIcon, UploadIcon } from "lucide-react"
 import { toast } from "sonner"
 import { useFazendaAtual } from "@/hooks/useFazendaAtual"
@@ -15,8 +15,10 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { TipoLancamentoBadge } from "@/components/rebanho/TipoLancamentoBadge"
 import { StatusPagoBadge } from "@/components/rebanho/StatusPagoBadge"
+import { ValidacaoBadge } from "@/components/rebanho/ValidacaoBadge"
 import { TipoOperacaoBadge } from "@/components/rebanho/TipoOperacaoBadge"
 import { LancamentoForm } from "@/pages/financeiro/LancamentoForm"
+import { ExcluirLancamentoDialog } from "@/pages/financeiro/ExcluirLancamentoDialog"
 import { TIPOS_ARQUIVO_DOCUMENTO_ACEITOS } from "@/lib/arquivoDocumento"
 import type { LancamentoFinanceiroFormValues } from "@/lib/validations/financeiro"
 import type { LancamentoComDetalhes } from "@/lib/types/financeiro"
@@ -144,6 +146,7 @@ function paraFormValues(lancamento: LancamentoComDetalhes): LancamentoFinanceiro
 
 export function LancamentoDetailPage() {
   const { id } = useParams<{ id: string }>()
+  const navigate = useNavigate()
   const { data: fazenda } = useFazendaAtual()
   const somenteLeitura = fazenda?.papel === "financeiro"
 
@@ -189,9 +192,18 @@ export function LancamentoDetailPage() {
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex flex-wrap items-center gap-2">
               <TipoLancamentoBadge tipo={lancamento.tipo} />
+              <ValidacaoBadge validado={lancamento.validado_pelo_usuario} />
               <h1 className="text-2xl font-semibold">{lancamento.categoria}</h1>
             </div>
-            <StatusPagoBadge pago={lancamento.pago} />
+            <div className="flex items-center gap-2">
+              <StatusPagoBadge pago={lancamento.pago} />
+              {!somenteLeitura && (
+                <ExcluirLancamentoDialog
+                  lancamentoId={lancamento.id}
+                  aoExcluir={() => navigate("/app/rebanho/financeiro")}
+                />
+              )}
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4 rounded-lg border border-border bg-card p-4 sm:grid-cols-4">

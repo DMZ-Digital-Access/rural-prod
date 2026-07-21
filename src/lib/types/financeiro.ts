@@ -27,6 +27,9 @@ export type LancamentoFinanceiro = {
   // {fazenda_id}/{AAAA-MM do data_lancamento}/{id}.{extensao}.
   arquivo_path: string | null
   arquivo_mime_type: string | null
+  // Fluxo de captura de documento por IA (2026-07-21) — false só em
+  // rascunhos ainda não confirmados/editados-e-salvos pelo usuário.
+  validado_pelo_usuario: boolean
   created_at: string
   updated_at: string
 }

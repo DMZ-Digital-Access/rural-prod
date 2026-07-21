@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/select"
 import { TipoLancamentoBadge } from "@/components/rebanho/TipoLancamentoBadge"
 import { StatusPagoBadge } from "@/components/rebanho/StatusPagoBadge"
+import { ValidacaoBadge } from "@/components/rebanho/ValidacaoBadge"
 import { CriarLancamentoDialog } from "@/pages/financeiro/CriarLancamentoDialog"
 import type { TipoLancamento } from "@/lib/types/financeiro"
 
@@ -55,6 +56,7 @@ export function LancamentosListPage() {
     pago: null,
     dataInicio: "",
     dataFim: "",
+    validado: null,
   })
   const [pagina, setPagina] = useState(0)
 
@@ -106,7 +108,7 @@ export function LancamentosListPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         <div className="grid gap-1.5">
           <Label>Tipo</Label>
           <Select
@@ -157,6 +159,29 @@ export function LancamentosListPage() {
               <SelectItem value={SEM_FILTRO}>Todos</SelectItem>
               <SelectItem value="sim">Sim</SelectItem>
               <SelectItem value="nao">Não</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="grid gap-1.5">
+          <Label>Validação</Label>
+          <Select
+            value={filtro.validado === null ? SEM_FILTRO : filtro.validado ? "sim" : "nao"}
+            onValueChange={(v) =>
+              atualizarFiltro({ validado: v === SEM_FILTRO ? null : v === "sim" })
+            }
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue>
+                {(v: string) =>
+                  v === SEM_FILTRO ? "Todos" : v === "sim" ? "Validados" : "Não validados"
+                }
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={SEM_FILTRO}>Todos</SelectItem>
+              <SelectItem value="sim">Validados</SelectItem>
+              <SelectItem value="nao">Não validados</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -221,9 +246,10 @@ export function LancamentosListPage() {
                     <TableCell>
                       <Link
                         to={`/app/rebanho/financeiro/${lancamento.id}`}
-                        className="underline-offset-4 hover:underline"
+                        className="flex flex-wrap items-center gap-1.5 underline-offset-4 hover:underline"
                       >
                         <TipoLancamentoBadge tipo={lancamento.tipo} />
+                        <ValidacaoBadge validado={lancamento.validado_pelo_usuario} />
                       </Link>
                     </TableCell>
                     <TableCell className="font-medium">{lancamento.categoria}</TableCell>

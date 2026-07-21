@@ -409,6 +409,29 @@
   `GEMINI_API_KEY` ausente sem travar o fluxo (a modal de captura ficou aberta pra nova
   tentativa). `build`/`lint`/`test` (36/36) limpos. Ver
   `.agents/memory/log/2026-07-21-captura-documento-novo-lancamento.md`.
+- **Rascunho de lançamento com validação pendente + exclusão (2026-07-21):** JP perguntou como
+  o upload estava sendo tratado hoje — resposta: **não era salvo no bucket durante a
+  classificação por IA**, o arquivo era descartado da memória após a chamada ao Gemini; nada
+  persistia até o usuário confirmar o formulário, e nem aí o arquivo em si (precisava reenviar
+  manualmente depois). Corrigido pela sequência que JP propôs: upload → salva no bucket → IA →
+  preenche o modal → aguarda confirmação; se o usuário abandonar sem confirmar, o rascunho
+  continua no banco com os dados da IA, marcado "não validado". **Confirmado com JP:**
+  rascunhos contam nos totais (Fluxo de Caixa/resumo) desde a extração, não só após validar;
+  e exclusão de lançamento passou a ser permitida mesmo após validado (correção de erro).
+  Migration `20260721120000_lancamentos_validado_e_delete.sql` — coluna
+  `validado_pelo_usuario` (default true; só nasce false nos rascunhos de IA) + policy de DELETE
+  nova (**reversão deliberada** da decisão original "sem DELETE" da migration do item 13 —
+  ver seção 2). `CriarLancamentoDialog.tsx` reescrito: cria rascunho → salva documento →
+  classifica → abre formulário JÁ VINCULADO ao rascunho (não mais um INSERT solto); se a
+  classificação falhar, mantém rascunho+documento e deixa pra preenchimento manual. Badge
+  "Não validado" (só aparece no estado excepcional) + filtro na lista + botão "Excluir
+  lançamento" com dupla confirmação no detalhe. **Validado de ponta a ponta com Playwright**
+  contra o Supabase remoto: upload real (classificação falhou de verdade por falta de
+  `GEMINI_API_KEY`, caminho de fallback exercitado na prática), abandono sem confirmar deixando
+  o rascunho na lista com o badge certo, confirmação removendo o badge, exclusão real com
+  navegação de volta, e confirmação de que fechar a captura ANTES de escolher arquivo não cria
+  nenhum rascunho. `build`/`lint`/`test` (36/36) limpos. Ver
+  `.agents/memory/log/2026-07-21-rascunho-validacao-e-exclusao-lancamento.md`.
 - **Atualização anterior:** 2026-07-19 — `qa` (Emma) escreveu e **rodou de verdade** a suíte pgTAP
   de RLS/RPC/GMD da Fase 2 (63/63 asserções, incluindo a regressão do bug de GMD do protótipo e
   os 3 achados do gate `cyber_chief`). Ver seção 5 e
@@ -446,6 +469,7 @@
 | 2026-07-16 | **ADR-0001 aceito:** provisionamento de conta no signup via **trigger de banco** `on_auth_user_created` (não Edge Function) — função `SECURITY DEFINER` em `auth.users` cria `usuarios`+`fazendas`+`usuarios_fazendas` (`papel='dono'`) na mesma transação | `architect` (Alex) | Escolhido pela atomicidade real (falha em qualquer insert reverte tudo, inclusive `auth.users` — nunca há conta "meio criada"); Edge Function foi rejeitada por não ser atômica com o signup (janela de rede entre `signUp()` e a chamada da função). Implicação de RLS: nenhuma policy de INSERT necessária/permitida para `authenticated`/`anon` nessas 3 tabelas. Revisar quando o papel Financeiro/Contábil (Fase 6) entrar — hoje a função assume que todo signup cria fazenda nova. Ver `.agents/memory/adr/ADR-0001-provisionamento-conta.md` |
 | 2026-07-16 | **ADR-0002 aceito:** papel único hierárquico `admin/membro/financeiro` (substitui `dono`) + convite para fazenda existente (novo usuário ou já cadastrado) já nesta fase, não só Fase 6. Escrita em `usuarios_fazendas`/`convites` só via 4 funções `SECURITY DEFINER` (`aceitar_convite`, `promover_papel`, `criar_convite`, `cancelar_convite`) — zero policy de INSERT/UPDATE/DELETE nova para `authenticated`/`anon`, generalizando a correção do `cyber_chief` na Fase 1. Envio de convite a quem não tem conta exige Edge Function nova (`enviar-convite`, `service_role`) | `architect` (Alex) | Substitui parcialmente o ADR-0001 (só a premissa "todo signup cria fazenda nova"; resto do ADR-0001 continua válido). Ver `.agents/memory/adr/ADR-0002-convites-e-papeis-admin.md` |
 | 2026-07-21 | **Módulo Financeiro (item 18) vai incluir classificação assistida por IA de lançamentos:** usuário envia imagem/PDF de um documento (nota/boleto/recibo), sistema pré-preenche valor/data/categoria/contraparte/tipo via Supabase Edge Function chamando a API da Anthropic (Claude Haiku 4.5 — extração/classificação, custo estimado <R$10/mês mesmo em uso intenso), usuário confirma/edita antes de qualquer gravação. Sem mudança de schema — dado extraído fica só no estado do formulário até confirmação | JP | Decisão de planejamento, ainda não implementada — entra no escopo quando o Módulo Financeiro for construído. Ver spec seção 12, entrada "Planejado: classificação assistida por IA de lançamentos financeiros" |
+| 2026-07-21 | **Reversão deliberada:** `lancamentos_financeiros` passa a permitir **DELETE** (admin/membro) — a migration original do item 13 (2026-07-20) tinha vetado exclusão de propósito ("correção é via UPDATE", risco de invalidar período já exportado pra contabilidade externa) | JP | Motivo: um lançamento pode ser validado por engano ou com erro (inclusive rascunho de IA mal lido) e precisa poder ser descartado, não só corrigido. Mitigação: dupla confirmação na UI, documento do bucket nunca apagado junto. Ver migration `20260721120000_lancamentos_validado_e_delete.sql` e `.agents/memory/log/2026-07-21-rascunho-validacao-e-exclusao-lancamento.md` — sinalizado para revisão do `cyber_chief` quando o gate formal da Fase 4 rodar |
 | 2026-07-17 | **ADR-0003 aceito:** provedor de e-mail transacional = **Resend** (API HTTP simples sem SDK Node-específico, tier gratuito de 3.000 e-mails/mês, deliverability adequada) para o branch "convidado já tem conta" de `enviarEmailConvite()`. Código implementado gated por `RESEND_API_KEY` (opcional, ausente hoje — fallback de log preservado). `APP_URL` de dev local = `http://localhost:5173` (porta padrão do Vite, sem `server.port` customizado) | `devops` (Oliver) | Precisa de ação humana para completar: criar conta Resend, gerar API key, rodar `supabase secrets set RESEND_API_KEY=...`/`APP_URL=...` e `supabase functions deploy`. Atualizar `APP_URL` para a URL pública real quando o frontend for deployado (Vercel/Netlify). Ver `.agents/memory/adr/ADR-0003-provedor-email-transacional.md` |
 
 ---
@@ -503,7 +527,9 @@ frontend (ex.: upload client-side respeita `allowed_mime_types`? o filtro `accep
 `<input type="file">` é só UX, não é validação de segurança — a validação real já é o
 `allowed_mime_types` do bucket, que rejeita no servidor) mais as migrations que sim são novas
 desta fase (`pago`/`data_pagamento`, config de LLM + trigger `restringir_alteracao_config_llm`,
-buckets `lancamentos-documentos`, view `fluxo_caixa_consolidado`).
+buckets `lancamentos-documentos`, view `fluxo_caixa_consolidado`, coluna
+`validado_pelo_usuario` + a nova policy de DELETE — esta última merece atenção prioritária no
+gate por reverter uma decisão de segurança/integridade anterior, ver seção 2).
 
 **Nota técnica para o Módulo de GTAs (item 17, próximo depois de Saldo de Rebanho):** o embed
 PostgREST entre `transacoes` e `gtas` exige o hint de constraint (`gtas!transacoes_gta_id_fkey` ou
@@ -696,6 +722,25 @@ responde HTTP 200, não que a UI renderiza/interage corretamente.
 ---
 
 ## 5. Histórico de Tarefas Complexas (mais recente primeiro)
+
+### 2026-07-21 — Rascunho de lançamento com validação pendente + exclusão de lançamento — `developer` (via Claude)
+
+- **O que foi feito:** o upload de documento na captura de "Novo Lançamento" agora persiste de
+  verdade — cria um rascunho de `lancamentos_financeiros` imediatamente, salva o documento no
+  bucket, chama a IA, e só marca `validado_pelo_usuario=true` quando o usuário confirma (ou
+  edita e salva) o formulário. Se abandonar antes disso, o rascunho fica no banco com os dados
+  da IA, marcado "Não validado" (badge + filtro na lista). Nova policy de DELETE em
+  `lancamentos_financeiros` (reversão deliberada da decisão "sem DELETE" original — ver seção
+  2) + botão "Excluir lançamento" com dupla confirmação.
+- **Migration:** `20260721120000_lancamentos_validado_e_delete.sql`.
+- **Validação:** `build`/`lint`/`test` (36/36) limpos; teste real via Playwright cobrindo os 5
+  caminhos (upload com falha real de classificação → rascunho+documento preservados; abandono
+  sem confirmar → badge certo na lista; confirmação → badge some; exclusão real; abandono ANTES
+  de escolher arquivo → nenhum rascunho criado).
+- **Gate do `cyber_chief`:** NÃO rodado — mas esta tarefa reverte uma decisão de segurança
+  anterior (permitir DELETE), merece destaque na próxima revisão formal.
+- **Log:** `.agents/memory/log/2026-07-21-rascunho-validacao-e-exclusao-lancamento.md`.
+- **Próximos passos combinados com JP:** item 19 da spec (Declaração Anual de Rebanho).
 
 ### 2026-07-21 — Captura de documento como entrada de "Novo Lançamento" — modal reutilizável — `developer` (via Claude)
 
