@@ -49,3 +49,30 @@ export const entradaSaidaLoteSchema = z
   })
 
 export type EntradaSaidaLoteFormValues = z.infer<typeof entradaSaidaLoteSchema>
+
+// Venda/Óbito/Consumo (ADR-0004/0005/0006) — agem sobre animais JÁ
+// EXISTENTES, selecionados individualmente (diferente de
+// entradaSaidaLoteSchema, que lança contagem agregada sem escolher
+// animais específicos). Sem faixa etária/sexo agregados aqui — são
+// derivados automaticamente pelo backend a partir de cada animal
+// selecionado (registrar_saida_animais_individuais()).
+export const tipoOperacaoSaidaIndividualSchema = z.enum(["venda", "obito", "consumo"], {
+  error: "Selecione o tipo de operação",
+})
+
+export const saidaAnimaisIndividuaisSchema = z.object({
+  tipo_operacao: tipoOperacaoSaidaIndividualSchema,
+  especie_id: z.string().min(1, "Selecione o tipo de animal"),
+  outra_parte: z.string().trim().min(1, "Informe a outra parte da operação"),
+  data_operacao: z
+    .string()
+    .min(1, "Informe a data da operação")
+    .refine((v) => v <= hojeISO(), "A data da operação não pode ser no futuro"),
+  animal_ids: z.array(z.string()).min(1, "Selecione ao menos um animal"),
+  valor_nota: z.number().min(0, "O valor não pode ser negativo").nullable(),
+  peso_total_kg: z.number().min(0, "O peso total não pode ser negativo").nullable(),
+})
+
+export type SaidaAnimaisIndividuaisFormValues = z.infer<
+  typeof saidaAnimaisIndividuaisSchema
+>

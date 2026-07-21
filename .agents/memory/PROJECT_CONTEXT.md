@@ -451,6 +451,23 @@ responde HTTP 200, não que a UI renderiza/interage corretamente.
 
 ## 5. Histórico de Tarefas Complexas (mais recente primeiro)
 
+### 2026-07-21 — Tela de seleção de animal individual para Venda/Óbito/Consumo — `db_sage`+`cyber_chief`+`developer` (via Claude)
+
+- **O que foi feito:** segundo dos 4 próximos passos combinados com JP. RPC nova
+  `registrar_saida_animais_individuais()` vincula transacao a animais já existentes via
+  `transacoes_animais` (triggers já existentes do ADR-0004/0005 cuidam de status/validação
+  cross-fazenda) e calcula o agrupamento etário REAL de cada animal (mais preciso que "Não
+  classificado"). Frontend: `EntradaSaidaLoteDialog` virou shell alternando entre
+  `EntradaAgregadaForm` (Compra/Nascimento) e `SaidaAnimaisIndividuaisForm` (Venda/Óbito/
+  Consumo, novo — checklist de animais já individualizados).
+- **Validação:** build/lint/test (36/36) limpos; schema validado com venda de 2 animais
+  (agrupamentos calculados corretamente por idade real); teste real de ponta a ponta
+  (Playwright, desktop+mobile) vendendo um animal descartável — status "Vendido", categoria
+  calculada, dados de teste limpos depois.
+- **Gate do `cyber_chief`:** concluído (🟢).
+- **Log:** `.agents/memory/log/2026-07-21-selecao-animais-saida-individual.md`.
+- **Próximos passos combinados com JP:** 3) item 14 (Storage); 4) Fase 4 (telas do Eixo 2).
+
 ### 2026-07-21 — Fluxo de completar animal pendente de individualização — `db_sage`+`cyber_chief`+`developer` (via Claude)
 
 - **O que foi feito:** primeiro dos 4 próximos passos combinados com JP. Trigger novo
