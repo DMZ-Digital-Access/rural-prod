@@ -27,6 +27,7 @@ import { DeclaracoesRebanhoPage } from "@/pages/declaracoes/DeclaracoesRebanhoPa
 import { LancamentoRapidoPage } from "@/pages/lancamento-rapido/LancamentoRapidoPage"
 import { PrazosDeclaracaoPage } from "@/pages/configuracoes/PrazosDeclaracaoPage"
 import { ConfiguracaoFazendaPage } from "@/pages/configuracoes/ConfiguracaoFazendaPage"
+import { EquipePage } from "@/pages/configuracoes/EquipePage"
 import { PainelInteligentePage } from "@/pages/rebanho/PainelInteligentePage"
 
 // Mapa de rotas da área logada (especificacao-sistema.md, seção 8).
@@ -39,13 +40,7 @@ const appRoutes: {
   path: string
   title: string
   fase: string
-}[] = [
-  {
-    path: "configuracoes/equipe",
-    title: "Equipe",
-    fase: "Fase 6 (roadmap)",
-  },
-]
+}[] = []
 
 export const router = createBrowserRouter([
   { path: "/", element: <Navigate to="/app/dashboard" replace /> },
@@ -85,6 +80,7 @@ export const router = createBrowserRouter([
       { path: "configuracoes/ia", element: <ConfiguracaoIaPage /> },
       { path: "configuracoes/extracao-ia", element: <ConfiguracaoExtracaoIaPage /> },
       { path: "configuracoes/prazos-declaracao", element: <PrazosDeclaracaoPage /> },
+      { path: "configuracoes/equipe", element: <EquipePage /> },
       ...appRoutes.map((route) => ({
         path: route.path,
         element: <PlaceholderPage title={route.title} fase={route.fase} />,

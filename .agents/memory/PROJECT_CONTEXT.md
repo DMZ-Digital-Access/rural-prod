@@ -557,15 +557,27 @@
   cada fazenda. Ver seção 5,
   `.agents/memory/log/2026-07-22-cyber_chief-review-fase4-completa.md` e
   `.agents/memory/log/2026-07-22-admin-software-e-configuracao-extracao-ia.md`.
-- **Última atualização:** 2026-07-22 — **Multi-fazenda, Fase A**: um usuário agora pode ser
+- **Atualização anterior:** 2026-07-22 — **Multi-fazenda, Fase A**: um usuário agora pode ser
   vinculado a mais de uma fazenda com um seletor real (`FazendaSwitcher`, sempre visível no
   menu) — `useFazendaAtual()` foi reescrito pra resolver a fazenda selecionada (persistida em
   localStorage) contra a lista real de vínculos, sem quebrar nenhum dos 19 call sites existentes.
   RPC nova `criar_fazenda()` permite a um admin já existente cadastrar fazenda adicional. Tela
   `/app/configuracoes` deixou de ser placeholder (dados da fazenda/usuário + lista "Minhas
   Fazendas"). Achado de RLS corrigido: `fazendas.nome` só editável por admin/membro (financeiro
-  não). **Fase B (próxima, combinada com JP): tela Equipe** — listar/convidar/promover/remover
-  membros por fazenda, ainda placeholder. Ver seção 5,
+  não).
+- **Última atualização:** 2026-07-22 — **Multi-fazenda, Fase B: tela Equipe**. RPCs novas
+  `listar_membros_fazenda()`/`remover_membro()` (admin-only, mesma guarda "nunca zero admins" já
+  usada em `promover_papel`) + frontend ligando pela primeira vez o backend de convites do
+  ADR-0002 (`criar_convite`/`promover_papel`/`cancelar_convite` + Edge Function
+  `enviar-convite`), que existia desde 2026-07-16 sem nenhuma UI. Bug real corrigido:
+  `listar_membros_fazenda` nunca funcionava por ambiguidade de coluna (`usuario_id` do RETURNS
+  TABLE colidindo com a coluna da tabela). **⚠️ Achado de infraestrutura pré-existente, NÃO
+  bloqueante para o resto da tela:** `enviar-convite` retorna 502 ("invalid JWT... unrecognized
+  JWT kid... for algorithm ES256") ao notificar um convite por e-mail — o convite funciona
+  mecanicamente mesmo assim (conta criada, vínculo efetivado), só a notificação falha. Parece
+  configuração de JWT Signing Keys do projeto Supabase — precisa de investigação de
+  infraestrutura, fora do escopo de código. Multi-fazenda (Fases A+B) está completo do ponto de
+  vista de código. Ver seção 4, `.agents/memory/log/2026-07-22-multi-fazenda-fase-b-equipe.md` e
   `.agents/memory/log/2026-07-22-multi-fazenda-fase-a.md`.
 - **Atualização anterior:** 2026-07-19 — `qa` (Emma) escreveu e **rodou de verdade** a suíte pgTAP
   de RLS/RPC/GMD da Fase 2 (63/63 asserções, incluindo a regressão do bug de GMD do protótipo e
@@ -630,6 +642,18 @@
 ---
 
 ## 4. Bloqueios e Pendências Abertas
+
+**⚠️ ABERTA (2026-07-22) — infraestrutura, não código:** Edge Function `enviar-convite`
+(ADR-0002, existe desde 2026-07-16 mas só foi exercitada de ponta a ponta agora, na Fase B do
+multi-fazenda — tela Equipe) retorna 502 ao tentar notificar um convite por e-mail:
+`"invalid JWT: unable to parse or verify signature, token is unverifiable: error while executing
+keyfunc: unrecognized JWT kid <nil> for algorithm ES256"`. O convite FUNCIONA mecanicamente
+mesmo assim (conta criada via `inviteUserByEmail`, vínculo à fazenda efetivado via
+`handle_new_user()`, confirmado direto no banco) — só a etapa de notificação/e-mail falha, e o
+admin vê um erro no toast mesmo o convite tendo colado por trás. Parece configuração de JWT
+Signing Keys do projeto Supabase (dashboard → Project Settings → API) — precisa de investigação
+de infraestrutura, não é algo que uma migration/código resolve sozinho. Ver
+`.agents/memory/log/2026-07-22-multi-fazenda-fase-b-equipe.md`.
 
 **Contexto de produto registrado por JP em 2026-07-20 (itens 1-2 abaixo) — RESOLVIDO em
 2026-07-21 pelo Módulo de Transações (ver seção 1/5):**
@@ -851,6 +875,30 @@ responde HTTP 200, não que a UI renderiza/interage corretamente.
 ---
 
 ## 5. Histórico de Tarefas Complexas (mais recente primeiro)
+
+### 2026-07-22 — Multi-fazenda Fase B: tela Equipe (membros, convites, promoção, remoção) — `developer` (via Claude)
+
+- **O que foi feito:** `/app/configuracoes/equipe` deixa de ser placeholder. RPCs novas
+  `listar_membros_fazenda()` e `remover_membro()` (admin-only, mesmo arcabouço de
+  `promover_papel` do ADR-0002 — checagem imperativa de admin, guarda "nunca zero admins" com
+  `for update`, autoremoção permitida). Frontend liga pela primeira vez todo o backend de
+  convites que já existia desde 2026-07-16 sem UI nenhuma (`criar_convite`/`promover_papel`/
+  `cancelar_convite` + Edge Function `enviar-convite`).
+- **Bug real corrigido:** `listar_membros_fazenda` nunca funcionava (nem no caminho feliz) —
+  ambiguidade entre a coluna de retorno `usuario_id` (implicitamente declarada pelo `RETURNS
+  TABLE`) e `usuarios_fazendas.usuario_id` na checagem de admin. Corrigido com migration aditiva,
+  qualificando com alias.
+- **⚠️ Achado de infraestrutura (não é bug de código, ver seção 4):** `enviar-convite` retorna
+  502 por um problema de JWT signing keys do projeto Supabase ao notificar convites por e-mail —
+  o convite funciona mecanicamente mesmo assim, só a notificação falha. Precisa de investigação
+  de infraestrutura, fora do escopo desta tarefa.
+- **Validado:** `build`/`lint`/`test` (36/36); 5 cenários de segurança direto no banco; Playwright
+  real (desktop+mobile) confirmando a tela, a criação/aceite automático de convite (achado do
+  ADR-0002: e-mail novo pula direto pra "aceito", nunca fica "pendente") — dado de teste removido
+  ao final. Ver `.agents/memory/log/2026-07-22-multi-fazenda-fase-b-equipe.md`.
+- **Gate do `cyber_chief`:** não rodado como gate formal separado — RPCs seguem o arcabouço já
+  revisado no gate do ADR-0002. Recomendado no próximo gate, junto com a investigação de JWT.
+- **Multi-fazenda (Fases A+B) completo do ponto de vista de código.**
 
 ### 2026-07-22 — Multi-fazenda Fase A: seletor de fazenda + criar fazenda adicional + Configurações — `developer` (via Claude)
 
