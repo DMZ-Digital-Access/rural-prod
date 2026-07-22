@@ -1,6 +1,6 @@
 import { Link, useNavigate, useParams } from "react-router-dom"
 import { ArrowLeftIcon } from "lucide-react"
-import { useLote } from "@/hooks/useLotes"
+import { useLote, useLotes } from "@/hooks/useLotes"
 import { useAnimais } from "@/hooks/useAnimais"
 import {
   Card,
@@ -22,6 +22,8 @@ import { StatusAnimalBadge } from "@/components/rebanho/StatusAnimalBadge"
 import { LoteFormDialog } from "@/pages/lotes/LoteFormDialog"
 import { ArquivarLoteButton } from "@/pages/lotes/ArquivarLoteButton"
 import { EncerrarLoteDialog } from "@/pages/lotes/EncerrarLoteDialog"
+import { MudarLoteDialog } from "@/pages/lotes/MudarLoteDialog"
+import { AdicionarAnimaisDialog } from "@/pages/lotes/AdicionarAnimaisDialog"
 
 function formatPeso(kg: number | null) {
   return kg === null ? "—" : `${kg.toFixed(1)} kg`
@@ -41,6 +43,7 @@ export function LoteDetailPage() {
   const navigate = useNavigate()
   const loteQuery = useLote(id)
   const animaisQuery = useAnimais(loteQuery.data?.fazenda_id, id)
+  const lotesQuery = useLotes(loteQuery.data?.fazenda_id)
 
   if (loteQuery.isLoading) {
     return <p className="text-sm text-muted-foreground">Carregando lote…</p>
@@ -153,8 +156,9 @@ export function LoteDetailPage() {
       </Card>
 
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between gap-2">
           <CardTitle>Animais do lote</CardTitle>
+          <AdicionarAnimaisDialog fazendaId={lote.fazenda_id} loteId={lote.id} />
         </CardHeader>
         <CardContent>
           {animaisQuery.isLoading && (
@@ -176,6 +180,7 @@ export function LoteDetailPage() {
                   <TableHead>Status</TableHead>
                   <TableHead>Peso atual</TableHead>
                   <TableHead className="hidden sm:table-cell">GMD</TableHead>
+                  <TableHead>Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -198,6 +203,9 @@ export function LoteDetailPage() {
                     <TableCell>{formatPeso(animal.peso_atual_kg)}</TableCell>
                     <TableCell className="hidden sm:table-cell">
                       {formatGmd(animal.gmd_medio_kg)}
+                    </TableCell>
+                    <TableCell>
+                      <MudarLoteDialog animal={animal} lotes={lotesQuery.data ?? []} />
                     </TableCell>
                   </TableRow>
                 ))}

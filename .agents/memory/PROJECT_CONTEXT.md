@@ -579,6 +579,13 @@
   infraestrutura, fora do escopo de código. Multi-fazenda (Fases A+B) está completo do ponto de
   vista de código. Ver seção 4, `.agents/memory/log/2026-07-22-multi-fazenda-fase-b-equipe.md` e
   `.agents/memory/log/2026-07-22-multi-fazenda-fase-a.md`.
+- **Última atualização:** 2026-07-22 — **Detalhe do Lote (Eixo 1): transferir/retirar animal +
+  incluir animais.** `MudarLoteDialog` (Select único: outro lote ou "Sem lote", mesmo gesto pra
+  retirar/transferir) e `AdicionarAnimaisDialog` (busca por identificação + checklist, inclusive
+  animais que já têm outro lote — "rouba" pro lote atual). Sem migration nova — RLS/trigger da
+  Fase 2 já cobriam. Bug real corrigido: `LoteSelectField` (react-hook-form) não funciona fora de
+  um `<Form>` — trocado por `Select` plano. Ver
+  `.agents/memory/log/2026-07-22-lote-detalhe-gestao-animais.md`.
 - **Atualização anterior:** 2026-07-19 — `qa` (Emma) escreveu e **rodou de verdade** a suíte pgTAP
   de RLS/RPC/GMD da Fase 2 (63/63 asserções, incluindo a regressão do bug de GMD do protótipo e
   os 3 achados do gate `cyber_chief`). Ver seção 5 e

@@ -116,3 +116,60 @@ export function useAtualizarAnimal(animalId: string) {
     },
   })
 }
+
+/**
+ * Muda o lote de UM animal (tela de detalhe do lote, 2026-07-22) —
+ * `loteId = null` retira o animal do lote ("Sem lote"), qualquer outro id
+ * move pra outro lote existente. Mutação estreita (só lote_id) — diferente
+ * de useAtualizarAnimal, que exige o payload inteiro do formulário de
+ * edição. RLS (animais_update_vinculada) + o trigger
+ * validar_lote_mesma_fazenda já cobrem toda a validação de segurança
+ * necessária (papel <> financeiro, lote da mesma fazenda) — nenhuma
+ * migration nova precisou ser escrita pra isso.
+ */
+export function useAtualizarLoteDoAnimal(animalId: string) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (loteId: string | null) => {
+      const { error } = await supabase
+        .from("animais")
+        .update({ lote_id: loteId })
+        .eq("id", animalId)
+
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["animais"] })
+      queryClient.invalidateQueries({ queryKey: ["lotes"] })
+    },
+  })
+}
+
+/**
+ * Inclui vários animais de uma vez num lote (tela de detalhe do lote,
+ * 2026-07-22, "Incluir animais") — um único UPDATE com `.in(...)` em vez de
+ * N chamadas separadas. Mesma cobertura de RLS/trigger de
+ * useAtualizarLoteDoAnimal.
+ */
+export function useAdicionarAnimaisAoLote(loteId: string | undefined) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (animalIds: string[]) => {
+      if (!loteId) throw new Error("Lote não identificado.")
+      if (animalIds.length === 0) throw new Error("Selecione ao menos um animal.")
+
+      const { error } = await supabase
+        .from("animais")
+        .update({ lote_id: loteId })
+        .in("id", animalIds)
+
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["animais"] })
+      queryClient.invalidateQueries({ queryKey: ["lotes"] })
+    },
+  })
+}
