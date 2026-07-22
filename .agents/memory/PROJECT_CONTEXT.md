@@ -527,6 +527,29 @@
   ponta com Playwright** (desktop+mobile): cadastrou um prazo real, editou, e confirmou na
   tela de Declarações que o prazo cadastrado passou a valer no lugar do fallback "padrão RS".
   `build`/`lint`/`test` (36/36) limpos. Ver `.agents/memory/log/2026-07-22-prazos-declaracao.md`.
+- **Fase 4, Painel Inteligente construído (2026-07-22, item 21) — ÚLTIMO ITEM DA FASE 4.**
+  `/app/rebanho` unifica: alertas acionáveis (GTAs pendentes, Declaração pendente com os mesmos
+  3 estados da tela de Declarações), cards de saldo atual por espécie (reaproveita
+  `useResumoSaldoAno` já existente, zero mudança), gráfico de evolução do saldo ao longo do ano
+  (hook novo `useEvolucaoSaldoAno` — estende `obter_saldo_rebanho()` já existente com até 12
+  checkpoints mensais em paralelo, **sem view/RPC nova de série histórica**, consistente com a
+  decisão da spec de manter saldo "calculado on-the-fly"), resumo financeiro do ano (reaproveita
+  `useFluxoCaixa`; cabeças compradas/vendidas via hook novo `useResumoTransacoesAno`, soma
+  simples de `transacoes.quantidade_animais`), e atalhos pras últimas transações/lançamentos.
+  **Investigação real que descartou um falso alarme:** uma consulta SQL direta via `psql`
+  parecia contradizer o saldo mostrado na tela — confirmado que é o mesmo comportamento já
+  documentado de `auth.uid()` ser NULL fora de sessão autenticada (função depende de RLS/
+  usuário logado), não um bug; o valor da tela bateu exato com a soma manual de
+  `transacoes_detalhe`. **Bug real encontrado e corrigido:** o alerta de Declaração mostrava
+  brevemente "Nenhum prazo cadastrado" enquanto as queries ainda carregavam, antes de
+  autocorrigir — resolvido com guarda de `isLoading`. **Observação de performance documentada
+  (não corrigida):** a página dispara bastante query em paralelo (até ~12 RPCs pro gráfico em
+  dezembro), aceitável por ora. **Validado de ponta a ponta com Playwright** (desktop+mobile,
+  dado real): todas as seções com valores reais, clique num atalho navegando pro detalhe certo,
+  linha do gráfico subindo exatamente no mês certo. `build`/`lint`/`test` (36/36) limpos. Ver
+  `.agents/memory/log/2026-07-22-painel-inteligente.md`. **Com isso, a Fase 4 (itens 15-21 da
+  spec, seção 10) está completa.** Pendência acumulada em aberto: gate formal do `cyber_chief`
+  cobrindo toda a fase (nunca rodado) — próximo passo natural.
 - **Atualização anterior:** 2026-07-19 — `qa` (Emma) escreveu e **rodou de verdade** a suíte pgTAP
   de RLS/RPC/GMD da Fase 2 (63/63 asserções, incluindo a regressão do bug de GMD do protótipo e
   os 3 achados do gate `cyber_chief`). Ver seção 5 e
@@ -817,6 +840,28 @@ responde HTTP 200, não que a UI renderiza/interage corretamente.
 ---
 
 ## 5. Histórico de Tarefas Complexas (mais recente primeiro)
+
+### 2026-07-22 — Fase 4, Painel Inteligente (item 21) — ÚLTIMO ITEM DA FASE 4 — `developer` (via Claude)
+
+- **O que foi feito:** `/app/rebanho` unifica alertas acionáveis (GTAs pendentes, Declaração
+  pendente), cards de saldo atual por espécie, gráfico de evolução do saldo ao longo do ano,
+  resumo financeiro do ano e atalhos pras últimas transações/lançamentos — quase tudo
+  reaproveitando hooks/RPCs já existentes (`useResumoSaldoAno`, `useFluxoCaixa`,
+  `useGtasLista`, `useDeclaracoesLista`, `usePrazoDeclaracao`). Só 2 hooks novos:
+  `useEvolucaoSaldoAno` (estende `obter_saldo_rebanho()` com até 12 checkpoints mensais em
+  paralelo, sem view/RPC nova) e `useResumoTransacoesAno` (soma simples de
+  `transacoes.quantidade_animais`).
+- **Achados reais:** uma aparente inconsistência entre SQL direto e a tela foi investigada e
+  descartada como falso alarme (mesmo comportamento de `auth.uid()` NULL em sessão `psql` não
+  autenticada, já documentado antes); um bug real de flash de mensagem enganosa no alerta de
+  Declaração (estado ainda carregando) foi encontrado e corrigido com guarda de `isLoading`.
+- **Validação:** `build`/`lint`/`test` (36/36) limpos; teste real via Playwright
+  (desktop+mobile, dado real) confirmou todas as seções, um clique de atalho navegando certo, e
+  o gráfico subindo exatamente no mês em que as transações de teste aconteceram.
+- **Gate do `cyber_chief`:** não se aplica (sem migration nova).
+- **Log:** `.agents/memory/log/2026-07-22-painel-inteligente.md`.
+- **Fase 4 completa (itens 15-21 da spec).** Próximo passo natural: gate formal do
+  `cyber_chief` cobrindo toda a fase (pendência acumulada, nunca rodado).
 
 ### 2026-07-22 — Declaração Anual reestruturada: 1 declaração/ano + itens de espécie — `developer` (via Claude)
 
