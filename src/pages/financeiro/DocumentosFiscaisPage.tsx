@@ -217,7 +217,7 @@ export function DocumentosFiscaisPage() {
                 <TableRow key={lancamento.id}>
                   <TableCell>
                     <Link
-                      to={`/app/rebanho/financeiro/${lancamento.id}`}
+                      to={`/app/financeiro/lancamentos/${lancamento.id}`}
                       className="underline-offset-4 hover:underline"
                     >
                       <TipoLancamentoBadge tipo={lancamento.tipo} />

@@ -36,12 +36,18 @@ const rebanhoCompliance: NavItem[] = [
   { to: "/app/rebanho", label: "Painel Inteligente", end: true },
   { to: "/app/rebanho/saldo", label: "Saldo de Rebanho" },
   { to: "/app/rebanho/gtas", label: "GTAs" },
-  { to: "/app/rebanho/transacoes", label: "Transações" },
-  { to: "/app/rebanho/financeiro", label: "Financeiro" },
-  { to: "/app/rebanho/fluxo-caixa", label: "Fluxo de Caixa" },
-  { to: "/app/rebanho/financeiro-documentos", label: "Documentos Fiscais" },
   { to: "/app/rebanho/declaracoes", label: "Declarações" },
 ]
+
+// Seção própria de topo (2026-07-22, pedido de JP) — antes eram 4 itens
+// soltos dentro de "Rebanho & Compliance" (Transações/Financeiro/Fluxo de
+// Caixa/Documentos Fiscais). "Financeiro" é o financeiro TOTAL da fazenda
+// (inclui compra/venda de animais via a aba "Transações de Animais"), não
+// um assunto de "rebanho" — daí sair dessa seção e da URL `/rebanho/*`. As
+// 4 páginas agora são abas de uma única área (`FinanceiroLayout`, ver
+// router.tsx) — só uma entrada de menu, sem `end`, pra ficar destacada em
+// qualquer sub-rota de `/app/financeiro`.
+const financeiro: NavItem[] = [{ to: "/app/financeiro", label: "Financeiro" }]
 
 const configuracoes: NavItem[] = [
   { to: "/app/configuracoes", label: "Configurações", end: true },
@@ -112,6 +118,7 @@ function SidebarNav({
         items={rebanhoCompliance}
         onNavigate={onNavigate}
       />
+      <NavSection title="Financeiro" items={financeiro} onNavigate={onNavigate} />
       <NavSection
         title="Configurações"
         items={configuracoes}

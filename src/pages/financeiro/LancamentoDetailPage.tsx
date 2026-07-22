@@ -167,7 +167,7 @@ export function LancamentoDetailPage() {
   return (
     <div className="flex flex-col gap-4">
       <Link
-        to="/app/rebanho/financeiro"
+        to="/app/financeiro/lancamentos"
         className="flex w-fit items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
       >
         <ArrowLeftIcon className="size-4" />
@@ -200,7 +200,7 @@ export function LancamentoDetailPage() {
               {!somenteLeitura && (
                 <ExcluirLancamentoDialog
                   lancamentoId={lancamento.id}
-                  aoExcluir={() => navigate("/app/rebanho/financeiro")}
+                  aoExcluir={() => navigate("/app/financeiro/lancamentos")}
                 />
               )}
             </div>

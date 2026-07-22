@@ -52,8 +52,8 @@ function formatData(data: string) {
 
 function linkOrigem(movimento: MovimentoFluxoCaixa) {
   return movimento.origem === "transacao_animal"
-    ? `/app/rebanho/transacoes/${movimento.origem_id}`
-    : `/app/rebanho/financeiro/${movimento.origem_id}`
+    ? `/app/financeiro/transacoes/${movimento.origem_id}`
+    : `/app/financeiro/lancamentos/${movimento.origem_id}`
 }
 
 // Escapa vírgula/aspas/quebra de linha por RFC 4180 — mínimo necessário para

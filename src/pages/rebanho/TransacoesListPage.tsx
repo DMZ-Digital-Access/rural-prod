@@ -260,7 +260,7 @@ export function TransacoesListPage() {
                   <TableRow key={transacao.id}>
                     <TableCell>
                       <Link
-                        to={`/app/rebanho/transacoes/${transacao.id}`}
+                        to={`/app/financeiro/transacoes/${transacao.id}`}
                         className="underline-offset-4 hover:underline"
                       >
                         <TipoOperacaoBadge tipo={transacao.tipo_operacao} />

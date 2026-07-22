@@ -213,7 +213,7 @@ export function TransacaoDetailPage() {
   return (
     <div className="flex flex-col gap-4">
       <Link
-        to="/app/rebanho/transacoes"
+        to="/app/financeiro/transacoes"
         className="flex w-fit items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
       >
         <ArrowLeftIcon className="size-4" />

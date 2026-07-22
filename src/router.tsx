@@ -16,6 +16,7 @@ import { TransacaoDetailPage } from "@/pages/rebanho/TransacaoDetailPage"
 import { SaldoRebanhoPage } from "@/pages/rebanho/SaldoRebanhoPage"
 import { GtasListPage } from "@/pages/gtas/GtasListPage"
 import { GtaDetailPage } from "@/pages/gtas/GtaDetailPage"
+import { FinanceiroLayout } from "@/pages/financeiro/FinanceiroLayout"
 import { LancamentosListPage } from "@/pages/financeiro/LancamentosListPage"
 import { LancamentoDetailPage } from "@/pages/financeiro/LancamentoDetailPage"
 import { ConfiguracaoIaPage } from "@/pages/configuracoes/ConfiguracaoIaPage"
@@ -64,16 +65,22 @@ export const router = createBrowserRouter([
       { path: "lotes", element: <LotesListPage /> },
       { path: "lotes/:id", element: <LoteDetailPage /> },
       { path: "comparativo", element: <ComparativoPage /> },
-      { path: "rebanho/transacoes", element: <TransacoesListPage /> },
-      { path: "rebanho/transacoes/:id", element: <TransacaoDetailPage /> },
       { path: "rebanho/saldo", element: <SaldoRebanhoPage /> },
       { path: "rebanho/gtas", element: <GtasListPage /> },
       { path: "rebanho/gtas/:id", element: <GtaDetailPage /> },
-      { path: "rebanho/financeiro", element: <LancamentosListPage /> },
-      { path: "rebanho/financeiro/:id", element: <LancamentoDetailPage /> },
-      { path: "rebanho/financeiro-documentos", element: <DocumentosFiscaisPage /> },
-      { path: "rebanho/fluxo-caixa", element: <FluxoCaixaPage /> },
       { path: "rebanho/declaracoes", element: <DeclaracoesRebanhoPage /> },
+      {
+        path: "financeiro",
+        element: <FinanceiroLayout />,
+        children: [
+          { index: true, element: <FluxoCaixaPage /> },
+          { path: "transacoes", element: <TransacoesListPage /> },
+          { path: "transacoes/:id", element: <TransacaoDetailPage /> },
+          { path: "lancamentos", element: <LancamentosListPage /> },
+          { path: "lancamentos/:id", element: <LancamentoDetailPage /> },
+          { path: "documentos", element: <DocumentosFiscaisPage /> },
+        ],
+      },
       { path: "configuracoes/ia", element: <ConfiguracaoIaPage /> },
       ...appRoutes.map((route) => ({
         path: route.path,

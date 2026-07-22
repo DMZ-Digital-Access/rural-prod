@@ -81,7 +81,7 @@ export function LancamentosListPage() {
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold">Financeiro</h1>
+          <h1 className="text-2xl font-semibold">Lançamentos Gerais</h1>
           <p className="text-muted-foreground">
             Receitas e despesas gerais da fazenda — insumos, mão de obra, impostos e mais.
           </p>
@@ -245,7 +245,7 @@ export function LancamentosListPage() {
                   <TableRow key={lancamento.id}>
                     <TableCell>
                       <Link
-                        to={`/app/rebanho/financeiro/${lancamento.id}`}
+                        to={`/app/financeiro/lancamentos/${lancamento.id}`}
                         className="flex flex-wrap items-center gap-1.5 underline-offset-4 hover:underline"
                       >
                         <TipoLancamentoBadge tipo={lancamento.tipo} />

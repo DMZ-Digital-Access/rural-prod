@@ -470,6 +470,25 @@
   enviada com upload real de PDF, abriu o documento via signed URL real, confirmou edição
   travando espécie/ano. `build`/`lint`/`test` (36/36) limpos, build passou de primeira. Ver
   `.agents/memory/log/2026-07-21-declaracao-anual-rebanho.md`.
+- **Financeiro reorganizado em abas, fora de "rebanho" (2026-07-22):** discussão de UX com JP
+  (planejamento antes de qualquer código) sobre 3 melhorias de usabilidade. Primeira executada:
+  Transações/Financeiro/Fluxo de Caixa/Documentos Fiscais eram 4 itens soltos dentro de "Rebanho
+  & Compliance" com URL `/rebanho/*` — confuso porque "Financeiro" sozinho não era o financeiro
+  completo (não incluía animais) e "rebanho" não fazia sentido pro dinheiro TOTAL da fazenda.
+  Viraram **abas de uma única área `/app/financeiro`** (`FinanceiroLayout.tsx`, usa
+  `@base-ui/react/tabs` com cada aba renderizada como `<Link>` — navegação real por rota, não
+  painel condicional): Visão Geral (Fluxo de Caixa) | Transações de Animais (a página
+  Transações, só movida, com seu resumo de saldo) | Lançamentos Gerais | Documentos Fiscais.
+  Saldo de Rebanho **não entrou** — continua em Rebanho & Compliance (é sobre estoque de
+  animais, não dinheiro). Menu ganhou uma seção de topo própria "Financeiro" com uma única
+  entrada. 6 links internos corrigidos pras novas URLs. **Validado de ponta a ponta com
+  Playwright** (desktop+mobile): navegação entre as 4 abas com URLs corretas, dados reais
+  carregando em cada uma, link de origem de uma transação de animal no Fluxo de Caixa abrindo a
+  URL nova corretamente. `build`/`lint`/`test` (36/36) limpos. Ver
+  `.agents/memory/log/2026-07-22-financeiro-reorganizado-em-abas.md`. **Pendentes da mesma
+  discussão:** tela de Lançamento Rápido (2 botões, reaproveitando componentes já existentes,
+  acessível via card no Dashboard) e reestruturação de schema da Declaração Anual (uma
+  declaração por ano + itens de espécie/quantidade, em vez de uma linha por espécie).
 - **Atualização anterior:** 2026-07-19 — `qa` (Emma) escreveu e **rodou de verdade** a suíte pgTAP
   de RLS/RPC/GMD da Fase 2 (63/63 asserções, incluindo a regressão do bug de GMD do protótipo e
   os 3 achados do gate `cyber_chief`). Ver seção 5 e
@@ -760,6 +779,25 @@ responde HTTP 200, não que a UI renderiza/interage corretamente.
 ---
 
 ## 5. Histórico de Tarefas Complexas (mais recente primeiro)
+
+### 2026-07-22 — Financeiro reorganizado em abas, fora de "rebanho" — `developer` (via Claude)
+
+- **Contexto:** discussão de UX com JP feita 100% em planejamento antes de qualquer código
+  (3 tópicos: reorganização do Financeiro, tela de Lançamento Rápido, reestruturação da
+  Declaração Anual) — esta tarefa executa o primeiro.
+- **O que foi feito:** `FinanceiroLayout.tsx` (abas via `@base-ui/react/tabs`, cada aba um
+  `<Link>` real) agrupa Visão Geral (Fluxo de Caixa) / Transações de Animais / Lançamentos
+  Gerais / Documentos Fiscais sob `/app/financeiro` (rotas aninhadas, `router.tsx`). Menu ganhou
+  seção de topo própria "Financeiro" (uma entrada), saindo de "Rebanho & Compliance". Saldo de
+  Rebanho não entrou no agrupamento (fica em Rebanho & Compliance). 6 links internos corrigidos.
+- **Validação:** `build`/`lint`/`test` (36/36) limpos; teste real via Playwright
+  (desktop+mobile) navegando pelas 4 abas, conferindo URLs e dados reais em cada uma, e o link
+  de origem de uma transação de animal no Fluxo de Caixa.
+- **Gate do `cyber_chief`:** não se aplica (só frontend/rotas).
+- **Log:** `.agents/memory/log/2026-07-22-financeiro-reorganizado-em-abas.md`.
+- **Próximos passos combinados com JP:** tela de Lançamento Rápido (2 botões, card no
+  Dashboard); reestruturação de schema da Declaração Anual (1 declaração/ano + itens de
+  espécie/quantidade).
 
 ### 2026-07-21 — Fase 4, Módulo Declaração Anual de Rebanho (item 19) — `developer` (via Claude)
 
