@@ -1,44 +1,37 @@
-import { useQuery } from "@tanstack/react-query"
-import { supabase } from "@/lib/supabase"
-import { useAuth } from "@/lib/auth"
+import { useFazendasDoUsuario } from "@/hooks/useFazendasDoUsuario"
+import { useFazendaSelecionada } from "@/lib/fazendaSelecionada"
 
 export type FazendaVinculo = {
   fazenda_id: string
   papel: string
+  nome: string
 }
 
 /**
- * Fazenda "atual" do usuário logado (Fase 2 — Eixo 1).
+ * Fazenda "atual" do usuário logado (reescrito 2026-07-22 pro multi-fazenda
+ * — ver useFazendasDoUsuario/fazendaSelecionada). Resolve a fazenda
+ * SELECIONADA pelo usuário (FazendaSelecionadaProvider, localStorage) contra
+ * a lista real de vínculos — se a selecionada não existir mais (ex.:
+ * removido de uma fazenda), cai pro vínculo mais antigo, mesmo fallback
+ * determinístico de antes desta reescrita.
  *
- * Débito técnico conhecido: ADR-0002 já permite um usuário estar vinculado
- * a mais de uma fazenda (convites), mas não existe ainda um seletor de
- * fazenda na UI (fora do escopo desta tarefa — spec não pede). Por ora,
- * pega-se sempre o vínculo mais antigo (`order by created_at asc, limit 1`)
- * como "a" fazenda do usuário — determinístico, mas não é uma escolha de
- * produto validada para o caso multi-fazenda. Revisitar quando/se a Fase 6
- * (papel financeiro/convites) trouxer um usuário real vinculado a mais de
- * uma fazenda.
+ * MESMO shape de retorno de antes (`{ data, isLoading, isError, error }`,
+ * `data?.fazenda_id`/`data?.papel`) — os 19 call sites existentes continuam
+ * funcionando sem nenhuma mudança, só ganham reatividade à troca de
+ * fazenda automaticamente (cada hook downstream já é keyed por fazenda_id).
  */
 export function useFazendaAtual() {
-  const { user } = useAuth()
+  const fazendasQuery = useFazendasDoUsuario()
+  const { fazendaIdSelecionada } = useFazendaSelecionada()
 
-  return useQuery({
-    queryKey: ["fazenda-atual", user?.id],
-    queryFn: async (): Promise<FazendaVinculo> => {
-      const { data, error } = await supabase
-        .from("usuarios_fazendas")
-        .select("fazenda_id, papel")
-        .order("created_at", { ascending: true })
-        .limit(1)
-        .maybeSingle()
+  const fazendas = fazendasQuery.data ?? []
+  const selecionada = fazendas.find((f) => f.fazenda_id === fazendaIdSelecionada)
+  const atual: FazendaVinculo | undefined = selecionada ?? fazendas[0]
 
-      if (error) throw error
-      if (!data) {
-        throw new Error("Usuário sem fazenda vinculada.")
-      }
-      return data
-    },
-    enabled: !!user,
-    staleTime: 5 * 60 * 1000,
-  })
+  return {
+    data: atual,
+    isLoading: fazendasQuery.isLoading,
+    isError: fazendasQuery.isError,
+    error: fazendasQuery.error,
+  }
 }

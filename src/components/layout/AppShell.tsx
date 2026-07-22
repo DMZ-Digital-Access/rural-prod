@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils"
 import { supabase } from "@/lib/supabase"
 import { useAuth } from "@/lib/auth"
 import { useSouAdminSoftware } from "@/hooks/useSouAdminSoftware"
+import { FazendaSwitcher } from "@/components/layout/FazendaSwitcher"
 import { Button } from "@/components/ui/button"
 import {
   Sheet,
@@ -122,6 +123,8 @@ function SidebarNav({
 }) {
   return (
     <>
+      <FazendaSwitcher />
+
       <NavSection
         title="Manejo Individual"
         items={manejoIndividual}

@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { RouterProvider } from "react-router-dom"
 import { AuthProvider } from "@/lib/auth"
+import { FazendaSelecionadaProvider } from "@/lib/fazendaSelecionada"
 import { Toaster } from "@/components/ui/sonner"
 import { router } from "@/router"
 
@@ -10,8 +11,10 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <RouterProvider router={router} />
-        <Toaster />
+        <FazendaSelecionadaProvider>
+          <RouterProvider router={router} />
+          <Toaster />
+        </FazendaSelecionadaProvider>
       </AuthProvider>
     </QueryClientProvider>
   )

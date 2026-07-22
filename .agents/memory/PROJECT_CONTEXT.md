@@ -549,7 +549,7 @@
   linha do gráfico subindo exatamente no mês certo. `build`/`lint`/`test` (36/36) limpos. Ver
   `.agents/memory/log/2026-07-22-painel-inteligente.md`. **Com isso, a Fase 4 (itens 15-21 da
   spec, seção 10) está completa.**
-- **Última atualização:** 2026-07-22 — **gate formal do `cyber_chief` da Fase 4 completa,
+- **Atualização anterior:** 2026-07-22 — **gate formal do `cyber_chief` da Fase 4 completa,
   veredito 🟢 Seguro** (sem achados bloqueantes), seguido da criação do papel "admin do
   software" (`usuarios.papel_sistema`, independente de fazenda) e da tela
   `/app/configuracoes/extracao-ia` pra controlar o prompt/schema de `classificar-documento` —
@@ -557,6 +557,16 @@
   cada fazenda. Ver seção 5,
   `.agents/memory/log/2026-07-22-cyber_chief-review-fase4-completa.md` e
   `.agents/memory/log/2026-07-22-admin-software-e-configuracao-extracao-ia.md`.
+- **Última atualização:** 2026-07-22 — **Multi-fazenda, Fase A**: um usuário agora pode ser
+  vinculado a mais de uma fazenda com um seletor real (`FazendaSwitcher`, sempre visível no
+  menu) — `useFazendaAtual()` foi reescrito pra resolver a fazenda selecionada (persistida em
+  localStorage) contra a lista real de vínculos, sem quebrar nenhum dos 19 call sites existentes.
+  RPC nova `criar_fazenda()` permite a um admin já existente cadastrar fazenda adicional. Tela
+  `/app/configuracoes` deixou de ser placeholder (dados da fazenda/usuário + lista "Minhas
+  Fazendas"). Achado de RLS corrigido: `fazendas.nome` só editável por admin/membro (financeiro
+  não). **Fase B (próxima, combinada com JP): tela Equipe** — listar/convidar/promover/remover
+  membros por fazenda, ainda placeholder. Ver seção 5,
+  `.agents/memory/log/2026-07-22-multi-fazenda-fase-a.md`.
 - **Atualização anterior:** 2026-07-19 — `qa` (Emma) escreveu e **rodou de verdade** a suíte pgTAP
   de RLS/RPC/GMD da Fase 2 (63/63 asserções, incluindo a regressão do bug de GMD do protótipo e
   os 3 achados do gate `cyber_chief`). Ver seção 5 e
@@ -841,6 +851,32 @@ responde HTTP 200, não que a UI renderiza/interage corretamente.
 ---
 
 ## 5. Histórico de Tarefas Complexas (mais recente primeiro)
+
+### 2026-07-22 — Multi-fazenda Fase A: seletor de fazenda + criar fazenda adicional + Configurações — `developer` (via Claude)
+
+- **O que foi feito:** `useFazendaAtual()` reescrito pra suportar de verdade o modelo N:N já
+  existente desde a Fase 1/ADR-0002 — antes sempre pegava a fazenda mais antiga do usuário, sem
+  seletor. Agora combina `useFazendasDoUsuario()` (lista todos os vínculos) + um Context novo
+  (`fazendaSelecionada.tsx`, persistido em localStorage por usuário) — MESMO shape de retorno,
+  os 19 call sites existentes continuam funcionando sem mudança. `FazendaSwitcher` novo,
+  sempre visível no topo do menu (desktop+mobile). RPC nova `criar_fazenda(p_nome)` (security
+  definer, já que `fazendas` não tem policy de INSERT) — só quem já é admin em alguma fazenda
+  pode criar uma adicional (decisão confirmada com JP). Tela `/app/configuracoes` deixou de ser
+  placeholder: dados da fazenda (nome), meus dados (nome do usuário, e-mail read-only), lista
+  "Minhas Fazendas" + botão de criar.
+- **Achado de RLS corrigido:** `fazendas_update_vinculada` (Fase 1) autorizava qualquer papel,
+  inclusive financeiro, a editar `nome` — inconsistente com o resto do sistema. Trigger novo
+  (`restringir_alteracao_nome_fazenda`) exige admin/membro.
+- **Validado:** `build`/`lint`/`test` (36/36); verificação de segurança direta no banco (4
+  cenários via `request.jwt.claims`); Playwright real contra o remoto (criação de fazenda,
+  auto-seleção, troca refletindo em tela dependente, mobile 390px sem overflow) — dado de teste
+  removido ao final. Ver `.agents/memory/log/2026-07-22-multi-fazenda-fase-a.md`.
+- **Gate do `cyber_chief`:** não rodado como gate formal separado (guardas seguem os padrões já
+  exigidos, verificadas empiricamente) — recomendado incluir no próximo gate.
+- **Próximos passos combinados com JP:** Fase B — tela Equipe (listar/convidar/promover/remover
+  membros por fazenda; boa parte do backend de convites já existe — `criar_convite`,
+  `aceitar_convite`, `promover_papel`, `cancelar_convite`, Edge Function `enviar-convite` — mas
+  sem nenhum frontend ainda, e falta RPC/RLS pra listar membros e remover um deles).
 
 ### 2026-07-22 — Papel "admin do software" + tela de controle do prompt/schema de OCR — `developer` (via Claude)
 

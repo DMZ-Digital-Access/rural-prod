@@ -26,6 +26,7 @@ import { FluxoCaixaPage } from "@/pages/financeiro/FluxoCaixaPage"
 import { DeclaracoesRebanhoPage } from "@/pages/declaracoes/DeclaracoesRebanhoPage"
 import { LancamentoRapidoPage } from "@/pages/lancamento-rapido/LancamentoRapidoPage"
 import { PrazosDeclaracaoPage } from "@/pages/configuracoes/PrazosDeclaracaoPage"
+import { ConfiguracaoFazendaPage } from "@/pages/configuracoes/ConfiguracaoFazendaPage"
 import { PainelInteligentePage } from "@/pages/rebanho/PainelInteligentePage"
 
 // Mapa de rotas da área logada (especificacao-sistema.md, seção 8).
@@ -39,7 +40,6 @@ const appRoutes: {
   title: string
   fase: string
 }[] = [
-  { path: "configuracoes", title: "Configurações", fase: "Fase 4" },
   {
     path: "configuracoes/equipe",
     title: "Equipe",
@@ -81,6 +81,7 @@ export const router = createBrowserRouter([
           { path: "documentos", element: <DocumentosFiscaisPage /> },
         ],
       },
+      { path: "configuracoes", element: <ConfiguracaoFazendaPage /> },
       { path: "configuracoes/ia", element: <ConfiguracaoIaPage /> },
       { path: "configuracoes/extracao-ia", element: <ConfiguracaoExtracaoIaPage /> },
       { path: "configuracoes/prazos-declaracao", element: <PrazosDeclaracaoPage /> },
