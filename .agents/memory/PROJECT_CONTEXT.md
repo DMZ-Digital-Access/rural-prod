@@ -453,6 +453,23 @@
   Playwright gerou uma imagem sintética de nota fiscal real (não um pixel em branco) e os 6
   campos extraídos pelo Gemini bateram exatamente com o conteúdo do documento. Ver
   `.agents/memory/log/2026-07-21-correcao-api-gemini-interactions.md`.
+- **Fase 4, Módulo Declaração Anual de Rebanho (item 19) construído (2026-07-21):**
+  `/app/rebanho/declaracoes` — histórico de `declaracoes_rebanho` por espécie/ano (schema e
+  bucket já existentes desde itens anteriores da Fase 3/14), "Nova Declaração", "Marcar como
+  enviada" (data de envio + upload opcional de PDF/imagem), edição restrita a quantidade/data
+  de referência (espécie/ano imutáveis após criação, protege o
+  `unique(fazenda_id, especie_id, ano_referencia)` do banco). **Achado real:** o card de prazo
+  regulatório depende de `fazendas.estado`, que nasce `NULL` pra toda fazenda existente (sem
+  fluxo de "complete seu cadastro") — adicionado um seletor de UF inline na própria tela (só
+  não-financeiro), reaproveitando a policy já existente (mesmo nível de `nome`, sem RLS nova).
+  **Achado e correção durante o teste:** o seletor de UF tinha o mesmo bug de `Select`
+  não-controlado→controlado já visto antes no projeto — corrigido com sentinela (`SEM_UF`),
+  mesmo padrão dos filtros existentes. **Validado de ponta a ponta com Playwright**
+  (desktop+mobile, Supabase remoto): configurou estado real, prazo calculado corretamente
+  (marcado "Prazo encerrado" — data do sistema depois de 30/06), criou declaração, marcou como
+  enviada com upload real de PDF, abriu o documento via signed URL real, confirmou edição
+  travando espécie/ano. `build`/`lint`/`test` (36/36) limpos, build passou de primeira. Ver
+  `.agents/memory/log/2026-07-21-declaracao-anual-rebanho.md`.
 - **Atualização anterior:** 2026-07-19 — `qa` (Emma) escreveu e **rodou de verdade** a suíte pgTAP
   de RLS/RPC/GMD da Fase 2 (63/63 asserções, incluindo a regressão do bug de GMD do protótipo e
   os 3 achados do gate `cyber_chief`). Ver seção 5 e
@@ -743,6 +760,27 @@ responde HTTP 200, não que a UI renderiza/interage corretamente.
 ---
 
 ## 5. Histórico de Tarefas Complexas (mais recente primeiro)
+
+### 2026-07-21 — Fase 4, Módulo Declaração Anual de Rebanho (item 19) — `developer` (via Claude)
+
+- **O que foi feito:** `/app/rebanho/declaracoes` — histórico por espécie/ano, "Nova
+  Declaração", "Marcar como enviada" (data de envio + upload PDF/imagem opcional), edição
+  restrita a quantidade/data de referência (espécie/ano imutáveis). Schema/bucket já existiam
+  desde itens anteriores da Fase 3/14 — nenhuma migration nova nesta tarefa.
+- **Achado real:** `fazendas.estado` (necessário pro card de prazo regulatório) nasce NULL pra
+  toda fazenda existente — adicionado seletor de UF inline na própria tela.
+- **Achado e correção durante o teste:** bug de `Select` não-controlado→controlado no seletor
+  de UF (mesma classe de bug já vista antes) — corrigido com sentinela, mesmo padrão já usado
+  nos filtros do projeto.
+- **Validação:** `build`/`lint`/`test` (36/36) limpos; teste real via Playwright
+  (desktop+mobile, Supabase remoto) cobrindo configurar estado, calcular prazo, criar
+  declaração, marcar como enviada com upload real, abrir documento, editar com campos de
+  identidade travados.
+- **Gate do `cyber_chief`:** NÃO rodado (sem migration nova, mesma pendência acumulada da Fase
+  4).
+- **Log:** `.agents/memory/log/2026-07-21-declaracao-anual-rebanho.md`.
+- **Próximos passos combinados com JP:** item 20 (Configurações/Prazos de Declaração) e item 21
+  (Painel Inteligente).
 
 ### 2026-07-21 — Correção real: API do Gemini migrou para Interactions API — `developer` (via Claude)
 

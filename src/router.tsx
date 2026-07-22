@@ -21,6 +21,7 @@ import { LancamentoDetailPage } from "@/pages/financeiro/LancamentoDetailPage"
 import { ConfiguracaoIaPage } from "@/pages/configuracoes/ConfiguracaoIaPage"
 import { DocumentosFiscaisPage } from "@/pages/financeiro/DocumentosFiscaisPage"
 import { FluxoCaixaPage } from "@/pages/financeiro/FluxoCaixaPage"
+import { DeclaracoesRebanhoPage } from "@/pages/declaracoes/DeclaracoesRebanhoPage"
 
 // Mapa de rotas da área logada (especificacao-sistema.md, seção 8).
 // Fase 2 — Eixo 1 (Gestão Individual de Rebanho: dashboard, animais, lotes,
@@ -34,7 +35,6 @@ const appRoutes: {
   fase: string
 }[] = [
   { path: "rebanho", title: "Painel Inteligente", fase: "Fase 4" },
-  { path: "rebanho/declaracoes", title: "Declaração Anual de Rebanho", fase: "Fase 4" },
   { path: "configuracoes", title: "Configurações", fase: "Fase 4" },
   {
     path: "configuracoes/prazos-declaracao",
@@ -73,6 +73,7 @@ export const router = createBrowserRouter([
       { path: "rebanho/financeiro/:id", element: <LancamentoDetailPage /> },
       { path: "rebanho/financeiro-documentos", element: <DocumentosFiscaisPage /> },
       { path: "rebanho/fluxo-caixa", element: <FluxoCaixaPage /> },
+      { path: "rebanho/declaracoes", element: <DeclaracoesRebanhoPage /> },
       { path: "configuracoes/ia", element: <ConfiguracaoIaPage /> },
       ...appRoutes.map((route) => ({
         path: route.path,
