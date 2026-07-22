@@ -31,17 +31,21 @@
 //
 // Variáveis de ambiente:
 //   - SUPABASE_URL, SUPABASE_ANON_KEY: injetadas automaticamente.
-//   - GEMINI_API_KEY: NÃO injetada automaticamente — precisa de
-//     `supabase secrets set GEMINI_API_KEY=...` (ação humana pendente,
-//     mesma situação do RESEND_API_KEY em ADR-0003: ninguém gerou a chave
-//     ainda). Sem ela, a function retorna 500 com mensagem clara em vez de
-//     tentar a chamada e falhar de forma confusa.
+//   - GEMINI_API_KEY: configurada em 2026-07-21 (`supabase secrets set
+//     GEMINI_API_KEY=...`) — sem ela, a function retorna 500 com mensagem
+//     clara em vez de tentar a chamada e falhar de forma confusa.
+//
+// Chamada real ao Gemini via **Interactions API**
+// (`v1alpha/interactions`, não `generateContent` — ver nota de atualização
+// no cabeçalho de logica.ts para o motivo e os testes reais que confirmaram
+// o novo contrato em 2026-07-21).
 // ============================================================================
 
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import {
   corsHeadersFor,
   extrairCamposDaResposta,
+  extrairMensagemDeErro,
   mimeTypeValido,
   montarChamadaGemini,
   TAMANHO_MAXIMO_BASE64,
@@ -170,19 +174,16 @@ Deno.serve(async (req: Request): Promise<Response> => {
       )
     }
 
-    // ---- 4. Chamada real ao Gemini.
-    const chamada = montarChamadaGemini(
-      fazendaData.llm_model,
-      GEMINI_API_KEY,
-      mime_type,
-      arquivo_base64,
-    )
+    // ---- 4. Chamada real ao Gemini (Interactions API — ver nota de
+    // atualização no cabeçalho de logica.ts). A key vai no header
+    // `x-goog-api-key`, não mais na URL.
+    const chamada = montarChamadaGemini(fazendaData.llm_model, mime_type, arquivo_base64)
 
     let geminiResponse: Response
     try {
       geminiResponse = await fetch(chamada.url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': GEMINI_API_KEY },
         body: JSON.stringify(chamada.body),
       })
     } catch (err) {
@@ -193,8 +194,13 @@ Deno.serve(async (req: Request): Promise<Response> => {
     if (!geminiResponse.ok) {
       const corpoErro = await geminiResponse.text()
       console.error('classificar-documento: Gemini retornou erro', geminiResponse.status, corpoErro)
+      const mensagem = extrairMensagemDeErro(corpoErro)
       return jsonResponse(
-        { error: `Gemini retornou erro (${geminiResponse.status})` },
+        {
+          error: mensagem
+            ? `Gemini retornou erro: ${mensagem}`
+            : `Gemini retornou erro (${geminiResponse.status})`,
+        },
         502,
         cors,
       )

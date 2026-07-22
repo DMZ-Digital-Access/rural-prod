@@ -11,13 +11,18 @@
 // o ambiente de desenvolvimento (Windows, PowerShell) não tem o Deno CLI
 // instalado (`deno --version` não encontrado). Escritos seguindo exatamente
 // o padrão de enviar-convite/index.test.ts para quando o CLI estiver
-// disponível (CI, ou máquina com Deno). Revisão de código cobriu a lógica
-// no lugar da execução real.
+// disponível (CI, ou máquina com Deno). Diferente da primeira versão deste
+// arquivo, porém, a lógica de `montarChamadaGemini`/`extrairCamposDaResposta`
+// testada aqui FOI validada de verdade contra a API real do Gemini via
+// chamadas HTTP diretas (PowerShell) em 2026-07-21, ao configurar a
+// GEMINI_API_KEY de produção — ver
+// `.agents/memory/log/2026-07-21-correcao-api-gemini-interactions.md`.
 // ============================================================================
 
 import { assertEquals } from 'https://deno.land/std@0.224.0/assert/mod.ts'
 import {
   extrairCamposDaResposta,
+  extrairMensagemDeErro,
   mimeTypeValido,
   montarChamadaGemini,
 } from './logica.ts'
@@ -30,39 +35,43 @@ Deno.test('mimeTypeValido aceita PDF e os formatos de imagem do bucket', () => {
   assertEquals(mimeTypeValido(''), false)
 })
 
-Deno.test('montarChamadaGemini monta a URL com a key na query string e o body com inline_data', () => {
-  const chamada = montarChamadaGemini('gemini-2.5-flash', 'chave-123', 'image/jpeg', 'YWJj')
+Deno.test('montarChamadaGemini monta a URL da Interactions API e o body com input/response_format', () => {
+  const chamada = montarChamadaGemini('gemini-3.6-flash', 'image/jpeg', 'YWJj')
 
-  assertEquals(
-    chamada.url,
-    'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=chave-123',
-  )
+  assertEquals(chamada.url, 'https://generativelanguage.googleapis.com/v1alpha/interactions')
 
-  const contents = chamada.body.contents as Array<{ parts: unknown[] }>
-  const parts = contents[0].parts as Array<Record<string, unknown>>
-  assertEquals(parts[0], { inline_data: { mime_type: 'image/jpeg', data: 'YWJj' } })
+  const body = chamada.body as { model: string; input: Record<string, unknown>[] }
+  assertEquals(body.model, 'gemini-3.6-flash')
+  assertEquals(body.input[0], { type: 'image', mime_type: 'image/jpeg', data: 'YWJj' })
 })
 
-Deno.test('extrairCamposDaResposta lê o JSON de candidates[0].content.parts[0].text', () => {
+Deno.test('montarChamadaGemini usa type "document" para PDF, não "image"', () => {
+  const chamada = montarChamadaGemini('gemini-3.6-flash', 'application/pdf', 'YWJj')
+  const body = chamada.body as { input: Record<string, unknown>[] }
+  assertEquals(body.input[0], { type: 'document', mime_type: 'application/pdf', data: 'YWJj' })
+})
+
+Deno.test('extrairCamposDaResposta lê o JSON do passo model_output', () => {
   const respostaCrua = {
-    candidates: [
+    status: 'completed',
+    steps: [
+      { type: 'thought' },
       {
-        finishReason: 'STOP',
-        content: {
-          parts: [
-            {
-              text: JSON.stringify({
-                tipo: 'despesa',
-                categoria: 'Insumos',
-                descricao: 'Ração para gado',
-                data_lancamento: '2026-07-20',
-                valor: 1500.5,
-                numero_nota: 'NF-123',
-                contraparte: 'Fornecedor XYZ',
-              }),
-            },
-          ],
-        },
+        type: 'model_output',
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify({
+              tipo: 'despesa',
+              categoria: 'Insumos',
+              descricao: 'Ração para gado',
+              data_lancamento: '2026-07-20',
+              valor: 1500.5,
+              numero_nota: 'NF-123',
+              contraparte: 'Fornecedor XYZ',
+            }),
+          },
+        ],
       },
     ],
   }
@@ -78,13 +87,9 @@ Deno.test('extrairCamposDaResposta lê o JSON de candidates[0].content.parts[0].
 
 Deno.test('extrairCamposDaResposta trata campos ausentes/vazios como null, não inventa valor', () => {
   const respostaCrua = {
-    candidates: [
-      {
-        finishReason: 'STOP',
-        content: {
-          parts: [{ text: JSON.stringify({ tipo: 'receita' }) }],
-        },
-      },
+    status: 'completed',
+    steps: [
+      { type: 'model_output', content: [{ type: 'text', text: JSON.stringify({ tipo: 'receita' }) }] },
     ],
   }
 
@@ -98,23 +103,29 @@ Deno.test('extrairCamposDaResposta trata campos ausentes/vazios como null, não 
 
 Deno.test('extrairCamposDaResposta retorna erro quando tipo é inválido/ausente', () => {
   const respostaCrua = {
-    candidates: [
-      { finishReason: 'STOP', content: { parts: [{ text: JSON.stringify({}) }] } },
-    ],
+    status: 'completed',
+    steps: [{ type: 'model_output', content: [{ type: 'text', text: JSON.stringify({}) }] }],
   }
   const resultado = extrairCamposDaResposta(respostaCrua)
   assertEquals(resultado.ok, false)
 })
 
-Deno.test('extrairCamposDaResposta retorna erro quando finishReason não é STOP', () => {
-  const respostaCrua = {
-    candidates: [{ finishReason: 'SAFETY', content: { parts: [{ text: '{}' }] } }],
-  }
-  const resultado = extrairCamposDaResposta(respostaCrua)
+Deno.test('extrairCamposDaResposta retorna erro quando status não é completed', () => {
+  const resultado = extrairCamposDaResposta({ status: 'failed', steps: [] })
   assertEquals(resultado.ok, false)
 })
 
-Deno.test('extrairCamposDaResposta retorna erro quando candidates está vazio', () => {
-  const resultado = extrairCamposDaResposta({ candidates: [] })
+Deno.test('extrairCamposDaResposta retorna erro quando não há passo model_output', () => {
+  const resultado = extrairCamposDaResposta({ status: 'completed', steps: [{ type: 'thought' }] })
   assertEquals(resultado.ok, false)
+})
+
+Deno.test('extrairMensagemDeErro lê error.message do corpo de erro da API', () => {
+  const corpo = JSON.stringify({ error: { message: 'Model not found.', code: 'not_found' } })
+  assertEquals(extrairMensagemDeErro(corpo), 'Model not found.')
+})
+
+Deno.test('extrairMensagemDeErro retorna null se o corpo não for o formato esperado', () => {
+  assertEquals(extrairMensagemDeErro('não é json'), null)
+  assertEquals(extrairMensagemDeErro('{}'), null)
 })

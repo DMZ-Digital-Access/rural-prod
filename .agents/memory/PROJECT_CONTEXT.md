@@ -432,6 +432,27 @@
   navegação de volta, e confirmação de que fechar a captura ANTES de escolher arquivo não cria
   nenhum rascunho. `build`/`lint`/`test` (36/36) limpos. Ver
   `.agents/memory/log/2026-07-21-rascunho-validacao-e-exclusao-lancamento.md`.
+- **Correção real: API do Gemini migrou para Interactions API (2026-07-21) —
+  `classificar-documento` finalmente validada de ponta a ponta.** JP configurou a
+  `GEMINI_API_KEY` de produção; ao ativar o secret e testar de verdade pela primeira vez, a
+  chamada ao Gemini falhou com 404 — não por falta de chave, mas porque a API
+  `generateContent` usada na implementação original **foi aposentada pelo Google**
+  ("no longer available to new users... use the Interactions API"). Confirmado por chamadas
+  HTTP reais e diretas (não suposição): a API vigente é `POST v1alpha/interactions`, com
+  autenticação por header `x-goog-api-key` (não mais `?key=` na URL), partes multimodais com
+  `type: "image"` ou `type: "document"` (PDF — `image` com mime PDF é rejeitado com 400) e
+  resposta em `{status, steps:[...]}` (texto no passo `model_output`, não mais
+  `candidates[]`). `logica.ts`/`index.ts`/`index.test.ts` de `classificar-documento`
+  reescritos para o novo contrato e redeployados. **Catálogo de modelos também corrigido**
+  (`src/lib/llmCatalog.ts`): `gemini-2.5-pro`/`gemini-2.5-flash`/`gemini-3-pro-preview`
+  (originalmente pedidos por JP) estão todos mortos pra chaves novas — removidos;
+  `gemini-3.5-flash`/`gemini-3.1-pro-preview` confirmados funcionando, mantidos;
+  `gemini-3.6-flash` adicionado como novo padrão (migration
+  `20260721130000_fazendas_llm_modelo_gemini_atualizado.sql`, com backfill das fazendas que
+  estavam no default morto). **Validado de ponta a ponta pela primeira vez de verdade:**
+  Playwright gerou uma imagem sintética de nota fiscal real (não um pixel em branco) e os 6
+  campos extraídos pelo Gemini bateram exatamente com o conteúdo do documento. Ver
+  `.agents/memory/log/2026-07-21-correcao-api-gemini-interactions.md`.
 - **Atualização anterior:** 2026-07-19 — `qa` (Emma) escreveu e **rodou de verdade** a suíte pgTAP
   de RLS/RPC/GMD da Fase 2 (63/63 asserções, incluindo a regressão do bug de GMD do protótipo e
   os 3 achados do gate `cyber_chief`). Ver seção 5 e
@@ -722,6 +743,25 @@ responde HTTP 200, não que a UI renderiza/interage corretamente.
 ---
 
 ## 5. Histórico de Tarefas Complexas (mais recente primeiro)
+
+### 2026-07-21 — Correção real: API do Gemini migrou para Interactions API — `developer` (via Claude)
+
+- **O que foi feito:** JP configurou a `GEMINI_API_KEY` de produção (`supabase secrets set`,
+  via arquivo temporário isolado pra não expor outras secrets do `.env`); primeira chamada real
+  ao Gemini falhou com 404 — a API `generateContent` original foi aposentada pelo Google.
+  Confirmado por chamadas HTTP diretas (não suposição, já que isso é posterior ao treino):
+  nova API é `v1alpha/interactions`, auth por header `x-goog-api-key`, partes multimodais
+  `image`/`document` (PDF), resposta em `steps[]`/`model_output`. `classificar-documento`
+  reescrita (`logica.ts`/`index.ts`/`index.test.ts`) e redeployada. Catálogo de modelos
+  corrigido (3 dos 5 modelos originalmente pedidos por JP estavam mortos pra chaves novas) +
+  migration de default/backfill.
+- **Validação:** `build`/`lint`/`test` (36/36) limpos; **primeira validação real e completa do
+  ciclo de IA** — Playwright gerou uma nota fiscal sintética real e os 6 campos extraídos
+  bateram exatamente com o conteúdo.
+- **Gate do `cyber_chief`:** não necessário (mudança de integração externa, sem RLS nova além
+  do já protegido pelo trigger existente).
+- **Log:** `.agents/memory/log/2026-07-21-correcao-api-gemini-interactions.md`.
+- **Próximos passos combinados com JP:** item 19 da spec (Declaração Anual de Rebanho).
 
 ### 2026-07-21 — Rascunho de lançamento com validação pendente + exclusão de lançamento — `developer` (via Claude)
 

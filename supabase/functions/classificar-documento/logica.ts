@@ -15,6 +15,36 @@
 // (src/lib/llmCatalog.ts) mas ainda não têm implementação aqui — index.ts
 // retorna erro claro se `llm_provider` da fazenda for outro que não
 // 'gemini'.
+//
+// ATUALIZAÇÃO (2026-07-21, achado real ao configurar a GEMINI_API_KEY):
+// a API `generateContent` (`v1beta/models/{model}:generateContent?key=...`)
+// usada na implementação original desta function está sendo APOSENTADA pelo
+// Google — toda chamada real feita com a chave de produção retornou 404
+// ("This model ... is no longer available to new users... use the
+// Interactions API"). Confirmado via chamadas HTTP reais e diretas contra
+// `generativelanguage.googleapis.com` (não documentação/treino, que está
+// desatualizado nisso): a API vigente hoje é a **Interactions API**
+// (`POST https://generativelanguage.googleapis.com/v1alpha/interactions`),
+// com um contrato bem diferente:
+//   - Autenticação: header `x-goog-api-key` (NÃO mais `?key=` na query
+//     string).
+//   - Corpo: `{ model, input: [...partes], response_format: [...] }` em vez
+//     de `{ contents: [{parts:[...]}], generationConfig: {...} }`.
+//   - Partes multimodais usam `type` explícito por categoria de mídia —
+//     `"image"` para os MIME types de imagem suportados (`image/png`,
+//     `image/jpeg`, `image/webp`, `image/heic`, `image/heif` — os mesmos já
+//     aceitos por este projeto) e **`"document"` para PDF**
+//     (`application/pdf`) — usar `type: "image"` com `mime_type:
+//     "application/pdf"` é rejeitado com 400 pela API (validado
+//     empiricamente).
+//   - Resposta: `{ status, steps: [...] }` em vez de `{ candidates: [...] }`
+//     — o texto gerado vem no PRIMEIRO passo com `type === "model_output"`
+//     (pode haver um passo `"thought"` antes dele, que deve ser ignorado),
+//     em `content[0].text` (ainda uma STRING JSON a ser parseada, mesmo
+//     princípio de antes).
+// Ver `.agents/memory/log/2026-07-21-correcao-api-gemini-interactions.md`
+// para o histórico completo da investigação e os testes reais que
+// confirmaram cada detalhe do novo contrato.
 // ============================================================================
 
 export const MIME_TYPES_PERMITIDOS = [
@@ -65,15 +95,15 @@ Campos:
 Nunca invente um valor em que não tenha confiança — prefira retornar null, o usuário vai revisar e completar manualmente.`
 
 export const GEMINI_RESPONSE_SCHEMA = {
-  type: 'OBJECT',
+  type: 'object',
   properties: {
-    tipo: { type: 'STRING', enum: ['receita', 'despesa'] },
-    categoria: { type: 'STRING', nullable: true },
-    descricao: { type: 'STRING', nullable: true },
-    data_lancamento: { type: 'STRING', nullable: true },
-    valor: { type: 'NUMBER', nullable: true },
-    numero_nota: { type: 'STRING', nullable: true },
-    contraparte: { type: 'STRING', nullable: true },
+    tipo: { type: 'string', enum: ['receita', 'despesa'] },
+    categoria: { type: 'string', nullable: true },
+    descricao: { type: 'string', nullable: true },
+    data_lancamento: { type: 'string', nullable: true },
+    valor: { type: 'number', nullable: true },
+    numero_nota: { type: 'string', nullable: true },
+    contraparte: { type: 'string', nullable: true },
   },
   required: ['tipo'],
 } as const
@@ -83,33 +113,36 @@ export interface ChamadaGemini {
   body: Record<string, unknown>
 }
 
+// MIME types de imagem aceitos pela parte `type: "image"` da Interactions
+// API — os mesmos 5 formatos de imagem já aceitos pelo bucket/whitelist do
+// projeto (tudo que não é PDF, aqui, é imagem).
+function tipoDaParte(mimeType: string): 'image' | 'document' {
+  return mimeType === 'application/pdf' ? 'document' : 'image'
+}
+
 /**
- * Monta a chamada REST para `generateContent` do Gemini
- * (generativelanguage.googleapis.com). `apiKey` vai na query string — é
- * assim que a API do Gemini autentica (não é um Bearer header), documentado
- * aqui para não ser "corrigido" por engano numa revisão futura.
+ * Monta a chamada REST para a Interactions API do Gemini
+ * (`v1alpha/interactions` — ver nota de atualização no cabeçalho deste
+ * arquivo). A API key NÃO vai mais na URL — vai no header `x-goog-api-key`,
+ * montado por quem chama esta função (`index.ts`), não aqui, porque headers
+ * de autenticação não fazem parte do "corpo" que esta função pura testa.
  */
 export function montarChamadaGemini(
   model: string,
-  apiKey: string,
   mimeType: string,
   base64Data: string,
 ): ChamadaGemini {
   return {
-    url: `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+    url: 'https://generativelanguage.googleapis.com/v1alpha/interactions',
     body: {
-      contents: [
-        {
-          parts: [
-            { inline_data: { mime_type: mimeType, data: base64Data } },
-            { text: PROMPT_EXTRACAO_LANCAMENTO },
-          ],
-        },
+      model,
+      input: [
+        { type: tipoDaParte(mimeType), mime_type: mimeType, data: base64Data },
+        { type: 'text', text: PROMPT_EXTRACAO_LANCAMENTO },
       ],
-      generationConfig: {
-        responseMimeType: 'application/json',
-        responseSchema: GEMINI_RESPONSE_SCHEMA,
-      },
+      response_format: [
+        { type: 'text', mime_type: 'application/json', schema: GEMINI_RESPONSE_SCHEMA },
+      ],
     },
   }
 }
@@ -129,29 +162,32 @@ export type ResultadoExtracao =
   | { ok: false; error: string }
 
 /**
- * Extrai e valida os campos a partir da resposta crua do Gemini
- * (`candidates[0].content.parts[0].text` é uma STRING JSON, por causa de
- * `responseMimeType: application/json` — o Gemini não devolve um objeto
- * aninhado ali, devolve o JSON como texto para o chamador fazer o parse).
- * Função pura — recebe o corpo já decodificado de `response.json()`.
+ * Extrai e valida os campos a partir da resposta crua da Interactions API
+ * (`{ status, steps: [...] }` — ver nota de atualização no cabeçalho deste
+ * arquivo). O texto gerado vem no passo com `type === "model_output"`
+ * (pode haver um passo `"thought"` antes, ignorado aqui), dentro de
+ * `content[0].text` — ainda uma STRING JSON a ser parseada (a API não
+ * devolve um objeto aninhado ali). Função pura — recebe o corpo já
+ * decodificado de `response.json()`.
  */
 export function extrairCamposDaResposta(respostaGemini: unknown): ResultadoExtracao {
-  const candidato = (respostaGemini as { candidates?: unknown[] })?.candidates?.[0] as
-    | { content?: { parts?: { text?: string }[] }; finishReason?: string }
-    | undefined
+  const resposta = respostaGemini as { status?: string; steps?: unknown[] } | undefined
 
-  if (!candidato) {
-    return { ok: false, error: 'Gemini não retornou nenhum resultado (candidates vazio).' }
+  if (resposta?.status && resposta.status !== 'completed') {
+    return { ok: false, error: `Gemini não completou a geração (status: ${resposta.status}).` }
   }
 
-  if (candidato.finishReason && candidato.finishReason !== 'STOP') {
-    return {
-      ok: false,
-      error: `Gemini interrompeu a geração (finishReason: ${candidato.finishReason}).`,
-    }
+  const passos = (resposta?.steps ?? []) as {
+    type?: string
+    content?: { type?: string; text?: string }[]
+  }[]
+
+  const passoSaida = passos.find((p) => p.type === 'model_output')
+  if (!passoSaida) {
+    return { ok: false, error: 'Gemini não retornou nenhum resultado (sem passo model_output).' }
   }
 
-  const textoJson = candidato.content?.parts?.[0]?.text
+  const textoJson = passoSaida.content?.find((c) => c.type === 'text')?.text
   if (!textoJson) {
     return { ok: false, error: 'Gemini não retornou texto no formato esperado.' }
   }
@@ -184,5 +220,19 @@ export function extrairCamposDaResposta(respostaGemini: unknown): ResultadoExtra
       numero_nota: paraTextoOuNull(obj.numero_nota),
       contraparte: paraTextoOuNull(obj.contraparte),
     },
+  }
+}
+
+/**
+ * Extrai a mensagem de erro legível do corpo de erro da Interactions API
+ * (`{ error: { message, code } }`) — usada por index.ts pra devolver um
+ * erro útil ao frontend em vez de só o status HTTP cru.
+ */
+export function extrairMensagemDeErro(corpoErro: string): string | null {
+  try {
+    const parsed = JSON.parse(corpoErro) as { error?: { message?: string } }
+    return typeof parsed.error?.message === 'string' ? parsed.error.message : null
+  } catch {
+    return null
   }
 }

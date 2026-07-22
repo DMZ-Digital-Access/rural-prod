@@ -58,30 +58,28 @@ export const LLM_CATALOG: Record<
   },
   gemini: {
     label: "Google (Gemini)",
+    // Lista corrigida em 2026-07-21: gemini-2.5-pro/gemini-2.5-flash/
+    // gemini-3-pro-preview foram removidos por estarem DESATIVADOS pelo
+    // Google para chaves de API novas (erro real "no longer available to
+    // new users" ao configurar a GEMINI_API_KEY de produção — não é uma
+    // suposição, foi confirmado com chamadas HTTP reais). gemini-3.6-flash
+    // adicionado como novo padrão recomendado (mesma indicação da própria
+    // documentação do Gemini hoje). Ver
+    // .agents/memory/log/2026-07-21-correcao-api-gemini-interactions.md.
     models: [
       {
-        id: "gemini-2.5-pro",
-        label: "Gemini 2.5 Pro",
-        descricao: "Maior capacidade, custo mais alto",
-      },
-      {
-        id: "gemini-2.5-flash",
-        label: "Gemini 2.5 Flash",
-        descricao: "Rápido e econômico",
+        id: "gemini-3.6-flash",
+        label: "Gemini 3.6 Flash",
+        descricao: "Rápido e econômico — recomendado para leitura de documentos",
       },
       {
         id: "gemini-3.5-flash",
         label: "Gemini 3.5 Flash",
-        descricao: "Rápido e econômico — recomendado para leitura de documentos",
+        descricao: "Rápido e econômico",
       },
       {
         id: "gemini-3.1-pro-preview",
         label: "Gemini 3.1 Pro (preview)",
-        descricao: "Maior capacidade, versão preview",
-      },
-      {
-        id: "gemini-3-pro-preview",
-        label: "Gemini 3 Pro (preview)",
         descricao: "Maior capacidade, versão preview",
       },
     ],
