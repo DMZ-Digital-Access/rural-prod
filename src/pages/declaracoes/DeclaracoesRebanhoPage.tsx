@@ -1,8 +1,7 @@
-import { useState } from "react"
+import { Fragment, useState } from "react"
 import { toast } from "sonner"
-import { FileTextIcon } from "lucide-react"
+import { ChevronDownIcon, ChevronRightIcon, FileTextIcon } from "lucide-react"
 import { useFazendaAtual } from "@/hooks/useFazendaAtual"
-import { useEspecies } from "@/hooks/useEspecies"
 import {
   useAbrirDocumentoDeclaracao,
   useDeclaracoesLista,
@@ -184,11 +183,20 @@ function CardPrazoDeclaracao({
 export function DeclaracoesRebanhoPage() {
   const { data: fazenda } = useFazendaAtual()
   const somenteLeitura = fazenda?.papel === "financeiro"
-  const especiesQuery = useEspecies()
 
-  const [filtro, setFiltro] = useState<DeclaracoesFiltro>({ especieId: null, ano: null })
+  const [filtro, setFiltro] = useState<DeclaracoesFiltro>({ ano: null })
   const declaracoesQuery = useDeclaracoesLista(fazenda?.fazenda_id, filtro)
   const abrirDocumento = useAbrirDocumentoDeclaracao()
+  const [expandidas, setExpandidas] = useState<Set<string>>(new Set())
+
+  function alternarExpandida(id: string) {
+    setExpandidas((atual) => {
+      const novo = new Set(atual)
+      if (novo.has(id)) novo.delete(id)
+      else novo.add(id)
+      return novo
+    })
+  }
 
   return (
     <div className="flex flex-col gap-4">
@@ -196,8 +204,8 @@ export function DeclaracoesRebanhoPage() {
         <div>
           <h1 className="text-2xl font-semibold">Declaração Anual de Rebanho</h1>
           <p className="text-muted-foreground">
-            Histórico de declarações enviadas à Secretaria Estadual de Agricultura, por
-            espécie e ano.
+            Histórico de declarações enviadas à Secretaria Estadual de Agricultura, por ano —
+            cada declaração é um único documento cobrindo todas as espécies do rebanho.
           </p>
         </div>
         {!somenteLeitura && <CriarDeclaracaoDialog fazendaId={fazenda?.fazenda_id} />}
@@ -205,35 +213,7 @@ export function DeclaracoesRebanhoPage() {
 
       <CardPrazoDeclaracao fazendaId={fazenda?.fazenda_id} somenteLeitura={somenteLeitura} />
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-2">
-        <div className="grid gap-1.5">
-          <Label>Espécie</Label>
-          <Select
-            value={filtro.especieId ?? SEM_FILTRO}
-            onValueChange={(v) =>
-              setFiltro((atual) => ({ ...atual, especieId: v === SEM_FILTRO ? null : v }))
-            }
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue>
-                {(v: string) =>
-                  v === SEM_FILTRO
-                    ? "Todas"
-                    : (especiesQuery.data?.find((e) => e.id === v)?.nome ?? "Todas")
-                }
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={SEM_FILTRO}>Todas</SelectItem>
-              {especiesQuery.data?.map((especie) => (
-                <SelectItem key={especie.id} value={especie.id}>
-                  {especie.nome}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
+      <div className="grid grid-cols-2 gap-3 sm:w-56 sm:grid-cols-1">
         <div className="grid gap-1.5">
           <Label>Ano</Label>
           <Select
@@ -281,74 +261,112 @@ export function DeclaracoesRebanhoPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Espécie</TableHead>
+                <TableHead className="w-8" />
                 <TableHead>Ano</TableHead>
                 <TableHead className="hidden sm:table-cell">Data de referência</TableHead>
-                <TableHead className="text-right">Quantidade</TableHead>
+                <TableHead>Espécies declaradas</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="hidden lg:table-cell">Data de envio</TableHead>
                 <TableHead>Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {declaracoesQuery.data.map((declaracao) => (
-                <TableRow key={declaracao.id}>
-                  <TableCell className="font-medium">{declaracao.especies.nome}</TableCell>
-                  <TableCell>{declaracao.ano_referencia}</TableCell>
-                  <TableCell className="hidden sm:table-cell">
-                    {formatData(declaracao.data_declaracao)}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    {declaracao.quantidade_declarada}
-                  </TableCell>
-                  <TableCell>
-                    <StatusDeclaracaoBadge status={declaracao.status} />
-                  </TableCell>
-                  <TableCell className="hidden lg:table-cell">
-                    {formatData(declaracao.data_envio)}
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex flex-wrap gap-2">
-                      {declaracao.arquivo_pdf_path && (
+              {declaracoesQuery.data.map((declaracao) => {
+                const expandida = expandidas.has(declaracao.id)
+                const itens = declaracao.declaracoes_rebanho_itens
+                const totalAnimais = itens.reduce((soma, i) => soma + i.quantidade_declarada, 0)
+
+                return (
+                  <Fragment key={declaracao.id}>
+                    <TableRow>
+                      <TableCell>
                         <Button
                           type="button"
-                          variant="outline"
-                          size="sm"
-                          disabled={abrirDocumento.isPending}
-                          onClick={async () => {
-                            try {
-                              const url = await abrirDocumento.mutateAsync(
-                                declaracao.arquivo_pdf_path as string
-                              )
-                              window.open(url, "_blank", "noopener,noreferrer")
-                            } catch (error) {
-                              toast.error(
-                                error instanceof Error
-                                  ? error.message
-                                  : "Erro ao abrir documento."
-                              )
-                            }
-                          }}
+                          variant="ghost"
+                          size="icon-sm"
+                          onClick={() => alternarExpandida(declaracao.id)}
+                          aria-label={expandida ? "Recolher espécies" : "Expandir espécies"}
                         >
-                          <FileTextIcon />
-                          Ver
+                          {expandida ? <ChevronDownIcon /> : <ChevronRightIcon />}
                         </Button>
-                      )}
-                      {!somenteLeitura && (
-                        <>
-                          <EditarDeclaracaoDialog declaracao={declaracao} />
-                          {declaracao.status === "pendente" && (
-                            <MarcarComoEnviadaDialog
-                              declaracaoId={declaracao.id}
-                              fazendaId={fazenda?.fazenda_id}
-                            />
+                      </TableCell>
+                      <TableCell className="font-medium">{declaracao.ano_referencia}</TableCell>
+                      <TableCell className="hidden sm:table-cell">
+                        {formatData(declaracao.data_declaracao)}
+                      </TableCell>
+                      <TableCell>
+                        {itens.length} espécie{itens.length === 1 ? "" : "s"} — {totalAnimais}{" "}
+                        {totalAnimais === 1 ? "animal" : "animais"}
+                      </TableCell>
+                      <TableCell>
+                        <StatusDeclaracaoBadge status={declaracao.status} />
+                      </TableCell>
+                      <TableCell className="hidden lg:table-cell">
+                        {formatData(declaracao.data_envio)}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-wrap gap-2">
+                          {declaracao.arquivo_pdf_path && (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              disabled={abrirDocumento.isPending}
+                              onClick={async () => {
+                                try {
+                                  const url = await abrirDocumento.mutateAsync(
+                                    declaracao.arquivo_pdf_path as string
+                                  )
+                                  window.open(url, "_blank", "noopener,noreferrer")
+                                } catch (error) {
+                                  toast.error(
+                                    error instanceof Error
+                                      ? error.message
+                                      : "Erro ao abrir documento."
+                                  )
+                                }
+                              }}
+                            >
+                              <FileTextIcon />
+                              Ver
+                            </Button>
                           )}
-                        </>
-                      )}
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
+                          {!somenteLeitura && (
+                            <>
+                              <EditarDeclaracaoDialog declaracao={declaracao} />
+                              {declaracao.status === "pendente" && (
+                                <MarcarComoEnviadaDialog
+                                  declaracaoId={declaracao.id}
+                                  fazendaId={fazenda?.fazenda_id}
+                                />
+                              )}
+                            </>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                    {expandida && (
+                      <TableRow className="bg-muted/30 hover:bg-muted/30">
+                        <TableCell colSpan={7}>
+                          <div className="flex flex-col gap-1 py-1">
+                            {itens.map((item) => (
+                              <div
+                                key={item.id}
+                                className="flex items-center justify-between text-sm"
+                              >
+                                <span>{item.especies.nome}</span>
+                                <span className="font-medium tabular-nums">
+                                  {item.quantidade_declarada}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </Fragment>
+                )
+              })}
             </TableBody>
           </Table>
         </div>

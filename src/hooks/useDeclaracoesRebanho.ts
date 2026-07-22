@@ -1,16 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { supabase } from "@/lib/supabase"
 import { comprimirArquivoSeImagem } from "@/lib/comprimirImagem"
-import type { DeclaracaoComEspecie } from "@/lib/types/declaracoes"
+import type { DeclaracaoComItens } from "@/lib/types/declaracoes"
 import type {
   DeclaracaoRebanhoFormValues,
   MarcarComoEnviadaFormValues,
 } from "@/lib/validations/declaracoes"
 
-const DECLARACOES_SELECT = "*, especies(nome)"
+const DECLARACOES_SELECT = "*, declaracoes_rebanho_itens(*, especies(nome))"
 
 export type DeclaracoesFiltro = {
-  especieId: string | null
   ano: number | null
 }
 
@@ -20,24 +19,29 @@ export function useDeclaracoesLista(
 ) {
   return useQuery({
     queryKey: ["declaracoes-rebanho", "list", fazendaId, filtro] as const,
-    queryFn: async (): Promise<DeclaracaoComEspecie[]> => {
+    queryFn: async (): Promise<DeclaracaoComItens[]> => {
       let query = supabase
         .from("declaracoes_rebanho")
         .select(DECLARACOES_SELECT)
         .eq("fazenda_id", fazendaId as string)
         .order("ano_referencia", { ascending: false })
 
-      if (filtro.especieId) query = query.eq("especie_id", filtro.especieId)
       if (filtro.ano) query = query.eq("ano_referencia", filtro.ano)
 
       const { data, error } = await query
       if (error) throw error
-      return data as unknown as DeclaracaoComEspecie[]
+      return data as unknown as DeclaracaoComItens[]
     },
     enabled: !!fazendaId,
   })
 }
 
+/**
+ * Cria a declaração (pai) + seus itens de espécie/quantidade (filhos) numa
+ * única chamada RPC atômica (`criar_declaracao_rebanho`) — evita o risco de
+ * criar o pai e falhar nos itens em chamadas separadas, deixando uma
+ * declaração vazia pra trás.
+ */
 export function useCriarDeclaracao(fazendaId: string | undefined) {
   const queryClient = useQueryClient()
 
@@ -45,20 +49,15 @@ export function useCriarDeclaracao(fazendaId: string | undefined) {
     mutationFn: async (values: DeclaracaoRebanhoFormValues) => {
       if (!fazendaId) throw new Error("Fazenda não identificada.")
 
-      const { data, error } = await supabase
-        .from("declaracoes_rebanho")
-        .insert({
-          fazenda_id: fazendaId,
-          especie_id: values.especie_id,
-          ano_referencia: values.ano_referencia,
-          data_declaracao: values.data_declaracao,
-          quantidade_declarada: values.quantidade_declarada,
-        })
-        .select("id")
-        .single()
+      const { data, error } = await supabase.rpc("criar_declaracao_rebanho", {
+        p_fazenda_id: fazendaId,
+        p_ano_referencia: values.ano_referencia,
+        p_data_declaracao: values.data_declaracao,
+        p_itens: values.itens,
+      })
 
       if (error) throw error
-      return data
+      return data as string
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["declaracoes-rebanho"] })
@@ -66,22 +65,45 @@ export function useCriarDeclaracao(fazendaId: string | undefined) {
   })
 }
 
-/** Só quantidade/data de referência são editáveis — especie_id/ano_referencia
- * são imutáveis após a criação (ver validations/declaracoes.ts). */
+/**
+ * Corrige uma declaração já cadastrada — `ano_referencia` é imutável (ver
+ * validations/declaracoes.ts). Atualiza `data_declaracao` no pai e
+ * reconcilia a lista de itens: `upsert` cobre espécies novas/quantidade
+ * alterada (via unique(declaracao_id, especie_id)), e um `delete` separado
+ * remove as espécies que saíram da lista. Não é atômico entre si (2-3
+ * chamadas sequenciais), mas uma edição parcial é recuperável reabrindo o
+ * formulário — diferente da criação, que precisa ser tudo ou nada.
+ */
 export function useAtualizarDeclaracao(id: string) {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async (values: Pick<DeclaracaoRebanhoFormValues, "data_declaracao" | "quantidade_declarada">) => {
-      const { error } = await supabase
+    mutationFn: async (values: DeclaracaoRebanhoFormValues) => {
+      const { error: erroPai } = await supabase
         .from("declaracoes_rebanho")
-        .update({
-          data_declaracao: values.data_declaracao,
-          quantidade_declarada: values.quantidade_declarada,
-        })
+        .update({ data_declaracao: values.data_declaracao })
         .eq("id", id)
+      if (erroPai) throw erroPai
 
-      if (error) throw error
+      const { error: erroUpsert } = await supabase
+        .from("declaracoes_rebanho_itens")
+        .upsert(
+          values.itens.map((item) => ({
+            declaracao_id: id,
+            especie_id: item.especie_id,
+            quantidade_declarada: item.quantidade_declarada,
+          })),
+          { onConflict: "declaracao_id,especie_id" }
+        )
+      if (erroUpsert) throw erroUpsert
+
+      const especiesAtuais = values.itens.map((i) => i.especie_id)
+      const { error: erroDelete } = await supabase
+        .from("declaracoes_rebanho_itens")
+        .delete()
+        .eq("declaracao_id", id)
+        .not("especie_id", "in", `(${especiesAtuais.join(",")})`)
+      if (erroDelete) throw erroDelete
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["declaracoes-rebanho"] })

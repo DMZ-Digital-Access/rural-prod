@@ -11,31 +11,30 @@ import {
 } from "@/components/ui/dialog"
 import { useAtualizarDeclaracao } from "@/hooks/useDeclaracoesRebanho"
 import { DeclaracaoForm } from "@/pages/declaracoes/DeclaracaoForm"
-import type { DeclaracaoComEspecie } from "@/lib/types/declaracoes"
+import type { DeclaracaoComItens } from "@/lib/types/declaracoes"
 import type { DeclaracaoRebanhoFormValues } from "@/lib/validations/declaracoes"
 
 /**
- * Correção de uma declaração já cadastrada — só quantidade/data de
- * referência são editáveis (espécie/ano ficam desabilitados no formulário
- * compartilhado, `bloquearIdentidade`).
+ * Correção de uma declaração já cadastrada — só data de referência e a
+ * lista de espécies/quantidades são editáveis (`ano_referencia` fica
+ * desabilitado no formulário compartilhado, `bloquearAno`).
  */
-export function EditarDeclaracaoDialog({ declaracao }: { declaracao: DeclaracaoComEspecie }) {
+export function EditarDeclaracaoDialog({ declaracao }: { declaracao: DeclaracaoComItens }) {
   const [open, setOpen] = useState(false)
   const atualizarDeclaracao = useAtualizarDeclaracao(declaracao.id)
 
   const defaultValues: DeclaracaoRebanhoFormValues = {
-    especie_id: declaracao.especie_id,
     ano_referencia: declaracao.ano_referencia,
     data_declaracao: declaracao.data_declaracao,
-    quantidade_declarada: declaracao.quantidade_declarada,
+    itens: declaracao.declaracoes_rebanho_itens.map((item) => ({
+      especie_id: item.especie_id,
+      quantidade_declarada: item.quantidade_declarada,
+    })),
   }
 
   async function onSubmit(values: DeclaracaoRebanhoFormValues) {
     try {
-      await atualizarDeclaracao.mutateAsync({
-        data_declaracao: values.data_declaracao,
-        quantidade_declarada: values.quantidade_declarada,
-      })
+      await atualizarDeclaracao.mutateAsync(values)
       toast.success("Declaração atualizada com sucesso.")
       setOpen(false)
     } catch (error) {
@@ -49,14 +48,14 @@ export function EditarDeclaracaoDialog({ declaracao }: { declaracao: DeclaracaoC
         <PencilIcon />
         Editar
       </DialogTrigger>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-xl">
         <DialogHeader>
           <DialogTitle>Editar declaração</DialogTitle>
         </DialogHeader>
         {open && (
           <DeclaracaoForm
             defaultValues={defaultValues}
-            bloquearIdentidade
+            bloquearAno
             onSubmit={onSubmit}
             submitLabel="Salvar alterações"
           />

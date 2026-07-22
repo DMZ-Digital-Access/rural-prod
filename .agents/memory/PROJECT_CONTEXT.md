@@ -496,9 +496,26 @@
   no Dashboard (decisão explícita de JP: só o card, sem item novo no menu). **Validado de ponta
   a ponta com Playwright** (desktop+mobile): os dois botões abrem de verdade os dialogs
   corretos. `build`/`lint`/`test` (36/36) limpos. Ver
-  `.agents/memory/log/2026-07-22-lancamento-rapido.md`. **Pendente da mesma discussão:**
-  reestruturação de schema da Declaração Anual (uma declaração por ano + itens de
-  espécie/quantidade, em vez de uma linha por espécie).
+  `.agents/memory/log/2026-07-22-lancamento-rapido.md`.
+- **Declaração Anual reestruturada: 1 declaração/ano + itens de espécie (2026-07-22):**
+  terceiro e último item da discussão de UX. O desenho original (item 19, 2026-07-21) modelava
+  uma linha por (fazenda, espécie, ano) — cada espécie com seu próprio status/envio/PDF. JP
+  apontou a correção: a Declaração Anual é **um documento por ano**, cobrindo todas as espécies.
+  Migration `20260722100000_declaracoes_rebanho_itens_por_especie.sql` (tabela confirmada vazia
+  antes da alteração, corte limpo): pai perde `especie_id`/`quantidade_declarada`, ganha
+  `unique(fazenda_id, ano_referencia)`; tabela filha nova `declaracoes_rebanho_itens`
+  (espécie × quantidade, RLS via join em `declaracao_id`, DELETE liberado pra admin/membro —
+  remover uma espécie do detalhamento é diferente de apagar a declaração inteira, que continua
+  proibida). RPC nova `criar_declaracao_rebanho()` (SECURITY INVOKER) cria pai+itens
+  atomicamente numa única chamada. `DeclaracaoForm.tsx` ganhou lista dinâmica de espécie×
+  quantidade via `useFieldArray`. Listagem: 1 linha por ano, expansível pro detalhamento.
+  **Achado real no teste:** bug de pluralização ("190 animalis" em vez de "animais" — sufixo
+  errado, corrigido pra ternário de palavra inteira). **Validado de ponta a ponta com
+  Playwright** (desktop+mobile): criação com 2 espécies, expansão, edição removendo uma
+  espécie e corrigindo quantidade, marcar como enviada — tudo confirmado com dados reais.
+  `build`/`lint`/`test` (36/36) limpos. Ver
+  `.agents/memory/log/2026-07-22-declaracao-anual-reestruturada.md`. **Os 3 itens da discussão
+  de UX estão concluídos.**
 - **Atualização anterior:** 2026-07-19 — `qa` (Emma) escreveu e **rodou de verdade** a suíte pgTAP
   de RLS/RPC/GMD da Fase 2 (63/63 asserções, incluindo a regressão do bug de GMD do protótipo e
   os 3 achados do gate `cyber_chief`). Ver seção 5 e
@@ -789,6 +806,26 @@ responde HTTP 200, não que a UI renderiza/interage corretamente.
 ---
 
 ## 5. Histórico de Tarefas Complexas (mais recente primeiro)
+
+### 2026-07-22 — Declaração Anual reestruturada: 1 declaração/ano + itens de espécie — `developer` (via Claude)
+
+- **Contexto:** terceiro e último item da discussão de UX com JP. Correção de modelagem: a
+  Declaração Anual é um documento por ano cobrindo todas as espécies, não uma linha por espécie.
+- **O que foi feito:** migration `20260722100000_declaracoes_rebanho_itens_por_especie.sql`
+  (tabela vazia em produção, confirmado antes — corte limpo): pai (`declaracoes_rebanho`) perde
+  `especie_id`/`quantidade_declarada`, ganha `unique(fazenda_id, ano_referencia)`; tabela filha
+  nova `declaracoes_rebanho_itens` (espécie×quantidade, RLS via join, DELETE liberado pra
+  admin/membro). RPC `criar_declaracao_rebanho()` cria pai+itens atomicamente. `DeclaracaoForm`
+  ganhou lista dinâmica via `useFieldArray`; listagem virou 1 linha/ano expansível.
+- **Achado real no teste:** bug de pluralização ("animalis" em vez de "animais") — corrigido.
+- **Validação:** `build`/`lint`/`test` (36/36) limpos; teste real via Playwright
+  (desktop+mobile) cobrindo criação com 2 espécies, expansão, edição (remover espécie +
+  corrigir quantidade), marcar como enviada.
+- **Gate do `cyber_chief`:** não rodado — migration real (tabela+RLS+RPC), destacar na próxima
+  revisão formal.
+- **Log:** `.agents/memory/log/2026-07-22-declaracao-anual-reestruturada.md`.
+- **Os 3 itens da discussão de UX com JP estão concluídos.** Próximos passos: item 20
+  (Configurações/Prazos de Declaração) e item 21 (Painel Inteligente).
 
 ### 2026-07-22 — Tela de Lançamento Rápido — `developer` (via Claude)
 

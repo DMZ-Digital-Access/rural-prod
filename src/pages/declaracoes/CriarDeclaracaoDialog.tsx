@@ -16,10 +16,9 @@ import type { DeclaracaoRebanhoFormValues } from "@/lib/validations/declaracoes"
 const anoAtual = () => new Date().getFullYear()
 
 const valoresIniciais: DeclaracaoRebanhoFormValues = {
-  especie_id: "",
   ano_referencia: anoAtual(),
   data_declaracao: null,
-  quantidade_declarada: undefined as unknown as number,
+  itens: [{ especie_id: "", quantidade_declarada: undefined as unknown as number }],
 }
 
 export function CriarDeclaracaoDialog({ fazendaId }: { fazendaId: string | undefined }) {
@@ -34,7 +33,7 @@ export function CriarDeclaracaoDialog({ fazendaId }: { fazendaId: string | undef
     } catch (error) {
       const mensagem =
         error instanceof Error && error.message.includes("duplicate key")
-          ? "Já existe uma declaração cadastrada para essa espécie/ano — edite a existente."
+          ? "Já existe uma declaração cadastrada para esse ano — edite a existente."
           : error instanceof Error
             ? error.message
             : "Erro ao cadastrar declaração."
@@ -52,7 +51,7 @@ export function CriarDeclaracaoDialog({ fazendaId }: { fazendaId: string | undef
           </Button>
         }
       />
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-xl">
         <DialogHeader>
           <DialogTitle>Nova Declaração</DialogTitle>
         </DialogHeader>
