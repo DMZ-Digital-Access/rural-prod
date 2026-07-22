@@ -677,6 +677,12 @@ ainda não pra executar):**
    servidor em vez de enviar) e sem resolver o problema de JWT Signing Keys (`enviar-convite`
    retorna 502, ver achado logo abaixo). Sem isso, convite de equipe e qualquer notificação por
    e-mail não chegam de verdade a ninguém.
+1b. **"Esqueci minha senha" (recuperação de senha) — não existe hoje** (confirmado por busca no
+    código em 2026-07-22, nenhum fluxo de `resetPasswordForEmail` implementado). Decisão de JP:
+    fazer isso **junto com o item 1** (e-mail transacional) — não faz sentido construir/testar
+    recuperação de senha antes de ter e-mail de verdade saindo, já que o teste de ponta a ponta
+    depende de receber o e-mail com o link de reset. Supabase Auth já suporta nativamente, só
+    falta a tela/fluxo no frontend.
 2. Frontend sem hospedagem configurada (Vercel/Netlify planejado, nunca configurado) — só roda
    local (`npm run dev`) hoje. Precisa decidir e configurar `APP_URL` de produção.
 3. Nenhum teste de carga real feito — não sabemos quantos usuários/fazendas simultâneas o plano
