@@ -516,6 +516,17 @@
   `build`/`lint`/`test` (36/36) limpos. Ver
   `.agents/memory/log/2026-07-22-declaracao-anual-reestruturada.md`. **Os 3 itens da discussão
   de UX estão concluídos.**
+- **Fase 4, Configurações > Prazos de Declaração construído (2026-07-22, item 20):** substitui
+  o placeholder em `/app/configuracoes/prazos-declaracao`. Editor de `fazendas.estado` (UF) +
+  tabela de prazos cadastrados de `prazos_declaracao_estado`, com "Novo prazo"/"Editar" via a
+  RPC já existente `definir_prazo_declaracao_estado()` (upsert por estado/ano — nenhuma
+  migration nova). Escrita exige papel `<> financeiro` (mesma fronteira da RPC, diferente de
+  Modelo de IA que é admin-only). **Refatoração de limpeza:** o editor de UF que vivia embutido
+  no card de prazo da tela de Declarações (solução temporária do item 19) foi removido de lá —
+  agora linka pra esta tela nova, centralizando a edição num lugar só. **Validado de ponta a
+  ponta com Playwright** (desktop+mobile): cadastrou um prazo real, editou, e confirmou na
+  tela de Declarações que o prazo cadastrado passou a valer no lugar do fallback "padrão RS".
+  `build`/`lint`/`test` (36/36) limpos. Ver `.agents/memory/log/2026-07-22-prazos-declaracao.md`.
 - **Atualização anterior:** 2026-07-19 — `qa` (Emma) escreveu e **rodou de verdade** a suíte pgTAP
   de RLS/RPC/GMD da Fase 2 (63/63 asserções, incluindo a regressão do bug de GMD do protótipo e
   os 3 achados do gate `cyber_chief`). Ver seção 5 e
@@ -824,8 +835,20 @@ responde HTTP 200, não que a UI renderiza/interage corretamente.
 - **Gate do `cyber_chief`:** não rodado — migration real (tabela+RLS+RPC), destacar na próxima
   revisão formal.
 - **Log:** `.agents/memory/log/2026-07-22-declaracao-anual-reestruturada.md`.
-- **Os 3 itens da discussão de UX com JP estão concluídos.** Próximos passos: item 20
-  (Configurações/Prazos de Declaração) e item 21 (Painel Inteligente).
+- **Os 3 itens da discussão de UX com JP estão concluídos.**
+
+### 2026-07-22 — Fase 4, Configurações > Prazos de Declaração (item 20) — `developer` (via Claude)
+
+- **O que foi feito:** `/app/configuracoes/prazos-declaracao` substitui o placeholder. Editor
+  de `fazendas.estado` + tabela de `prazos_declaracao_estado` (Novo prazo/Editar via a RPC
+  já existente `definir_prazo_declaracao_estado()`, sem migration nova). Removido o editor de
+  UF duplicado que vivia embutido na tela de Declarações — agora linka pra cá.
+- **Validação:** `build`/`lint`/`test` (36/36) limpos; teste real via Playwright cadastrou um
+  prazo, editou, e confirmou que a tela de Declarações passou a usar o prazo cadastrado em vez
+  do fallback padrão RS.
+- **Gate do `cyber_chief`:** não se aplica (RPC/tabela já revisadas em 2026-07-20).
+- **Log:** `.agents/memory/log/2026-07-22-prazos-declaracao.md`.
+- **Próximos passos combinados com JP:** item 21 (Painel Inteligente), último da Fase 4.
 
 ### 2026-07-22 — Tela de Lançamento Rápido — `developer` (via Claude)
 

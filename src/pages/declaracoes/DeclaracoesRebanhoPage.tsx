@@ -1,4 +1,5 @@
 import { Fragment, useState } from "react"
+import { Link } from "react-router-dom"
 import { toast } from "sonner"
 import { ChevronDownIcon, ChevronRightIcon, FileTextIcon } from "lucide-react"
 import { useFazendaAtual } from "@/hooks/useFazendaAtual"
@@ -7,11 +8,7 @@ import {
   useDeclaracoesLista,
   type DeclaracoesFiltro,
 } from "@/hooks/useDeclaracoesRebanho"
-import {
-  useAtualizarEstadoFazenda,
-  useEstadoFazenda,
-  usePrazoDeclaracao,
-} from "@/hooks/useEstadoFazenda"
+import { useEstadoFazenda, usePrazoDeclaracao } from "@/hooks/useEstadoFazenda"
 import {
   Table,
   TableBody,
@@ -36,13 +33,7 @@ import { EditarDeclaracaoDialog } from "@/pages/declaracoes/EditarDeclaracaoDial
 import { MarcarComoEnviadaDialog } from "@/pages/declaracoes/MarcarComoEnviadaDialog"
 
 const SEM_FILTRO = "__todos__"
-const SEM_UF = "__nenhuma__"
 const ANO_ATUAL = new Date().getFullYear()
-
-const UFS = [
-  "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG",
-  "PA", "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO",
-]
 
 function anosDisponiveis() {
   return Array.from({ length: 6 }, (_, i) => ANO_ATUAL - i)
@@ -65,23 +56,7 @@ function CardPrazoDeclaracao({
   somenteLeitura: boolean
 }) {
   const estadoQuery = useEstadoFazenda(fazendaId)
-  const atualizarEstado = useAtualizarEstadoFazenda(fazendaId)
   const prazoQuery = usePrazoDeclaracao(estadoQuery.data, ANO_ATUAL)
-  // Sentinela em vez de null/undefined — o Select precisa de um valor
-  // definido desde o primeiro render pra nunca alternar entre
-  // não-controlado/controlado (mesmo bug já visto em outras telas do
-  // projeto: Base UI avisa "changing the uncontrolled value state").
-  const [ufSelecionada, setUfSelecionada] = useState(SEM_UF)
-
-  async function salvarEstado() {
-    if (ufSelecionada === SEM_UF) return
-    try {
-      await atualizarEstado.mutateAsync(ufSelecionada)
-      toast.success("Estado da fazenda atualizado.")
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Erro ao salvar estado.")
-    }
-  }
 
   if (estadoQuery.isLoading) return null
 
@@ -92,38 +67,19 @@ function CardPrazoDeclaracao({
         <p className="mt-1 text-sm text-muted-foreground">
           Estado da fazenda não configurado — sem isso não é possível calcular o prazo
           vigente.
-        </p>
-        {!somenteLeitura && (
-          <div className="mt-3 flex flex-wrap items-end gap-2">
-            <div className="grid gap-1.5">
-              <Label>Estado da fazenda (UF)</Label>
-              <Select
-                value={ufSelecionada}
-                onValueChange={(v) => {
-                  if (v) setUfSelecionada(v)
-                }}
+          {!somenteLeitura && (
+            <>
+              {" "}
+              <Link
+                to="/app/configuracoes/prazos-declaracao"
+                className="font-medium text-foreground underline-offset-4 hover:underline"
               >
-                <SelectTrigger className="w-32">
-                  <SelectValue>{(v: string) => (v === SEM_UF ? "Selecione" : v)}</SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {UFS.map((uf) => (
-                    <SelectItem key={uf} value={uf}>
-                      {uf}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <Button
-              size="sm"
-              disabled={ufSelecionada === SEM_UF || atualizarEstado.isPending}
-              onClick={salvarEstado}
-            >
-              Salvar estado
-            </Button>
-          </div>
-        )}
+                Configure em Configurações &gt; Prazos de Declaração
+              </Link>
+              .
+            </>
+          )}
+        </p>
       </div>
     )
   }

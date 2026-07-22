@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { supabase } from "@/lib/supabase"
-import type { PrazoDeclaracao } from "@/lib/types/declaracoes"
+import type { PrazoDeclaracao, PrazoDeclaracaoEstado } from "@/lib/types/declaracoes"
 
 /**
  * `fazendas.estado` (UF) — usada só pra calcular o prazo regulatório de
@@ -61,5 +61,64 @@ export function usePrazoDeclaracao(estado: string | null | undefined, ano: numbe
       return data as PrazoDeclaracao
     },
     enabled: !!estado,
+  })
+}
+
+/**
+ * Lista de prazos já cadastrados formalmente pro estado (item 20, spec
+ * seção 5.3, "Configurações > Prazos de Declaração Anual por estado") —
+ * SELECT aberto a qualquer authenticated (dado regulatório global, sem
+ * fronteira de fazenda — ver decisão 2 da migration
+ * 20260720150000_fase3_financeiro_declaracoes_prazos.sql).
+ */
+export function usePrazosDoEstado(estado: string | null | undefined) {
+  return useQuery({
+    queryKey: ["prazos-declaracao-estado", estado] as const,
+    queryFn: async (): Promise<PrazoDeclaracaoEstado[]> => {
+      const { data, error } = await supabase
+        .from("prazos_declaracao_estado")
+        .select("*")
+        .eq("estado", estado as string)
+        .order("ano_referencia", { ascending: false })
+
+      if (error) throw error
+      return data
+    },
+    enabled: !!estado,
+  })
+}
+
+/**
+ * Cadastra/corrige o prazo de um estado/ano — único caminho de escrita de
+ * `prazos_declaracao_estado`, via a função SECURITY DEFINER
+ * `definir_prazo_declaracao_estado()` (já existente desde a Fase 3; a
+ * tabela não tem nenhuma policy de INSERT/UPDATE direta). Faz upsert por
+ * (estado, ano_referencia) — mesma chamada serve pra cadastrar um ano novo
+ * ou corrigir um já cadastrado.
+ */
+export function useDefinirPrazoDeclaracao() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (params: {
+      estado: string
+      ano_referencia: number
+      data_inicio_prazo: string
+      data_fim_prazo: string
+    }) => {
+      const { data, error } = await supabase.rpc("definir_prazo_declaracao_estado", {
+        p_estado: params.estado,
+        p_ano_referencia: params.ano_referencia,
+        p_data_inicio_prazo: params.data_inicio_prazo,
+        p_data_fim_prazo: params.data_fim_prazo,
+      })
+
+      if (error) throw error
+      return data as PrazoDeclaracaoEstado
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["prazos-declaracao-estado"] })
+      queryClient.invalidateQueries({ queryKey: ["prazo-declaracao"] })
+    },
   })
 }

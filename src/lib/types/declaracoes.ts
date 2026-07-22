@@ -45,3 +45,15 @@ export type PrazoDeclaracao = {
   data_fim_prazo: string | null
   origem: "cadastrado" | "padrao_rs" | null
 }
+
+/** Linha crua de public.prazos_declaracao_estado (item 20, Configurações). */
+export type PrazoDeclaracaoEstado = {
+  id: string
+  estado: string
+  ano_referencia: number
+  data_inicio_prazo: string
+  data_fim_prazo: string
+  atualizado_por_usuario_id: string | null
+  created_at: string
+  updated_at: string
+}
