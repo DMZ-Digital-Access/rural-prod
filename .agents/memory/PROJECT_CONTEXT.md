@@ -485,10 +485,20 @@
   Playwright** (desktop+mobile): navegação entre as 4 abas com URLs corretas, dados reais
   carregando em cada uma, link de origem de uma transação de animal no Fluxo de Caixa abrindo a
   URL nova corretamente. `build`/`lint`/`test` (36/36) limpos. Ver
-  `.agents/memory/log/2026-07-22-financeiro-reorganizado-em-abas.md`. **Pendentes da mesma
-  discussão:** tela de Lançamento Rápido (2 botões, reaproveitando componentes já existentes,
-  acessível via card no Dashboard) e reestruturação de schema da Declaração Anual (uma
-  declaração por ano + itens de espécie/quantidade, em vez de uma linha por espécie).
+  `.agents/memory/log/2026-07-22-financeiro-reorganizado-em-abas.md`.
+- **Tela de Lançamento Rápido (2026-07-22):** segundo item da mesma discussão de UX. Não havia
+  nenhum atalho de ação no app — pra registrar algo era preciso navegar até a lista específica
+  primeiro. Nova tela `/app/lancamento-rapido`, 2 botões grandes ("Operação com Animais" /
+  "Despesas e Receitas Gerais"), **reaproveitando 100% dos fluxos já existentes**
+  (`EntradaSaidaLoteDialog`/`CriarLancamentoDialog`, que ganharam uma prop opcional `trigger`
+  pra trocar o visual do botão-gatilho sem duplicar nenhuma lógica — Animais/Transações/
+  Financeiro continuam idênticos quando essa prop não é usada). Acessível via card de destaque
+  no Dashboard (decisão explícita de JP: só o card, sem item novo no menu). **Validado de ponta
+  a ponta com Playwright** (desktop+mobile): os dois botões abrem de verdade os dialogs
+  corretos. `build`/`lint`/`test` (36/36) limpos. Ver
+  `.agents/memory/log/2026-07-22-lancamento-rapido.md`. **Pendente da mesma discussão:**
+  reestruturação de schema da Declaração Anual (uma declaração por ano + itens de
+  espécie/quantidade, em vez de uma linha por espécie).
 - **Atualização anterior:** 2026-07-19 — `qa` (Emma) escreveu e **rodou de verdade** a suíte pgTAP
   de RLS/RPC/GMD da Fase 2 (63/63 asserções, incluindo a regressão do bug de GMD do protótipo e
   os 3 achados do gate `cyber_chief`). Ver seção 5 e
@@ -779,6 +789,18 @@ responde HTTP 200, não que a UI renderiza/interage corretamente.
 ---
 
 ## 5. Histórico de Tarefas Complexas (mais recente primeiro)
+
+### 2026-07-22 — Tela de Lançamento Rápido — `developer` (via Claude)
+
+- **O que foi feito:** `/app/lancamento-rapido` — 2 botões grandes reaproveitando os dialogs já
+  existentes (`EntradaSaidaLoteDialog`/`CriarLancamentoDialog`, agora com prop opcional
+  `trigger` pra customizar o botão-gatilho sem duplicar lógica). Card de destaque no Dashboard
+  (só isso, sem item de menu — decisão explícita de JP).
+- **Validação:** `build`/`lint`/`test` (36/36) limpos; teste real via Playwright confirmou os
+  dois botões abrindo os dialogs corretos, desktop+mobile.
+- **Gate do `cyber_chief`:** não se aplica (só frontend/composição).
+- **Log:** `.agents/memory/log/2026-07-22-lancamento-rapido.md`.
+- **Próximos passos combinados com JP:** reestruturação de schema da Declaração Anual.
 
 ### 2026-07-22 — Financeiro reorganizado em abas, fora de "rebanho" — `developer` (via Claude)
 

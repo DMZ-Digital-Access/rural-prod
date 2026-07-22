@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, type ReactNode } from "react"
 import { PlusIcon } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
@@ -60,7 +60,17 @@ type CamposExtraidos = {
 
 type Etapa = "captura" | "formulario"
 
-export function CriarLancamentoDialog({ fazendaId }: { fazendaId: string | undefined }) {
+export function CriarLancamentoDialog({
+  fazendaId,
+  trigger,
+}: {
+  fazendaId: string | undefined
+  /** Substitui o botão-gatilho padrão ("Novo Lançamento") — usado pela tela
+   * de Lançamento Rápido pra apresentar essa mesma ação com um visual
+   * maior/diferente, sem duplicar a lógica do dialog. Recebe a função que
+   * abre o fluxo de captura. */
+  trigger?: (abrir: () => void) => ReactNode
+}) {
   const [open, setOpen] = useState(false)
   const [etapa, setEtapa] = useState<Etapa>("captura")
   const [extraindo, setExtraindo] = useState(false)
@@ -181,10 +191,14 @@ export function CriarLancamentoDialog({ fazendaId }: { fazendaId: string | undef
 
   return (
     <>
-      <Button onClick={abrirDialog}>
-        <PlusIcon />
-        Novo Lançamento
-      </Button>
+      {trigger ? (
+        trigger(abrirDialog)
+      ) : (
+        <Button onClick={abrirDialog}>
+          <PlusIcon />
+          Novo Lançamento
+        </Button>
+      )}
 
       <CapturarDocumentoDialog
         open={open && etapa === "captura"}

@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, type ReactNode } from "react"
 import { ArrowRightLeftIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -7,7 +7,6 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import {
@@ -48,8 +47,13 @@ const tiposSaidaIndividual = new Set<TipoOperacaoLote>(["venda", "obito", "consu
  */
 export function EntradaSaidaLoteDialog({
   fazendaId,
+  trigger,
 }: {
   fazendaId: string | undefined
+  /** Substitui o botão-gatilho padrão — usado pela tela de Lançamento
+   * Rápido pra apresentar essa mesma ação com um visual maior/diferente,
+   * sem duplicar a lógica do dialog. Recebe a função que abre o dialog. */
+  trigger?: (abrir: () => void) => ReactNode
 }) {
   const [open, setOpen] = useState(false)
   const [tipoOperacao, setTipoOperacao] = useState<TipoOperacaoLote>("compra")
@@ -60,66 +64,68 @@ export function EntradaSaidaLoteDialog({
   }
 
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(next) => {
-        setOpen(next)
-        if (!next) setTipoOperacao("compra")
-      }}
-    >
-      <DialogTrigger
-        render={
-          <Button variant="outline">
-            <ArrowRightLeftIcon />
-            Entradas e Saídas de Animais de Lote
-          </Button>
-        }
-      />
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>Entradas e Saídas de Animais de Lote</DialogTitle>
-          <DialogDescription>
-            Lançamento agregado — afeta o saldo de rebanho imediatamente, mesmo
-            sem GTA, nota ou contranota. Os animais de Compra/Nascimento podem
-            ser individualizados depois em "Individualizar Animal".
-          </DialogDescription>
-        </DialogHeader>
+    <>
+      {trigger ? (
+        trigger(() => setOpen(true))
+      ) : (
+        <Button variant="outline" onClick={() => setOpen(true)}>
+          <ArrowRightLeftIcon />
+          Entradas e Saídas de Animais de Lote
+        </Button>
+      )}
+      <Dialog
+        open={open}
+        onOpenChange={(next) => {
+          setOpen(next)
+          if (!next) setTipoOperacao("compra")
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Entradas e Saídas de Animais de Lote</DialogTitle>
+            <DialogDescription>
+              Lançamento agregado — afeta o saldo de rebanho imediatamente, mesmo
+              sem GTA, nota ou contranota. Os animais de Compra/Nascimento podem
+              ser individualizados depois em "Individualizar Animal".
+            </DialogDescription>
+          </DialogHeader>
 
-        <div className="grid gap-2">
-          <Label>Tipo de operação</Label>
-          <Select
-            value={tipoOperacao}
-            onValueChange={(v) => setTipoOperacao(v as TipoOperacaoLote)}
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue>
-                {(value: TipoOperacaoLote) => tipoOperacaoLabels[value]}
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              {(Object.keys(tipoOperacaoLabels) as TipoOperacaoLote[]).map((tipo) => (
-                <SelectItem key={tipo} value={tipo}>
-                  {tipoOperacaoLabels[tipo]}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+          <div className="grid gap-2">
+            <Label>Tipo de operação</Label>
+            <Select
+              value={tipoOperacao}
+              onValueChange={(v) => setTipoOperacao(v as TipoOperacaoLote)}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue>
+                  {(value: TipoOperacaoLote) => tipoOperacaoLabels[value]}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {(Object.keys(tipoOperacaoLabels) as TipoOperacaoLote[]).map((tipo) => (
+                  <SelectItem key={tipo} value={tipo}>
+                    {tipoOperacaoLabels[tipo]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
-        {tiposSaidaIndividual.has(tipoOperacao) ? (
-          <SaidaAnimaisIndividuaisForm
-            fazendaId={fazendaId}
-            tipoOperacao={tipoOperacao as "venda" | "obito" | "consumo"}
-            onSuccess={fechar}
-          />
-        ) : (
-          <EntradaAgregadaForm
-            fazendaId={fazendaId}
-            tipoOperacao={tipoOperacao as "compra" | "nascimento"}
-            onSuccess={fechar}
-          />
-        )}
-      </DialogContent>
-    </Dialog>
+          {tiposSaidaIndividual.has(tipoOperacao) ? (
+            <SaidaAnimaisIndividuaisForm
+              fazendaId={fazendaId}
+              tipoOperacao={tipoOperacao as "venda" | "obito" | "consumo"}
+              onSuccess={fechar}
+            />
+          ) : (
+            <EntradaAgregadaForm
+              fazendaId={fazendaId}
+              tipoOperacao={tipoOperacao as "compra" | "nascimento"}
+              onSuccess={fechar}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+    </>
   )
 }

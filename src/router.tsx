@@ -23,6 +23,7 @@ import { ConfiguracaoIaPage } from "@/pages/configuracoes/ConfiguracaoIaPage"
 import { DocumentosFiscaisPage } from "@/pages/financeiro/DocumentosFiscaisPage"
 import { FluxoCaixaPage } from "@/pages/financeiro/FluxoCaixaPage"
 import { DeclaracoesRebanhoPage } from "@/pages/declaracoes/DeclaracoesRebanhoPage"
+import { LancamentoRapidoPage } from "@/pages/lancamento-rapido/LancamentoRapidoPage"
 
 // Mapa de rotas da área logada (especificacao-sistema.md, seção 8).
 // Fase 2 — Eixo 1 (Gestão Individual de Rebanho: dashboard, animais, lotes,
@@ -65,6 +66,7 @@ export const router = createBrowserRouter([
       { path: "lotes", element: <LotesListPage /> },
       { path: "lotes/:id", element: <LoteDetailPage /> },
       { path: "comparativo", element: <ComparativoPage /> },
+      { path: "lancamento-rapido", element: <LancamentoRapidoPage /> },
       { path: "rebanho/saldo", element: <SaldoRebanhoPage /> },
       { path: "rebanho/gtas", element: <GtasListPage /> },
       { path: "rebanho/gtas/:id", element: <GtaDetailPage /> },

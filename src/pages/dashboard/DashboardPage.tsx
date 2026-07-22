@@ -1,4 +1,6 @@
 import { useMemo, useState } from "react"
+import { Link } from "react-router-dom"
+import { ZapIcon } from "lucide-react"
 import {
   Bar,
   BarChart,
@@ -162,6 +164,21 @@ export function DashboardPage() {
           </SelectContent>
         </Select>
       </div>
+
+      {fazenda?.papel !== "financeiro" && (
+        <Link
+          to="/app/lancamento-rapido"
+          className="flex items-center gap-3 rounded-xl border border-border bg-card p-4 transition-colors hover:border-foreground/30 hover:bg-muted"
+        >
+          <ZapIcon className="size-6 shrink-0 text-muted-foreground" />
+          <div>
+            <p className="font-medium">Lançamento Rápido</p>
+            <p className="text-sm text-muted-foreground">
+              Registrar uma operação com animais ou uma despesa/receita geral.
+            </p>
+          </div>
+        </Link>
+      )}
 
       {animaisQuery.isLoading && (
         <p className="text-sm text-muted-foreground">Carregando dados…</p>
