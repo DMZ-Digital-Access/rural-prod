@@ -2,28 +2,47 @@ import { useQuery } from "@tanstack/react-query"
 import { supabase } from "@/lib/supabase"
 import type { SaldoRebanhoLinha } from "@/lib/types/rebanho"
 
-const MESES_LABEL = [
+export const MESES_LABEL = [
   "Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez",
 ]
 
 export type EvolucaoSaldoAno = {
-  /** Uma linha por mês já fechado do ano — `{ mes: "Jan", Bovinos: 120, Ovinos: 40 }`
-   * (chaves dinâmicas por espécie, pra alimentar um <Line dataKey={especie}> por
-   * espécie sem hardcodar nomes). */
+  /** Um ponto por DATA REAL em que uma transação mudou o saldo (pedido de
+   * JP, 2026-07-22: "mostrar a variação na data que ocorreu") —
+   * `{ data: "2026-07-22", timestamp: 1753142400000, Bovinos: 120 }`.
+   * `timestamp` alimenta o eixo X numérico do gráfico (posição real no
+   * tempo); chaves de espécie dinâmicas pra <Line dataKey={especie}> sem
+   * hardcodar nomes. */
   dados: Array<Record<string, string | number>>
   especies: string[]
+  /** Timestamps do dia 1 de cada mês já decorrido — únicos ticks
+   * mostrados no eixo X (o eixo continua só com "início de cada mês",
+   * mesmo visual de antes, mesmo com pontos de dado em datas quaisquer). */
+  ticksMeses: number[]
+}
+
+function paraTimestamp(dataIso: string): number {
+  return new Date(`${dataIso}T00:00:00`).getTime()
 }
 
 /**
  * Gráfico de evolução do saldo de rebanho ao longo do ano, por espécie
  * (Painel Inteligente, item 21, spec seção 5.2). Reaproveita
- * `obter_saldo_rebanho()` (item 12, mesma RPC de `useResumoSaldoAno`) num
- * checkpoint por mês fechado (fim de cada mês já decorrido no ano — não
- * inventa uma view/RPC nova de série histórica, já que a spec (seção 7)
- * decidiu explicitamente por "view calculada on-the-fly" pro saldo, sem
- * necessidade de saldo materializado enquanto não houver problema real de
- * performance). Até 12 chamadas em paralelo — aceitável, dashboard carrega
- * uma vez por visita, não em loop.
+ * `obter_saldo_rebanho()` (item 12, mesma RPC de `useResumoSaldoAno`) — não
+ * inventa uma view/RPC nova de série histórica (spec seção 7: "view
+ * calculada on-the-fly", sem saldo materializado).
+ *
+ * Reescrito em 2026-07-22 (pedido de JP): antes eram sempre 12 checkpoints
+ * fixos (fim de cada mês) — agora um checkpoint por DATA REAL em que houve
+ * ao menos uma transação no ano (`transacoes.data_operacao`, distinct),
+ * mais um checkpoint final na data de hoje (ano corrente) ou 31/12 (ano
+ * passado) pra a linha sempre refletir o estado mais atual mesmo sem
+ * transação recente. Número de chamadas passa a ser "1 por data distinta
+ * de transação no ano", não mais um teto fixo de 12 — em uma fazenda com
+ * poucas dezenas de transações por ano (caso real observado) isso
+ * continua rápido; se o volume crescer muito, é candidato a otimização
+ * futura (mesma filosofia já registrada aqui: só otimizar quando virar
+ * problema real).
  */
 export function useEvolucaoSaldoAno(fazendaId: string | undefined, ano: number) {
   return useQuery({
@@ -32,27 +51,37 @@ export function useEvolucaoSaldoAno(fazendaId: string | undefined, ano: number) 
       const anoAtual = new Date().getFullYear()
       const mesAtual = new Date().getMonth() + 1
       const ultimoMes = ano >= anoAtual ? mesAtual : 12
+      const dataFimPeriodo =
+        ano >= anoAtual ? new Date().toISOString().slice(0, 10) : `${ano}-12-31`
 
-      const checkpoints = Array.from({ length: ultimoMes }, (_, i) => {
-        const mes = i + 1
-        const ultimoDiaDoMes = new Date(ano, mes, 0).getDate()
-        return {
-          mes,
-          data: `${ano}-${String(mes).padStart(2, "0")}-${String(ultimoDiaDoMes).padStart(2, "0")}`,
-        }
-      })
+      const { data: transacoesDoAno, error: erroTransacoes } = await supabase
+        .from("transacoes")
+        .select("data_operacao")
+        .eq("fazenda_id", fazendaId as string)
+        .gte("data_operacao", `${ano}-01-01`)
+        .lte("data_operacao", dataFimPeriodo)
+        .order("data_operacao", { ascending: true })
+
+      if (erroTransacoes) throw erroTransacoes
+
+      const datasUnicas = Array.from(
+        new Set((transacoesDoAno ?? []).map((t) => t.data_operacao as string))
+      )
+      if (datasUnicas[datasUnicas.length - 1] !== dataFimPeriodo) {
+        datasUnicas.push(dataFimPeriodo)
+      }
 
       const respostas = await Promise.all(
-        checkpoints.map((c) => supabase.rpc("obter_saldo_rebanho", { p_data_referencia: c.data }))
+        datasUnicas.map((data) => supabase.rpc("obter_saldo_rebanho", { p_data_referencia: data }))
       )
       respostas.forEach((r) => {
         if (r.error) throw r.error
       })
 
       const especiesSet = new Set<string>()
-      const acumuladoPorMes = new Map<number, Record<string, number>>()
+      const acumuladoPorData = new Map<string, Record<string, number>>()
 
-      checkpoints.forEach((checkpoint, i) => {
+      datasUnicas.forEach((data, i) => {
         const linhas = (respostas[i].data ?? []) as SaldoRebanhoLinha[]
         const acumulado: Record<string, number> = {}
         for (const linha of linhas) {
@@ -60,20 +89,27 @@ export function useEvolucaoSaldoAno(fazendaId: string | undefined, ano: number) 
           especiesSet.add(linha.especie_nome)
           acumulado[linha.especie_nome] = (acumulado[linha.especie_nome] ?? 0) + linha.qtd_registrada
         }
-        acumuladoPorMes.set(checkpoint.mes, acumulado)
+        acumuladoPorData.set(data, acumulado)
       })
 
       const especies = Array.from(especiesSet).sort((a, b) => a.localeCompare(b, "pt-BR"))
-      const dados = checkpoints.map((checkpoint) => {
-        const linha: Record<string, string | number> = { mes: MESES_LABEL[checkpoint.mes - 1] }
-        const acumulado = acumuladoPorMes.get(checkpoint.mes) ?? {}
+      const dados = datasUnicas.map((data) => {
+        const linha: Record<string, string | number> = {
+          data,
+          timestamp: paraTimestamp(data),
+        }
+        const acumulado = acumuladoPorData.get(data) ?? {}
         for (const especie of especies) {
           linha[especie] = acumulado[especie] ?? 0
         }
         return linha
       })
 
-      return { dados, especies }
+      const ticksMeses = Array.from({ length: ultimoMes }, (_, i) =>
+        new Date(ano, i, 1).getTime()
+      )
+
+      return { dados, especies, ticksMeses }
     },
     enabled: !!fazendaId,
   })

@@ -565,7 +565,13 @@
   `/app/configuracoes` deixou de ser placeholder (dados da fazenda/usuário + lista "Minhas
   Fazendas"). Achado de RLS corrigido: `fazendas.nome` só editável por admin/membro (financeiro
   não).
-- **Última atualização:** 2026-07-22 — **Exportar CSV em Lançamentos Gerais.** Mesmo botão que já
+- **Última atualização:** 2026-07-22 — **Gráfico Evolução do Saldo mostra a variação na data
+  real** (não mais só 1 ponto por mês fechado) — eixo do tempo virou escala numérica, mas os
+  rótulos continuam só no início de cada mês (pedido de JP). Ver
+  `.agents/memory/log/2026-07-22-grafico-evolucao-saldo-datas-reais.md`. Também salvo nesta
+  sessão: roadmap "pronto e ultra profissional" combinado com JP (seção 4, topo) — prioridades a
+  confirmar antes de começar qualquer item.
+- **Atualização anterior:** 2026-07-22 — **Exportar CSV em Lançamentos Gerais.** Mesmo botão que já
   existia em Fluxo de Caixa, agora também na aba Lançamentos Gerais — exporta TODOS os
   lançamentos que casam com o filtro ativo (ignora paginação), não só a página visível. Lógica de
   CSV (escape RFC 4180 + BOM UTF-8) extraída pra `src/lib/exportarCsv.ts`, reaproveitada nas duas
@@ -661,6 +667,39 @@
 ---
 
 ## 4. Bloqueios e Pendências Abertas
+
+**📋 ROADMAP "pronto e ultra profissional" — combinado com JP em 2026-07-22, ordem de
+prioridade a confirmar com ele antes de começar qualquer item (ele pediu pra guardar o plano,
+ainda não pra executar):**
+
+🔴 Bloqueadores reais de produção:
+1. E-mail transacional não está de fato configurado — sem conta Resend real (hoje só loga no
+   servidor em vez de enviar) e sem resolver o problema de JWT Signing Keys (`enviar-convite`
+   retorna 502, ver achado logo abaixo). Sem isso, convite de equipe e qualquer notificação por
+   e-mail não chegam de verdade a ninguém.
+2. Frontend sem hospedagem configurada (Vercel/Netlify planejado, nunca configurado) — só roda
+   local (`npm run dev`) hoje. Precisa decidir e configurar `APP_URL` de produção.
+3. Nenhum teste de carga real feito — não sabemos quantos usuários/fazendas simultâneas o plano
+   atual do Supabase aguenta.
+
+🟡 Segurança/qualidade de dado pendentes:
+4. Multi-fazenda (Fases A+B, 2026-07-22) e a tela Equipe nunca passaram por um gate formal do
+   `cyber_chief` — construídas seguindo os padrões já revisados, mas sem revisão dedicada.
+5. `fazendas.estado` (usado pra travar o prazo regulatório certo por UF) está vazio em toda
+   fazenda existente — risco documentado no gate de 2026-07-20 segue presente na prática.
+6. DELETE em `lancamentos_financeiros` sem trilha de auditoria (risco aceito, documentado).
+7. Sem CI/CD — `build`/`lint`/`test` roda manualmente a cada sessão, não automaticamente.
+
+🟢 "Ultra profissional" (Fase 5 da spec, não iniciada):
+8. Testes automatizados cobrindo Fase 3/4 (hoje só Fase 1/2 têm suíte pgTAP real).
+9. Monitoramento de erros em produção (Sentry ou equivalente) — não existe hoje.
+10. Auditoria de responsividade mobile em TODAS as telas como um todo (feito tela por tela
+    conforme construída, nunca revisado de conjunto).
+11. Code splitting — build já avisa bundle >500kB, sem divisão por rota.
+
+🔵 Roadmap futuro (Fase 6 da spec): PWA/offline, gráficos de evolução temporal mais ricos
+(parcialmente atendido pelo gráfico de Evolução do Saldo do Painel Inteligente), alertas
+proativos por e-mail/WhatsApp.
 
 **⚠️ ABERTA (2026-07-22) — infraestrutura, não código:** Edge Function `enviar-convite`
 (ADR-0002, existe desde 2026-07-16 mas só foi exercitada de ponta a ponta agora, na Fase B do

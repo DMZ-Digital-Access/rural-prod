@@ -12,7 +12,11 @@ import { Link } from "react-router-dom"
 import { FileTextIcon, TruckIcon } from "lucide-react"
 import { useFazendaAtual } from "@/hooks/useFazendaAtual"
 import { useResumoSaldoAno, useTransacoesLista } from "@/hooks/useTransacoes"
-import { useEvolucaoSaldoAno, useResumoTransacoesAno } from "@/hooks/usePainelInteligente"
+import {
+  MESES_LABEL,
+  useEvolucaoSaldoAno,
+  useResumoTransacoesAno,
+} from "@/hooks/usePainelInteligente"
 import { useGtasLista } from "@/hooks/useGtas"
 import { useDeclaracoesLista } from "@/hooks/useDeclaracoesRebanho"
 import { useEstadoFazenda, usePrazoDeclaracao } from "@/hooks/useEstadoFazenda"
@@ -196,7 +200,9 @@ export function PainelInteligentePage() {
         <Card>
           <CardHeader>
             <CardTitle>Evolução do Saldo — {ANO_ATUAL}</CardTitle>
-            <CardDescription>Quantidade registrada por espécie, ao final de cada mês.</CardDescription>
+            <CardDescription>
+              Quantidade registrada por espécie, com a variação exata na data de cada operação.
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="h-72">
@@ -204,7 +210,12 @@ export function PainelInteligentePage() {
                 <LineChart data={evolucaoSaldo.data.dados}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
                   <XAxis
-                    dataKey="mes"
+                    dataKey="timestamp"
+                    type="number"
+                    scale="time"
+                    domain={["dataMin", "dataMax"]}
+                    ticks={evolucaoSaldo.data.ticksMeses}
+                    tickFormatter={(ts: number) => MESES_LABEL[new Date(ts).getMonth()]}
                     tickLine={false}
                     axisLine={false}
                     fontSize={12}
@@ -218,6 +229,9 @@ export function PainelInteligentePage() {
                     stroke="var(--muted-foreground)"
                   />
                   <Tooltip
+                    labelFormatter={(ts) =>
+                      typeof ts === "number" ? new Date(ts).toLocaleDateString("pt-BR") : ""
+                    }
                     contentStyle={{
                       background: "var(--popover)",
                       border: "1px solid var(--border)",
@@ -234,7 +248,7 @@ export function PainelInteligentePage() {
                       dataKey={especie}
                       stroke={CORES_LINHA[i % CORES_LINHA.length]}
                       strokeWidth={2}
-                      dot={false}
+                      dot={{ r: 3 }}
                     />
                   ))}
                 </LineChart>
