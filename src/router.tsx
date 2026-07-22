@@ -20,6 +20,7 @@ import { FinanceiroLayout } from "@/pages/financeiro/FinanceiroLayout"
 import { LancamentosListPage } from "@/pages/financeiro/LancamentosListPage"
 import { LancamentoDetailPage } from "@/pages/financeiro/LancamentoDetailPage"
 import { ConfiguracaoIaPage } from "@/pages/configuracoes/ConfiguracaoIaPage"
+import { ConfiguracaoExtracaoIaPage } from "@/pages/configuracoes/ConfiguracaoExtracaoIaPage"
 import { DocumentosFiscaisPage } from "@/pages/financeiro/DocumentosFiscaisPage"
 import { FluxoCaixaPage } from "@/pages/financeiro/FluxoCaixaPage"
 import { DeclaracoesRebanhoPage } from "@/pages/declaracoes/DeclaracoesRebanhoPage"
@@ -81,6 +82,7 @@ export const router = createBrowserRouter([
         ],
       },
       { path: "configuracoes/ia", element: <ConfiguracaoIaPage /> },
+      { path: "configuracoes/extracao-ia", element: <ConfiguracaoExtracaoIaPage /> },
       { path: "configuracoes/prazos-declaracao", element: <PrazosDeclaracaoPage /> },
       ...appRoutes.map((route) => ({
         path: route.path,

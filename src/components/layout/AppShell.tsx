@@ -5,6 +5,7 @@ import { toast } from "sonner"
 import { cn } from "@/lib/utils"
 import { supabase } from "@/lib/supabase"
 import { useAuth } from "@/lib/auth"
+import { useSouAdminSoftware } from "@/hooks/useSouAdminSoftware"
 import { Button } from "@/components/ui/button"
 import {
   Sheet,
@@ -49,12 +50,23 @@ const rebanhoCompliance: NavItem[] = [
 // qualquer sub-rota de `/app/financeiro`.
 const financeiro: NavItem[] = [{ to: "/app/financeiro", label: "Financeiro" }]
 
-const configuracoes: NavItem[] = [
-  { to: "/app/configuracoes", label: "Configurações", end: true },
-  { to: "/app/configuracoes/prazos-declaracao", label: "Prazos de Declaração" },
-  { to: "/app/configuracoes/ia", label: "Modelo de IA" },
-  { to: "/app/configuracoes/equipe", label: "Equipe" },
-]
+// "Modelo de IA" e "Prompt de Extração (IA)" são telas de configuração
+// GLOBAL do sistema, restritas ao admin do software (2026-07-22 — não mais
+// ao admin de cada fazenda) — somem do nav pra qualquer outro usuário,
+// primeiro item de menu deste projeto com branching condicional por papel.
+function getConfiguracoesItems(souAdminSoftware: boolean): NavItem[] {
+  return [
+    { to: "/app/configuracoes", label: "Configurações", end: true },
+    { to: "/app/configuracoes/prazos-declaracao", label: "Prazos de Declaração" },
+    ...(souAdminSoftware
+      ? [
+          { to: "/app/configuracoes/ia", label: "Modelo de IA" },
+          { to: "/app/configuracoes/extracao-ia", label: "Prompt de Extração (IA)" },
+        ]
+      : []),
+    { to: "/app/configuracoes/equipe", label: "Equipe" },
+  ]
+}
 
 function NavSection({
   title,
@@ -99,10 +111,12 @@ function NavSection({
 // rodapé de usuário/logout nos dois lugares, só o contêiner externo muda.
 function SidebarNav({
   email,
+  souAdminSoftware,
   onLogout,
   onNavigate,
 }: {
   email: string | undefined
+  souAdminSoftware: boolean
   onLogout: () => void
   onNavigate?: () => void
 }) {
@@ -121,7 +135,7 @@ function SidebarNav({
       <NavSection title="Financeiro" items={financeiro} onNavigate={onNavigate} />
       <NavSection
         title="Configurações"
-        items={configuracoes}
+        items={getConfiguracoesItems(souAdminSoftware)}
         onNavigate={onNavigate}
       />
 
@@ -153,6 +167,8 @@ export function AppShell({ children }: { children: ReactNode }) {
   const { user } = useAuth()
   const navigate = useNavigate()
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
+  const souAdminSoftwareQuery = useSouAdminSoftware()
+  const souAdminSoftware = souAdminSoftwareQuery.data === true
 
   async function handleLogout() {
     const { error } = await supabase.auth.signOut()
@@ -180,6 +196,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             </SheetHeader>
             <SidebarNav
               email={user?.email}
+              souAdminSoftware={souAdminSoftware}
               onLogout={handleLogout}
               onNavigate={() => setMobileNavOpen(false)}
             />
@@ -191,7 +208,11 @@ export function AppShell({ children }: { children: ReactNode }) {
 
       <aside className="hidden w-60 shrink-0 flex-col gap-6 border-r border-border bg-sidebar p-4 lg:flex print:hidden">
         <div className="px-2 text-lg font-semibold">Livestock Control</div>
-        <SidebarNav email={user?.email} onLogout={handleLogout} />
+        <SidebarNav
+          email={user?.email}
+          souAdminSoftware={souAdminSoftware}
+          onLogout={handleLogout}
+        />
       </aside>
 
       <main className="flex-1 overflow-y-auto p-4 sm:p-6">{children}</main>

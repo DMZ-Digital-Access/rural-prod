@@ -35,18 +35,39 @@ Deno.test('mimeTypeValido aceita PDF e os formatos de imagem do bucket', () => {
   assertEquals(mimeTypeValido(''), false)
 })
 
+const PROMPT_TESTE = 'prompt de teste'
+const SCHEMA_TESTE = { type: 'object', properties: {}, required: [] }
+
 Deno.test('montarChamadaGemini monta a URL da Interactions API e o body com input/response_format', () => {
-  const chamada = montarChamadaGemini('gemini-3.6-flash', 'image/jpeg', 'YWJj')
+  const chamada = montarChamadaGemini(
+    'gemini-3.6-flash',
+    'image/jpeg',
+    'YWJj',
+    PROMPT_TESTE,
+    SCHEMA_TESTE,
+  )
 
   assertEquals(chamada.url, 'https://generativelanguage.googleapis.com/v1alpha/interactions')
 
-  const body = chamada.body as { model: string; input: Record<string, unknown>[] }
+  const body = chamada.body as {
+    model: string
+    input: Record<string, unknown>[]
+    response_format: Record<string, unknown>[]
+  }
   assertEquals(body.model, 'gemini-3.6-flash')
   assertEquals(body.input[0], { type: 'image', mime_type: 'image/jpeg', data: 'YWJj' })
+  assertEquals(body.input[1], { type: 'text', text: PROMPT_TESTE })
+  assertEquals(body.response_format[0].schema, SCHEMA_TESTE)
 })
 
 Deno.test('montarChamadaGemini usa type "document" para PDF, não "image"', () => {
-  const chamada = montarChamadaGemini('gemini-3.6-flash', 'application/pdf', 'YWJj')
+  const chamada = montarChamadaGemini(
+    'gemini-3.6-flash',
+    'application/pdf',
+    'YWJj',
+    PROMPT_TESTE,
+    SCHEMA_TESTE,
+  )
   const body = chamada.body as { input: Record<string, unknown>[] }
   assertEquals(body.input[0], { type: 'document', mime_type: 'application/pdf', data: 'YWJj' })
 })

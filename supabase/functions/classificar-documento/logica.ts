@@ -75,13 +75,16 @@ export function corsHeadersFor(appUrl: string | undefined): Record<string, strin
 }
 
 /**
- * Prompt de extração — pede exatamente os campos de
- * `lancamentos_financeiros` (src/lib/validations/financeiro.ts). Pede null
- * explícito quando o modelo não tiver confiança, em vez de "inventar" um
- * valor — o usuário sempre revisa antes de salvar (nenhuma gravação
- * automática, ver especificacao-sistema.md seção 12).
+ * Prompt de extração e schema JSON de saída — ATUALIZAÇÃO (2026-07-22): não
+ * são mais constantes fixas neste arquivo. Ambos vivem agora em
+ * `configuracao_extracao_lancamentos` (tabela global, singleton — ver
+ * migration 20260722130000), editáveis por admin do software na tela
+ * `/app/configuracoes/extracao-ia`. `index.ts` busca a linha e passa os dois
+ * valores para `montarChamadaGemini()` abaixo. Os valores default abaixo são
+ * só a semente usada pela migration (mesmo texto usado como seed) — mantidos
+ * aqui como referência/fallback de teste, não são mais lidos em runtime.
  */
-export const PROMPT_EXTRACAO_LANCAMENTO = `Você está lendo um documento financeiro de uma fazenda (nota fiscal, boleto, recibo ou comprovante). Extraia os dados para preencher um lançamento financeiro e devolva APENAS o JSON pedido pelo schema, sem texto adicional.
+export const PROMPT_EXTRACAO_LANCAMENTO_PADRAO = `Você está lendo um documento financeiro de uma fazenda (nota fiscal, boleto, recibo ou comprovante). Extraia os dados para preencher um lançamento financeiro e devolva APENAS o JSON pedido pelo schema, sem texto adicional.
 
 Campos:
 - tipo: "receita" se o documento representa dinheiro entrando (venda, recebimento), "despesa" se representa dinheiro saindo (compra, pagamento a fornecedor). Na dúvida, use "despesa" (caso mais comum para notas de insumos/serviços).
@@ -94,7 +97,7 @@ Campos:
 
 Nunca invente um valor em que não tenha confiança — prefira retornar null, o usuário vai revisar e completar manualmente.`
 
-export const GEMINI_RESPONSE_SCHEMA = {
+export const GEMINI_RESPONSE_SCHEMA_PADRAO = {
   type: 'object',
   properties: {
     tipo: { type: 'string', enum: ['receita', 'despesa'] },
@@ -126,11 +129,20 @@ function tipoDaParte(mimeType: string): 'image' | 'document' {
  * arquivo). A API key NÃO vai mais na URL — vai no header `x-goog-api-key`,
  * montado por quem chama esta função (`index.ts`), não aqui, porque headers
  * de autenticação não fazem parte do "corpo" que esta função pura testa.
+ *
+ * `prompt`/`schema` (2026-07-22): vêm de `configuracao_extracao_lancamentos`
+ * (tabela global editável por admin do software, ver comentário no topo
+ * deste arquivo) — `index.ts` busca a linha e repassa aqui. `schema` é
+ * `unknown` de propósito: esta função só o encaminha pro corpo da chamada,
+ * sem nenhuma suposição de formato (quem valida o schema é o próprio Gemini
+ * ao processar `response_format`).
  */
 export function montarChamadaGemini(
   model: string,
   mimeType: string,
   base64Data: string,
+  prompt: string,
+  schema: unknown,
 ): ChamadaGemini {
   return {
     url: 'https://generativelanguage.googleapis.com/v1alpha/interactions',
@@ -138,10 +150,10 @@ export function montarChamadaGemini(
       model,
       input: [
         { type: tipoDaParte(mimeType), mime_type: mimeType, data: base64Data },
-        { type: 'text', text: PROMPT_EXTRACAO_LANCAMENTO },
+        { type: 'text', text: prompt },
       ],
       response_format: [
-        { type: 'text', mime_type: 'application/json', schema: GEMINI_RESPONSE_SCHEMA },
+        { type: 'text', mime_type: 'application/json', schema },
       ],
     },
   }

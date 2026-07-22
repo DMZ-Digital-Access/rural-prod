@@ -548,8 +548,15 @@
   dado real): todas as seções com valores reais, clique num atalho navegando pro detalhe certo,
   linha do gráfico subindo exatamente no mês certo. `build`/`lint`/`test` (36/36) limpos. Ver
   `.agents/memory/log/2026-07-22-painel-inteligente.md`. **Com isso, a Fase 4 (itens 15-21 da
-  spec, seção 10) está completa.** Pendência acumulada em aberto: gate formal do `cyber_chief`
-  cobrindo toda a fase (nunca rodado) — próximo passo natural.
+  spec, seção 10) está completa.**
+- **Última atualização:** 2026-07-22 — **gate formal do `cyber_chief` da Fase 4 completa,
+  veredito 🟢 Seguro** (sem achados bloqueantes), seguido da criação do papel "admin do
+  software" (`usuarios.papel_sistema`, independente de fazenda) e da tela
+  `/app/configuracoes/extracao-ia` pra controlar o prompt/schema de `classificar-documento` —
+  ambas essa tela e "Modelo de IA" agora restritas ao admin do software, não mais ao admin de
+  cada fazenda. Ver seção 5,
+  `.agents/memory/log/2026-07-22-cyber_chief-review-fase4-completa.md` e
+  `.agents/memory/log/2026-07-22-admin-software-e-configuracao-extracao-ia.md`.
 - **Atualização anterior:** 2026-07-19 — `qa` (Emma) escreveu e **rodou de verdade** a suíte pgTAP
   de RLS/RPC/GMD da Fase 2 (63/63 asserções, incluindo a regressão do bug de GMD do protótipo e
   os 3 achados do gate `cyber_chief`). Ver seção 5 e
@@ -633,21 +640,15 @@
    individualização automaticamente para compra/nascimento/entrada_pastoreio. Mantido aqui só
    como referência histórica de que a decisão já foi revisitada.
 
-**Pendência de trabalho (não bloqueante — schema/frontend prontos, gate de segurança ainda NÃO
-rodado):** Módulos de Transações (item 15), Saldo de Rebanho (item 16), GTAs (item 17) e todo o
-Módulo Financeiro (item 18 — lançamentos/Pago, Configuração de IA, `classificar-documento`,
-Documentos Fiscais/ZIP, Fluxo de Caixa/CSV) da Fase 4 — construídos e testados
-visual+funcionalmente por `developer` ao longo de 2026-07-21 (ver seção 1/5), mas **sem gate do
-`cyber_chief`** em nenhum deles. A maior parte não tem migration de RLS nova (só frontend/
-PostgREST/view read-only), mas o RLS que as telas expõem já passou pelos gates da Fase 3
-(`gtas`/`transacoes`/Storage/`obter_saldo_rebanho()`) — revisar se vale um gate leve focado em
-frontend (ex.: upload client-side respeita `allowed_mime_types`? o filtro `accept` do
-`<input type="file">` é só UX, não é validação de segurança — a validação real já é o
-`allowed_mime_types` do bucket, que rejeita no servidor) mais as migrations que sim são novas
-desta fase (`pago`/`data_pagamento`, config de LLM + trigger `restringir_alteracao_config_llm`,
-buckets `lancamentos-documentos`, view `fluxo_caixa_consolidado`, coluna
-`validado_pelo_usuario` + a nova policy de DELETE — esta última merece atenção prioritária no
-gate por reverter uma decisão de segurança/integridade anterior, ver seção 2).
+**RESOLVIDO em 2026-07-22 — gate `cyber_chief` da Fase 4 completa, veredito 🟢 Seguro.** Cobriu
+Transações, Saldo de Rebanho, GTAs e Módulo Financeiro completo (lançamentos/Pago, Configuração
+de IA, `classificar-documento`, Documentos Fiscais/ZIP, Fluxo de Caixa, Declaração Anual
+reestruturada, Prazos de Declaração, Painel Inteligente) — 17 migrations + 2 Edge Functions. O
+achado sob investigação (possível IDOR em `registrar_saida_animais_individuais()`) foi
+confirmado protegido pelo trigger `preparar_vinculo_transacao_animal` (ADR-0004). Duas
+observações não bloqueantes registradas (falta de trilha de auditoria no DELETE de
+`lancamentos_financeiros`; risco baixo de conteúdo de documento influenciar texto livre da
+extração por IA). Ver `.agents/memory/log/2026-07-22-cyber_chief-review-fase4-completa.md`.
 
 **Nota técnica para o Módulo de GTAs (item 17, próximo depois de Saldo de Rebanho):** o embed
 PostgREST entre `transacoes` e `gtas` exige o hint de constraint (`gtas!transacoes_gta_id_fkey` ou
@@ -840,6 +841,46 @@ responde HTTP 200, não que a UI renderiza/interage corretamente.
 ---
 
 ## 5. Histórico de Tarefas Complexas (mais recente primeiro)
+
+### 2026-07-22 — Papel "admin do software" + tela de controle do prompt/schema de OCR — `developer` (via Claude)
+
+- **O que foi feito:** novo nível de permissão `usuarios.papel_sistema` (`usuario` |
+  `admin_software`), independente de fazenda — cria a distinção "papel na fazenda"
+  (`usuarios_fazendas.papel`) vs. "papel no sistema" (`usuarios.papel_sistema`) pedida por JP.
+  Retrofit de `fazendas.llm_provider/llm_model` (Modelo de IA) e tabela nova, global e singleton,
+  `configuracao_extracao_lancamentos` (prompt + schema JSON de `classificar-documento`, antes
+  hardcoded) — ambas agora só editáveis por admin do software, não mais pelo admin de cada
+  fazenda. Tela nova `/app/configuracoes/extracao-ia`; `ConfiguracaoIaPage.tsx` e `AppShell.tsx`
+  retrofitados pra bloqueio total (não só leitura) e nav condicional (primeiro item de menu do
+  projeto com branching por papel).
+- **Achado crítico fechado na mesma tarefa:** sem guarda, qualquer usuário poderia se
+  autopromover a `admin_software` via UPDATE direto (`usuarios_update_own` não restringe
+  coluna) — fechado estendendo a guarda de imutabilidade já existente desde o gate de
+  2026-07-16 (`prevent_usuarios_identity_change()`).
+- **Achado real durante a validação:** o backfill original mirou `jp@natux.group`, que não
+  existe como usuário cadastrado neste ambiente — corrigido com migration aditiva mirando
+  `jp.teste.livestock@gmail.com` (a conta de teste real).
+- **Validado:** `build`/`lint`/`test` (36/36) limpos; 6 cenários de RLS/trigger verificados
+  direto no banco (autopromoção bloqueada, admin de fazenda bloqueado de editar ambas as
+  configs, admin do software consegue editar as duas, leitura liberada a todo `authenticated`);
+  Playwright real contra o remoto confirmou as 2 telas funcionando (edição, persistência,
+  rejeição de JSON inválido). Caso negativo (nav escondido/bloqueio pra não-admin-do-software)
+  não pôde ser testado via Playwright por falta de conta de teste sem confirmação de e-mail
+  pendente — risco residual considerado baixo (mesmo padrão condicional já provado no caso
+  positivo, fail-closed por padrão). Ver
+  `.agents/memory/log/2026-07-22-admin-software-e-configuracao-extracao-ia.md`.
+- **Gate do `cyber_chief`:** não rodado como gate formal separado (guardas desenhadas já nos
+  padrões exigidos, verificadas empiricamente) — recomendado incluir no escopo do próximo gate.
+
+### 2026-07-22 — Security review (gate Fase 4 completa) — `cyber_chief` (CONSTANTINE, via Claude)
+
+- **O que foi feito:** gate formal cobrindo toda a Fase 4 (17 migrations + 2 Edge Functions),
+  pendência acumulada desde o início da fase. Investigação de maior risco (possível IDOR em
+  `registrar_saida_animais_individuais()`) confirmou que o trigger `preparar_vinculo_transacao_
+  animal` (ADR-0004) já valida integridade cross-fazenda corretamente — sem achado.
+- **Veredito:** 🟢 Seguro. Duas observações não bloqueantes (sem trilha de auditoria no DELETE
+  de `lancamentos_financeiros`; risco baixo de documento adversarial influenciar texto livre da
+  extração por IA). Ver `.agents/memory/log/2026-07-22-cyber_chief-review-fase4-completa.md`.
 
 ### 2026-07-22 — Fase 4, Painel Inteligente (item 21) — ÚLTIMO ITEM DA FASE 4 — `developer` (via Claude)
 

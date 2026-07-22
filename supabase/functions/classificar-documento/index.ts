@@ -174,10 +174,32 @@ Deno.serve(async (req: Request): Promise<Response> => {
       )
     }
 
+    // ---- 3.5. Prompt/schema de extração — configuráveis por admin do
+    // software (configuracao_extracao_lancamentos, 2026-07-22), lidos com o
+    // mesmo client "do usuário" (RLS libera SELECT a todo authenticated).
+    const { data: configExtracao, error: configExtracaoError } = await userClient
+      .from('configuracao_extracao_lancamentos')
+      .select('prompt_extracao, schema_json')
+      .single()
+
+    if (configExtracaoError || !configExtracao) {
+      console.error(
+        'classificar-documento: erro ao buscar configuracao_extracao_lancamentos',
+        configExtracaoError,
+      )
+      return jsonResponse({ error: 'Erro ao buscar configuração de extração' }, 500, cors)
+    }
+
     // ---- 4. Chamada real ao Gemini (Interactions API — ver nota de
     // atualização no cabeçalho de logica.ts). A key vai no header
     // `x-goog-api-key`, não mais na URL.
-    const chamada = montarChamadaGemini(fazendaData.llm_model, mime_type, arquivo_base64)
+    const chamada = montarChamadaGemini(
+      fazendaData.llm_model,
+      mime_type,
+      arquivo_base64,
+      configExtracao.prompt_extracao,
+      configExtracao.schema_json,
+    )
 
     let geminiResponse: Response
     try {

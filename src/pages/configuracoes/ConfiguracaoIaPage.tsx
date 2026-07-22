@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react"
 import { toast } from "sonner"
 import { useFazendaAtual } from "@/hooks/useFazendaAtual"
+import { useSouAdminSoftware } from "@/hooks/useSouAdminSoftware"
 import {
   useAtualizarConfiguracaoLlm,
   useConfiguracaoLlm,
@@ -20,7 +21,8 @@ const PROVIDERS = Object.keys(LLM_CATALOG) as LlmProvider[]
 
 export function ConfiguracaoIaPage() {
   const { data: fazenda } = useFazendaAtual()
-  const somenteLeitura = fazenda?.papel !== "admin"
+  const souAdminSoftwareQuery = useSouAdminSoftware()
+  const souAdminSoftware = souAdminSoftwareQuery.data === true
 
   const configQuery = useConfiguracaoLlm(fazenda?.fazenda_id)
   const atualizar = useAtualizarConfiguracaoLlm(fazenda?.fazenda_id)
@@ -52,6 +54,21 @@ export function ConfiguracaoIaPage() {
 
   const modeloSelecionado = LLM_CATALOG[provider].models.find((m) => m.id === model)
 
+  if (souAdminSoftwareQuery.isLoading) {
+    return <p className="text-sm text-muted-foreground">Carregando…</p>
+  }
+
+  if (!souAdminSoftware) {
+    return (
+      <div className="flex flex-col gap-4">
+        <h1 className="text-2xl font-semibold">Modelo de IA</h1>
+        <p className="text-sm text-muted-foreground">
+          Apenas o admin do software tem acesso a esta configuração.
+        </p>
+      </div>
+    )
+  }
+
   return (
     <div className="flex flex-col gap-4">
       <div>
@@ -62,12 +79,6 @@ export function ConfiguracaoIaPage() {
           compartilhada pelo sistema — você só escolhe entre as opções já configuradas.
         </p>
       </div>
-
-      {somenteLeitura && (
-        <p className="rounded-lg border border-amber-600/20 bg-amber-600/10 px-3 py-2 text-sm text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/15 dark:text-amber-400">
-          Apenas o papel admin pode alterar esta configuração.
-        </p>
-      )}
 
       {configQuery.isLoading && (
         <p className="text-sm text-muted-foreground">Carregando configuração…</p>
@@ -89,7 +100,6 @@ export function ConfiguracaoIaPage() {
             <Select
               value={provider}
               onValueChange={(v) => v && handleProviderChange(v as LlmProvider)}
-              disabled={somenteLeitura}
             >
               <SelectTrigger className="w-full">
                 <SelectValue>
@@ -111,7 +121,6 @@ export function ConfiguracaoIaPage() {
             <Select
               value={model}
               onValueChange={(v) => v && setModel(v)}
-              disabled={somenteLeitura}
             >
               <SelectTrigger className="w-full">
                 <SelectValue>
@@ -133,13 +142,11 @@ export function ConfiguracaoIaPage() {
             )}
           </div>
 
-          {!somenteLeitura && (
-            <div>
-              <Button onClick={handleSave} disabled={atualizar.isPending}>
-                {atualizar.isPending ? "Salvando…" : "Salvar"}
-              </Button>
-            </div>
-          )}
+          <div>
+            <Button onClick={handleSave} disabled={atualizar.isPending}>
+              {atualizar.isPending ? "Salvando…" : "Salvar"}
+            </Button>
+          </div>
         </div>
       )}
     </div>
