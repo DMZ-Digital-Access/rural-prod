@@ -22,6 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { TipoLancamentoBadge } from "@/components/rebanho/TipoLancamentoBadge"
+import { baixarCsv, gerarConteudoCsv } from "@/lib/exportarCsv"
 import type { TipoLancamento } from "@/lib/types/financeiro"
 import type { MovimentoFluxoCaixa } from "@/lib/types/fluxoCaixa"
 
@@ -56,13 +57,6 @@ function linkOrigem(movimento: MovimentoFluxoCaixa) {
     : `/app/financeiro/lancamentos/${movimento.origem_id}`
 }
 
-// Escapa vírgula/aspas/quebra de linha por RFC 4180 — mínimo necessário para
-// abrir corretamente no Excel/Sheets sem quebrar colunas.
-function campoCsv(valor: string) {
-  if (/[",\n]/.test(valor)) return `"${valor.replace(/"/g, '""')}"`
-  return valor
-}
-
 function exportarCsv(movimentos: MovimentoFluxoCaixa[]) {
   const cabecalho = ["Data", "Tipo", "Categoria", "Descrição", "Valor", "Origem"]
   const linhas = movimentos.map((m) => [
@@ -74,18 +68,10 @@ function exportarCsv(movimentos: MovimentoFluxoCaixa[]) {
     m.origem === "transacao_animal" ? "Transação de animal" : "Lançamento financeiro",
   ])
 
-  const conteudo = [cabecalho, ...linhas]
-    .map((linha) => linha.map(campoCsv).join(";"))
-    .join("\r\n")
-
-  // BOM UTF-8 — sem ele o Excel (pt-BR) abre acentos corrompidos.
-  const blob = new Blob(["﻿" + conteudo], { type: "text/csv;charset=utf-8;" })
-  const url = URL.createObjectURL(blob)
-  const link = document.createElement("a")
-  link.href = url
-  link.download = `fluxo-caixa-${new Date().toISOString().slice(0, 10)}.csv`
-  link.click()
-  URL.revokeObjectURL(url)
+  baixarCsv(
+    `fluxo-caixa-${new Date().toISOString().slice(0, 10)}.csv`,
+    gerarConteudoCsv(cabecalho, linhas)
+  )
 }
 
 export function FluxoCaixaPage() {

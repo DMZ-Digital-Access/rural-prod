@@ -55,6 +55,37 @@ export function useLancamentosLista(
   })
 }
 
+/**
+ * Busca TODOS os lançamentos que casam com o filtro, ignorando paginação —
+ * usado só pelo botão "Exportar CSV" (Lançamentos Gerais, 2026-07-22, mesmo
+ * pedido/padrão já usado em Fluxo de Caixa: exporta tudo que bate com o
+ * filtro ativo, não só a página visível). Função simples (não é hook) —
+ * chamada sob demanda no clique do botão, não mantida como query viva.
+ */
+export async function buscarTodosLancamentosParaExport(
+  fazendaId: string,
+  filtro: LancamentosFiltro
+): Promise<LancamentoComDetalhes[]> {
+  let query = supabase
+    .from("lancamentos_financeiros")
+    .select(LANCAMENTOS_SELECT)
+    .eq("fazenda_id", fazendaId)
+    .order("data_lancamento", { ascending: false })
+
+  if (filtro.tipo) query = query.eq("tipo", filtro.tipo)
+  if (filtro.categoria.trim()) {
+    query = query.ilike("categoria", `%${filtro.categoria.trim()}%`)
+  }
+  if (filtro.pago !== null) query = query.eq("pago", filtro.pago)
+  if (filtro.validado !== null) query = query.eq("validado_pelo_usuario", filtro.validado)
+  if (filtro.dataInicio) query = query.gte("data_lancamento", filtro.dataInicio)
+  if (filtro.dataFim) query = query.lte("data_lancamento", filtro.dataFim)
+
+  const { data, error } = await query
+  if (error) throw error
+  return data as unknown as LancamentoComDetalhes[]
+}
+
 export function useLancamento(id: string | undefined) {
   return useQuery({
     queryKey: ["lancamentos-financeiros", "detail", id] as const,

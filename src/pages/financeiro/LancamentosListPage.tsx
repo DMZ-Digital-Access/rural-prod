@@ -1,11 +1,14 @@
 import { useState } from "react"
 import { Link } from "react-router-dom"
-import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react"
+import { ChevronLeftIcon, ChevronRightIcon, DownloadIcon } from "lucide-react"
+import { toast } from "sonner"
 import { useFazendaAtual } from "@/hooks/useFazendaAtual"
 import {
+  buscarTodosLancamentosParaExport,
   useLancamentosLista,
   type LancamentosFiltro,
 } from "@/hooks/useLancamentosFinanceiros"
+import { baixarCsv, gerarConteudoCsv } from "@/lib/exportarCsv"
 import {
   Table,
   TableBody,
@@ -59,8 +62,40 @@ export function LancamentosListPage() {
     validado: null,
   })
   const [pagina, setPagina] = useState(0)
+  const [exportando, setExportando] = useState(false)
 
   const lancamentosQuery = useLancamentosLista(fazenda?.fazenda_id, filtro, pagina)
+
+  async function exportarCsv() {
+    if (!fazenda?.fazenda_id) return
+    setExportando(true)
+    try {
+      const todos = await buscarTodosLancamentosParaExport(fazenda.fazenda_id, filtro)
+      const cabecalho = [
+        "Tipo", "Categoria", "Descrição", "Data", "Valor",
+        "Pago", "Data pagamento", "Contraparte", "Validado",
+      ]
+      const linhas = todos.map((l) => [
+        tipoLabels[l.tipo],
+        l.categoria,
+        l.descricao,
+        l.data_lancamento,
+        l.valor.toFixed(2).replace(".", ","),
+        l.pago ? "Sim" : "Não",
+        l.data_pagamento ?? "",
+        l.contraparte ?? "",
+        l.validado_pelo_usuario ? "Sim" : "Não",
+      ])
+      baixarCsv(
+        `lancamentos-${new Date().toISOString().slice(0, 10)}.csv`,
+        gerarConteudoCsv(cabecalho, linhas)
+      )
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Erro ao exportar CSV.")
+    } finally {
+      setExportando(false)
+    }
+  }
 
   function atualizarFiltro(patch: Partial<LancamentosFiltro>) {
     setFiltro((atual) => ({ ...atual, ...patch }))
@@ -86,7 +121,17 @@ export function LancamentosListPage() {
             Receitas e despesas gerais da fazenda — insumos, mão de obra, impostos e mais.
           </p>
         </div>
-        {!somenteLeitura && <CriarLancamentoDialog fazendaId={fazenda?.fazenda_id} />}
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            disabled={exportando || !fazenda?.fazenda_id}
+            onClick={exportarCsv}
+          >
+            <DownloadIcon />
+            {exportando ? "Exportando…" : "Exportar CSV"}
+          </Button>
+          {!somenteLeitura && <CriarLancamentoDialog fazendaId={fazenda?.fazenda_id} />}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">

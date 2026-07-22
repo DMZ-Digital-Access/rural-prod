@@ -565,7 +565,12 @@
   `/app/configuracoes` deixou de ser placeholder (dados da fazenda/usuário + lista "Minhas
   Fazendas"). Achado de RLS corrigido: `fazendas.nome` só editável por admin/membro (financeiro
   não).
-- **Última atualização:** 2026-07-22 — **Multi-fazenda, Fase B: tela Equipe**. RPCs novas
+- **Última atualização:** 2026-07-22 — **Exportar CSV em Lançamentos Gerais.** Mesmo botão que já
+  existia em Fluxo de Caixa, agora também na aba Lançamentos Gerais — exporta TODOS os
+  lançamentos que casam com o filtro ativo (ignora paginação), não só a página visível. Lógica de
+  CSV (escape RFC 4180 + BOM UTF-8) extraída pra `src/lib/exportarCsv.ts`, reaproveitada nas duas
+  telas. Ver `.agents/memory/log/2026-07-22-exportar-csv-lancamentos-gerais.md`.
+- **Atualização anterior:** 2026-07-22 — **Multi-fazenda, Fase B: tela Equipe**. RPCs novas
   `listar_membros_fazenda()`/`remover_membro()` (admin-only, mesma guarda "nunca zero admins" já
   usada em `promover_papel`) + frontend ligando pela primeira vez o backend de convites do
   ADR-0002 (`criar_convite`/`promover_papel`/`cancelar_convite` + Edge Function
@@ -586,7 +591,7 @@
   Fase 2 já cobriam. Bug real corrigido: `LoteSelectField` (react-hook-form) não funciona fora de
   um `<Form>` — trocado por `Select` plano. Ver
   `.agents/memory/log/2026-07-22-lote-detalhe-gestao-animais.md`.
-- **Última atualização:** 2026-07-22 — **Botão "Baixar ZIP" (Documentos Fiscais) + catálogo
+- **Atualização anterior:** 2026-07-22 — **Botão "Baixar ZIP" (Documentos Fiscais) + catálogo
   Gemini.** Botão não era bug de lógica — só nascia desabilitado até ano/mês serem preenchidos
   manualmente; agora nasce com o mês corrente já selecionado. **Achado real (mesma classe do
   incidente de 2026-07-21):** `gemini-2.5-flash-lite` (pedido por JP como novo padrão) está
@@ -889,6 +894,20 @@ responde HTTP 200, não que a UI renderiza/interage corretamente.
 ---
 
 ## 5. Histórico de Tarefas Complexas (mais recente primeiro)
+
+### 2026-07-22 — Exportar CSV em Lançamentos Gerais — `developer` (via Claude)
+
+- **O que foi feito:** botão "Exportar CSV" adicionado em `LancamentosListPage.tsx`, mesmo padrão
+  já usado em Fluxo de Caixa — exporta TODOS os lançamentos que casam com o filtro ativo da tela
+  (`buscarTodosLancamentosParaExport()`, função sob demanda sem `.range()`), não só a página
+  visível de 20. Lógica de escape CSV (RFC 4180) + BOM UTF-8 extraída de dentro de
+  `FluxoCaixaPage.tsx` pra `src/lib/exportarCsv.ts` (utilitário compartilhado), que foi
+  refatorada pra usá-la também, sem mudar comportamento.
+- **Validado:** `build`/`lint`/`test` (36/36); Playwright real contra o remoto — CSV baixado de
+  verdade, número de linhas de dado bate com o total do filtro (não só a página), formatação
+  (vírgula decimal, escape de campo com vírgula) correta.
+- **Gate do `cyber_chief`:** não se aplica (só frontend, mesma query já revisada em
+  `useLancamentosLista`, sem `.range()`).
 
 ### 2026-07-22 — Botão "Baixar ZIP" (Documentos Fiscais) + catálogo de modelos Gemini — `developer` (via Claude)
 
