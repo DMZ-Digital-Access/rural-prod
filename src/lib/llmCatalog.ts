@@ -62,15 +62,28 @@ export const LLM_CATALOG: Record<
     // gemini-3-pro-preview foram removidos por estarem DESATIVADOS pelo
     // Google para chaves de API novas (erro real "no longer available to
     // new users" ao configurar a GEMINI_API_KEY de produção — não é uma
-    // suposição, foi confirmado com chamadas HTTP reais). gemini-3.6-flash
-    // adicionado como novo padrão recomendado (mesma indicação da própria
-    // documentação do Gemini hoje). Ver
+    // suposição, foi confirmado com chamadas HTTP reais). Ver
     // .agents/memory/log/2026-07-21-correcao-api-gemini-interactions.md.
+    //
+    // Atualização de 2026-07-22 (pedido de JP): gemini-2.5-flash-lite deveria
+    // virar o novo padrão, gemini-3.5-flash-lite como segundo. Validado com
+    // uso real (upload de documento via classificar-documento) antes de
+    // confiar cegamente, mesmo cuidado já usado nesta sessão pro
+    // gemini-3.6-flash — achado real: gemini-2.5-flash-lite está MORTO
+    // ("no longer available to new users", mesmo erro de antes, confirmado
+    // por chamada real, não suposição) — removido do catálogo. Só
+    // gemini-3.5-flash-lite (testado com sucesso, extração real) vira o
+    // novo padrão.
     models: [
+      {
+        id: "gemini-3.5-flash-lite",
+        label: "Gemini 3.5 Flash Lite",
+        descricao: "Rápido e econômico — recomendado para leitura de documentos",
+      },
       {
         id: "gemini-3.6-flash",
         label: "Gemini 3.6 Flash",
-        descricao: "Rápido e econômico — recomendado para leitura de documentos",
+        descricao: "Rápido e econômico",
       },
       {
         id: "gemini-3.5-flash",

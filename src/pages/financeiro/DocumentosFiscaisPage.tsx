@@ -49,9 +49,21 @@ function formatData(data: string) {
   return new Date(`${data}T00:00:00`).toLocaleDateString("pt-BR")
 }
 
+const hoje = new Date()
+
 export function DocumentosFiscaisPage() {
   const { data: fazenda } = useFazendaAtual()
-  const [filtro, setFiltro] = useState<DocumentosFiscaisFiltro>({ ano: null, mes: null })
+  // Ano/mês partem já preenchidos com o mês corrente (achado de JP,
+  // 2026-07-22: "o botão baixar zip não está ativo" — o botão fica
+  // desabilitado até ano+mês estarem preenchidos, e o filtro nascia em
+  // "Todos"/"Todos" por padrão, então o botão parecia quebrado no primeiro
+  // acesso à tela). O usuário ainda pode voltar pra "Todos" a qualquer
+  // momento — o botão só reflete a exigência real da Edge Function
+  // gerar-zip-lancamentos, que sempre precisa de um ano/mês específico.
+  const [filtro, setFiltro] = useState<DocumentosFiscaisFiltro>({
+    ano: hoje.getFullYear(),
+    mes: hoje.getMonth() + 1,
+  })
   const [gerandoZip, setGerandoZip] = useState(false)
 
   const lista = useDocumentosFiscaisLista(fazenda?.fazenda_id, filtro)

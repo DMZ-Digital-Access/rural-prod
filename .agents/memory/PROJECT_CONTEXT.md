@@ -579,13 +579,20 @@
   infraestrutura, fora do escopo de código. Multi-fazenda (Fases A+B) está completo do ponto de
   vista de código. Ver seção 4, `.agents/memory/log/2026-07-22-multi-fazenda-fase-b-equipe.md` e
   `.agents/memory/log/2026-07-22-multi-fazenda-fase-a.md`.
-- **Última atualização:** 2026-07-22 — **Detalhe do Lote (Eixo 1): transferir/retirar animal +
+- **Atualização anterior:** 2026-07-22 — **Detalhe do Lote (Eixo 1): transferir/retirar animal +
   incluir animais.** `MudarLoteDialog` (Select único: outro lote ou "Sem lote", mesmo gesto pra
   retirar/transferir) e `AdicionarAnimaisDialog` (busca por identificação + checklist, inclusive
   animais que já têm outro lote — "rouba" pro lote atual). Sem migration nova — RLS/trigger da
   Fase 2 já cobriam. Bug real corrigido: `LoteSelectField` (react-hook-form) não funciona fora de
   um `<Form>` — trocado por `Select` plano. Ver
   `.agents/memory/log/2026-07-22-lote-detalhe-gestao-animais.md`.
+- **Última atualização:** 2026-07-22 — **Botão "Baixar ZIP" (Documentos Fiscais) + catálogo
+  Gemini.** Botão não era bug de lógica — só nascia desabilitado até ano/mês serem preenchidos
+  manualmente; agora nasce com o mês corrente já selecionado. **Achado real (mesma classe do
+  incidente de 2026-07-21):** `gemini-2.5-flash-lite` (pedido por JP como novo padrão) está
+  MORTO — confirmado com upload real de documento, mesmo erro "no longer available to new
+  users". `gemini-3.5-flash-lite` (segunda opção pedida) testado com sucesso e virou o novo
+  padrão em lugar dele. Ver `.agents/memory/log/2026-07-22-zip-botao-e-catalogo-gemini.md`.
 - **Atualização anterior:** 2026-07-19 — `qa` (Emma) escreveu e **rodou de verdade** a suíte pgTAP
   de RLS/RPC/GMD da Fase 2 (63/63 asserções, incluindo a regressão do bug de GMD do protótipo e
   os 3 achados do gate `cyber_chief`). Ver seção 5 e
@@ -882,6 +889,40 @@ responde HTTP 200, não que a UI renderiza/interage corretamente.
 ---
 
 ## 5. Histórico de Tarefas Complexas (mais recente primeiro)
+
+### 2026-07-22 — Botão "Baixar ZIP" (Documentos Fiscais) + catálogo de modelos Gemini — `developer` (via Claude)
+
+- **O que foi feito:** `DocumentosFiscaisPage.tsx` agora nasce com ano/mês do mês corrente já
+  selecionados (botão de ZIP não era bug de lógica — só nascia desabilitado até o usuário
+  escolher os dois filtros manualmente, lido como "não está ativo"). Catálogo de modelos Gemini
+  (`src/lib/llmCatalog.ts`) atualizado a pedido de JP.
+- **Achado real (mesma classe do incidente de 2026-07-21):** `gemini-2.5-flash-lite` (pedido
+  como novo padrão) está MORTO — confirmado com upload real de documento via
+  `classificar-documento` contra o Supabase remoto, erro idêntico ao de antes ("no longer
+  available to new users"). Removido do catálogo; `gemini-3.5-flash-lite` (segunda opção
+  pedida) testado com sucesso (extração real correta) e virou o novo padrão em seu lugar.
+  Migrations `20260722190000` (troca original) + `20260722200000` (correção).
+- **Validado:** `build`/`lint`/`test` (36/36); Playwright real contra o remoto — download de ZIP
+  de verdade (~100KB, documento real dentro), upload real de documento com o novo modelo padrão
+  extraindo campos corretos, tela "Modelo de IA" confirmada sem a entrada morta. Ver
+  `.agents/memory/log/2026-07-22-zip-botao-e-catalogo-gemini.md`.
+- **Gate do `cyber_chief`:** não se aplica (frontend + constante + UPDATE simples, mesmo padrão
+  do incidente de 2026-07-21).
+
+### 2026-07-22 — Detalhe do Lote: transferir/retirar animal + incluir animais — `developer` (via Claude)
+
+- **O que foi feito:** hooks novos `useAtualizarLoteDoAnimal`/`useAdicionarAnimaisAoLote`
+  (`src/hooks/useAnimais.ts`) — sem migration nova, RLS/trigger da Fase 2 já cobriam.
+  `MudarLoteDialog` (Select único: outro lote ou "Sem lote", mesmo gesto pra retirar/transferir,
+  confirmado com JP) e `AdicionarAnimaisDialog` (busca por identificação + checklist, inclusive
+  animais que já têm outro lote — decisão confirmada com JP de permitir "roubar" pro lote atual).
+- **Bug real corrigido:** `MudarLoteDialog` reusava `LoteSelectField` (depende de
+  `FormControl`/`useFormContext` do react-hook-form), mas o dialog só usa `useState` — quebrava
+  com erro de contexto nulo ao abrir. Corrigido com `Select` plano.
+- **Validado:** `build`/`lint`/`test` (36/36); Playwright real contra o remoto (incluir, mover
+  entre lotes, reverter, dado de teste removido); mobile 390px sem overflow. Ver
+  `.agents/memory/log/2026-07-22-lote-detalhe-gestao-animais.md`.
+- **Gate do `cyber_chief`:** não se aplica (sem migration nova).
 
 ### 2026-07-22 — Multi-fazenda Fase B: tela Equipe (membros, convites, promoção, remoção) — `developer` (via Claude)
 
