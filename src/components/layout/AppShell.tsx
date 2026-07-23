@@ -184,6 +184,8 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <div className="flex min-h-svh flex-col lg:flex-row">
       <header className="flex items-center justify-between gap-2 border-b border-border p-3 lg:hidden print:hidden">
+        <div className="w-7" aria-hidden="true" />
+        <div className="text-lg font-semibold">Livestock Control</div>
         <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
           <SheetTrigger
             render={
@@ -192,7 +194,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               </Button>
             }
           />
-          <SheetContent side="left" className="w-72 max-w-[85vw] gap-6">
+          <SheetContent side="right" className="w-72 max-w-[85vw] gap-6">
             <SheetHeader>
               <SheetTitle>Livestock Control</SheetTitle>
             </SheetHeader>
@@ -204,8 +206,6 @@ export function AppShell({ children }: { children: ReactNode }) {
             />
           </SheetContent>
         </Sheet>
-        <div className="text-lg font-semibold">Livestock Control</div>
-        <div className="w-7" aria-hidden="true" />
       </header>
 
       <aside className="hidden w-60 shrink-0 flex-col gap-6 border-r border-border bg-sidebar p-4 lg:flex print:hidden">

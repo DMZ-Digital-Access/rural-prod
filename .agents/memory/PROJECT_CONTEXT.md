@@ -963,6 +963,73 @@ responde HTTP 200, não que a UI renderiza/interage corretamente.
 
 ## 5. Histórico de Tarefas Complexas (mais recente primeiro)
 
+### 2026-07-23 — Sessões de "Dia de Pesagem" + histórico + ajustes de layout — `developer` (via Claude)
+
+- **Pedidos de JP (mesma conversa, em sequência):** (1) Identificação/Peso lado a lado numa
+  linha, mobile e desktop, sempre visíveis sem rolar; (2) área de entrada NUNCA rola, só a
+  lista de baixo; (3) botão discreto "Final da pesagem" que registra o evento no banco; (4) aba
+  "Histórico" (data, lote, peso médio, nº animais, peso total), clicável, abrindo a lista de
+  pesagens daquele evento — **podem existir múltiplos eventos no mesmo dia**; (5) identificar
+  no evento o usuário que fez os registros; (6) só UM dispositivo/usuário da fazenda pode ter
+  uma pesagem ativa por vez — um segundo usuário vê quem está pesando em vez de conseguir
+  iniciar uma nova; (7, à parte) menu hambúrguer do mobile pro lado direito.
+- **Schema novo (migration `20260723150000_sessoes_pesagem.sql`):** tabela `sessoes_pesagem`
+  (`fazenda_id`, `usuario_id` — dono/quem iniciou, `iniciada_em`, `finalizada_em` nullable = em
+  aberto); `pesagens.sessao_pesagem_id` (nullable — pesagens de outros fluxos, ex. tela de
+  detalhe do animal, não pertencem a nenhuma sessão); `registrar_pesagem()` estendida com
+  `p_sessao_pesagem_id` (precisou de `DROP FUNCTION` explícito antes do `CREATE OR REPLACE` —
+  achado real ao rodar a suíte pgTAP local: acrescentar um parâmetro, mesmo com default, cria
+  um SEGUNDO overload em vez de substituir, e uma chamada com 3 argumentos passou a bater em
+  ambos, erro "function ... is not unique"). RPCs novas (SECURITY DEFINER, mesmo padrão de
+  `listar_membros_fazenda`/ADR-0002 — expõem `usuarios.nome` entre colegas, que RLS declarativa
+  não permite): `criar_sessao_pesagem` (get-or-create atômico com `pg_advisory_xact_lock`,
+  bloqueia um SEGUNDO usuário com mensagem pronta incluindo o nome de quem já está pesando),
+  `obter_sessao_pesagem_ativa`, `listar_sessoes_pesagem_finalizadas` (histórico com "lote
+  derivado" — todos os animais da sessão do mesmo lote → nome; nenhum lote → "—"; lotes
+  diferentes OU mistura de com/sem lote → "Vários"; achado real ao testar: `count(distinct
+  lote_id)` ignora `NULL` por definição, então "1 sem lote + 1 com Lote X" contava como "1
+  valor distinto" e mostrava errado o nome do lote — corrigido com `coalesce(lote_id::text,
+  sentinela)`). Mesmo bug de coluna ambígua já visto em `listar_membros_fazenda` apareceu de
+  novo em `obter_sessao_pesagem_ativa` (RETURNS TABLE com uma coluna chamada `usuario_id`
+  colide com a referência não-qualificada dentro da própria função) — corrigido antes de
+  aplicar no remoto.
+- **Correção entre sessões (decisão de JP):** repesar o mesmo animal dentro de 2 dias (regra já
+  existente) numa sessão diferente da original migra `sessao_pesagem_id` pra sessão ATUAL, não
+  mantém a original — testado e confirmado.
+- **Frontend:** `ui/tabs.tsx` novo (wrapper de `@base-ui/react/tabs`, mesmo padrão de
+  `select.tsx`/`dialog.tsx`). `DiaPesagemPage.tsx` reescrita: abas Pesagem/Histórico,
+  Identificação+Peso em grid de 2 colunas, área de entrada `shrink-0` sem overflow (só a lista/
+  histórico tem `overflow-y-auto`), bloqueio "outro usuário pesando agora" com o nome de quem,
+  diálogo de confirmação antes de "Final da pesagem" (mesmo padrão de "Encerrar Lote").
+  `AppShell.tsx`: menu hambúrguer mobile movido pro lado direito (`SheetContent side="right"`).
+- **Validado:** testado diretamente contra o banco local — reaproveitamento da mesma sessão
+  (sair/voltar), bloqueio cross-user com nome correto, correção migrando sessão, os 3 casos de
+  "lote derivado" (único, misto, nenhum). `build`/`lint`/`test` (31/31) e pgTAP (63/63) limpos.
+
+### 2026-07-23 — Catálogo de espécies no singular (Bovino, Ovino, Equino...) — `developer` (via Claude)
+
+- **Pedido de JP:** "Tipo de Animal" (e qualquer outro lugar que mostra a classificação de
+  espécie) deve exibir singular, não plural — o seed original (`especies`, Fase 3) usava
+  plural (Bovinos/Ovinos/...).
+- **Migration `20260723140000_especies_nome_singular.sql`** — 8 `UPDATE` simples no catálogo
+  (Bovinos→Bovino, Ovinos→Ovino, Equinos→Equino, Caprinos→Caprino, Muares→Muar, Aves→Ave,
+  Suínos→Suíno, Abelhas→Abelha). Como todo consumidor (`transacoes`, `animais_com_detalhes`,
+  Saldo de Rebanho, Painel Inteligente, GTAs, Declarações) lê `especies.nome` via join, isso
+  propaga em todo lugar sem tocar em mais nenhuma tabela/view/RPC — FKs são por `id`, nunca por
+  `nome`.
+- **Achado ao caçar referências hardcoded:** `SaidaAnimaisIndividuaisForm.tsx` comparava
+  `especie.nome === "Bovinos"` (literal, pra auto-selecionar a única espécie do Eixo 1
+  historicamente assumida) — quebraria silenciosamente após o rename (deixaria de encontrar
+  qualquer linha). Corrigido pra `"Bovino"`.
+- **Achado adjacente, não corrigido (fora do escopo deste pedido):** esse mesmo hardcode revela
+  que `SaidaAnimaisIndividuaisForm` (Venda/Óbito/Consumo de animais individuais) sempre grava
+  `especie_id = Bovino` na transação, **mesmo que os animais selecionados sejam de outra
+  espécie** — sabemos que existem 26 ovinos individualizados hoje (achado da tarefa de
+  "Tipo de Animal"). Vender/abater um desses ovinos registraria a transação com espécie errada.
+  Registrado aqui como pendência real, não resolvido nesta tarefa.
+- **Validado:** `especies.nome` confirmado singular em produção após o push; build/lint/test
+  (31/31) e pgTAP (63/63) limpos.
+
 ### 2026-07-23 — "Dia de Pesagem" — ferramenta de pesagem em lote rápida — `developer` (via Claude)
 
 - **Pedido de JP:** botão no Dashboard ao lado de "Lançamento Rápido" + item de menu (seção
