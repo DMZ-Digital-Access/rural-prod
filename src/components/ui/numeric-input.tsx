@@ -28,6 +28,7 @@ export function NumericInput({
   onChange,
   onBlur,
   casasDecimais = 2,
+  ref,
   ...props
 }: {
   value: number | null | undefined
@@ -62,6 +63,7 @@ export function NumericInput({
   return (
     <Input
       {...props}
+      ref={ref}
       id={inputId}
       type="text"
       inputMode="decimal"

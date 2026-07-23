@@ -72,6 +72,13 @@ export const router = createBrowserRouter([
           })),
       },
       {
+        path: "dia-pesagem",
+        lazy: () =>
+          import("@/pages/rebanho/DiaPesagemPage").then((m) => ({
+            Component: m.DiaPesagemPage,
+          })),
+      },
+      {
         path: "lancamento-rapido",
         lazy: () =>
           import("@/pages/lancamento-rapido/LancamentoRapidoPage").then((m) => ({

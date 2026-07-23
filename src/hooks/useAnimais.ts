@@ -35,6 +35,41 @@ export function useAnimais(fazendaId: string | undefined, loteId?: string | null
   })
 }
 
+export type AnimalBusca = { id: string; identificacao: string }
+
+/**
+ * Busca de animal por trecho da identificação (Dia de Pesagem, 2026-07-23) —
+ * `ilike` com `%termo%` (substring em qualquer posição, não só prefixo — "385"
+ * ou "R38" encontram "AR385", pedido explícito de JP), restrita a
+ * `status = 'ativo'` (não faz sentido pesar animal já vendido/morto/baixado).
+ * Só habilitada com termo não vazio — sem isso listaria a fazenda inteira a
+ * cada tecla apagada.
+ */
+export function useBuscarAnimaisPorIdentificacao(
+  fazendaId: string | undefined,
+  termo: string
+) {
+  const termoLimpo = termo.trim()
+
+  return useQuery({
+    queryKey: ["animais", "busca-identificacao", fazendaId, termoLimpo] as const,
+    queryFn: async (): Promise<AnimalBusca[]> => {
+      const { data, error } = await supabase
+        .from("animais")
+        .select("id, identificacao")
+        .eq("fazenda_id", fazendaId as string)
+        .eq("status", "ativo")
+        .ilike("identificacao", `%${termoLimpo}%`)
+        .order("identificacao", { ascending: true })
+        .limit(8)
+
+      if (error) throw error
+      return data
+    },
+    enabled: !!fazendaId && termoLimpo.length > 0,
+  })
+}
+
 export function useAnimal(id: string | undefined) {
   return useQuery({
     queryKey: animalDetailKey(id),

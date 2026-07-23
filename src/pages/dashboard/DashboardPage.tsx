@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react"
 import { Link } from "react-router-dom"
-import { ZapIcon } from "lucide-react"
+import { WeightIcon, ZapIcon } from "lucide-react"
 import {
   Bar,
   BarChart,
@@ -166,18 +166,33 @@ export function DashboardPage() {
       </div>
 
       {fazenda?.papel !== "financeiro" && (
-        <Link
-          to="/app/lancamento-rapido"
-          className="flex items-center gap-3 rounded-xl border border-border bg-card p-4 transition-colors hover:border-foreground/30 hover:bg-muted"
-        >
-          <ZapIcon className="size-6 shrink-0 text-muted-foreground" />
-          <div>
-            <p className="font-medium">Lançamento Rápido</p>
-            <p className="text-sm text-muted-foreground">
-              Registrar uma operação com animais ou uma despesa/receita geral.
-            </p>
-          </div>
-        </Link>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <Link
+            to="/app/lancamento-rapido"
+            className="flex items-center gap-3 rounded-xl border border-border bg-card p-4 transition-colors hover:border-foreground/30 hover:bg-muted"
+          >
+            <ZapIcon className="size-6 shrink-0 text-muted-foreground" />
+            <div>
+              <p className="font-medium">Lançamento Rápido</p>
+              <p className="text-sm text-muted-foreground">
+                Registrar uma operação com animais ou uma despesa/receita geral.
+              </p>
+            </div>
+          </Link>
+
+          <Link
+            to="/app/dia-pesagem"
+            className="flex items-center gap-3 rounded-xl border border-border bg-card p-4 transition-colors hover:border-foreground/30 hover:bg-muted"
+          >
+            <WeightIcon className="size-6 shrink-0 text-muted-foreground" />
+            <div>
+              <p className="font-medium">Dia de Pesagem</p>
+              <p className="text-sm text-muted-foreground">
+                Pesar vários animais em sequência rápida.
+              </p>
+            </div>
+          </Link>
+        </div>
       )}
 
       {animaisQuery.isLoading && (

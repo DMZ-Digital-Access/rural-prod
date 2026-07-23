@@ -22,3 +22,18 @@ export const pesagemSchema = z.object({
 })
 
 export type PesagemFormValues = z.infer<typeof pesagemSchema>
+
+// Dia de Pesagem (2026-07-23) — animal_id só existe depois de resolvido via
+// busca por identificação parcial (useBuscarAnimaisPorIdentificacao); o
+// "Registrar" fica desabilitado até isso acontecer, e o schema reforça a
+// mesma regra. Sem data — esta tela é sempre "hoje" (useRegistrarPesagemRapida
+// fixa p_data_evento no hook, não no form).
+export const pesagemRapidaSchema = z.object({
+  animal_id: z.string().min(1, "Selecione um animal pela identificação"),
+  identificacao: z.string(),
+  peso_kg: z
+    .number({ error: "Informe o peso" })
+    .positive("O peso precisa ser maior que zero"),
+})
+
+export type PesagemRapidaFormValues = z.infer<typeof pesagemRapidaSchema>

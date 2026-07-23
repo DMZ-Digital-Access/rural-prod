@@ -22,16 +22,15 @@ type NavItem = {
   end?: boolean
 }
 
-// Navegação principal (spec seção 6 e 8): duas seções — "Manejo Individual"
-// (Eixo 1) e "Rebanho & Compliance" (Eixo 2) — mais Configurações à parte.
-// A maioria das páginas ainda é placeholder (Fases 2/3/4 não começaram),
-// mas a estrutura de navegação precisa existir inteira e ser clicável desde
-// já (spec seção 10, item 6 da Fase 1).
+// Navegação principal (spec seção 6 e 8): duas seções — "Manejo do Rebanho"
+// (Eixo 1, renomeada de "Manejo Individual" em 2026-07-23 a pedido de JP) e
+// "Rebanho & Compliance" (Eixo 2) — mais Configurações à parte.
 const manejoIndividual: NavItem[] = [
   { to: "/app/dashboard", label: "Dashboard" },
   { to: "/app/animais", label: "Animais" },
   { to: "/app/lotes", label: "Lotes" },
   { to: "/app/comparativo", label: "Comparativo" },
+  { to: "/app/dia-pesagem", label: "Dia de Pesagem" },
 ]
 
 const rebanhoCompliance: NavItem[] = [
@@ -126,7 +125,7 @@ function SidebarNav({
       <FazendaSwitcher />
 
       <NavSection
-        title="Manejo Individual"
+        title="Manejo do Rebanho"
         items={manejoIndividual}
         onNavigate={onNavigate}
       />

@@ -963,6 +963,35 @@ responde HTTP 200, não que a UI renderiza/interage corretamente.
 
 ## 5. Histórico de Tarefas Complexas (mais recente primeiro)
 
+### 2026-07-23 — "Dia de Pesagem" — ferramenta de pesagem em lote rápida — `developer` (via Claude)
+
+- **Pedido de JP:** botão no Dashboard ao lado de "Lançamento Rápido" + item de menu (seção
+  "Manejo Individual", renomeada pra **"Manejo do Rebanho"** no mesmo pedido) pra uma tela de
+  campo: dois campos grandes (Identificação, Peso), stats do dia (nº de animais/peso médio/
+  total) e lista rolável dos animais já pesados hoje ocupando ~40% inferior da tela (mobile e
+  desktop).
+- **Decisões confirmadas com JP:** busca de animal por **substring** (não prefixo/exato) —
+  digitar "385" ou "R38" encontra "AR385" — teclado numérico por padrão com opção de alternar
+  pro alfabético; confirmação por **botão explícito** (Enter faz o mesmo, sem avanço automático
+  de campo-a-campo).
+- **Sem migration nova** — reaproveita `registrar_pesagem()` (RPC já existente da Fase 2) tal
+  como está: como esta tela sempre usa a data de hoje, pesar o mesmo animal 2x no mesmo dia já
+  vira correção do mesmo registro por conta própria da RPC (comportamento pré-existente, não
+  fizemos nada especial aqui).
+- **Novo:** hooks `useBuscarAnimaisPorIdentificacao` (`ilike %termo%`, só `status='ativo'`),
+  `usePesagensDeHoje` (stats + lista, `data_evento = hoje`), `useRegistrarPesagemRapida`
+  (`animal_id` variável por chamada, diferente de `useRegistrarPesagem` que fixa o id na
+  instanciação). Página `DiaPesagemPage.tsx` (rota plana `dia-pesagem`, mesma convenção de
+  `comparativo`/`lotes` — fora de `/rebanho/*`, que é da outra seção de menu). `NumericInput`
+  ganhou suporte a `ref` (prop simples, padrão React 19 — sem `forwardRef`, mesmo estilo já
+  usado em `Input`) pra permitir focar o campo Peso depois de escolher uma sugestão de animal.
+- **Validado:** build/lint/test (31/31) e pgTAB (63/63) limpos; busca por substring confirmada
+  contra dado real de produção (ex.: "011" encontra `COMPRA-2026-05-06-011`,
+  `COMPRA-2026-05-26-011`, etc. — várias identificações contendo o trecho, não só prefixo).
+  Layout 60/40 aproximado via `dvh` (não pixel-perfect — evita acoplar a página aos paddings/
+  header exatos do `AppShell`); sem navegador real disponível nesta sessão pra validação visual
+  completa (mesma limitação já registrada em tarefas anteriores).
+
 ### 2026-07-23 — "Tipo de Animal" (espécie) substitui "Categoria" na lista de Animais — `developer` (via Claude)
 
 - **Achado ao investigar o pedido de JP** ("trocar a coluna de categoria pra tipo de animal"):
