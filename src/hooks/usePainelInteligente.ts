@@ -19,6 +19,12 @@ export type EvolucaoSaldoAno = {
    * mostrados no eixo X (o eixo continua só com "início de cada mês",
    * mesmo visual de antes, mesmo com pontos de dado em datas quaisquer). */
   ticksMeses: number[]
+  /** Por espécie, o conjunto de datas ("YYYY-MM-DD") em que houve ao menos
+   * uma transação DAQUELA espécie (pedido de JP, 2026-07-23: mostrar o ponto
+   * na linha só nas datas com operação real do tipo de animal, não em todo
+   * checkpoint do gráfico — a maioria dos checkpoints é gerado por operação
+   * de OUTRA espécie). */
+  datasComOperacao: Record<string, Set<string>>
 }
 
 function paraTimestamp(dataIso: string): number {
@@ -56,7 +62,7 @@ export function useEvolucaoSaldoAno(fazendaId: string | undefined, ano: number) 
 
       const { data: transacoesDoAno, error: erroTransacoes } = await supabase
         .from("transacoes")
-        .select("data_operacao")
+        .select("data_operacao, especies(nome)")
         .eq("fazenda_id", fazendaId as string)
         .gte("data_operacao", `${ano}-01-01`)
         .lte("data_operacao", dataFimPeriodo)
@@ -64,8 +70,20 @@ export function useEvolucaoSaldoAno(fazendaId: string | undefined, ano: number) 
 
       if (erroTransacoes) throw erroTransacoes
 
+      const transacoesComEspecie = (transacoesDoAno ?? []) as unknown as Array<{
+        data_operacao: string
+        especies: { nome: string } | null
+      }>
+
+      const datasComOperacao: Record<string, Set<string>> = {}
+      for (const t of transacoesComEspecie) {
+        const especieNome = t.especies?.nome
+        if (!especieNome) continue
+        ;(datasComOperacao[especieNome] ??= new Set()).add(t.data_operacao)
+      }
+
       const datasUnicas = Array.from(
-        new Set((transacoesDoAno ?? []).map((t) => t.data_operacao as string))
+        new Set(transacoesComEspecie.map((t) => t.data_operacao))
       )
       if (datasUnicas[datasUnicas.length - 1] !== dataFimPeriodo) {
         datasUnicas.push(dataFimPeriodo)
@@ -117,7 +135,7 @@ export function useEvolucaoSaldoAno(fazendaId: string | undefined, ano: number) 
         new Date(ano, i, 1).getTime()
       )
 
-      return { dados, especies, ticksMeses }
+      return { dados, especies, ticksMeses, datasComOperacao }
     },
     enabled: !!fazendaId,
   })

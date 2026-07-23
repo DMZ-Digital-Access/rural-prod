@@ -254,16 +254,26 @@ export function PainelInteligentePage() {
                     }}
                   />
                   <Legend wrapperStyle={{ fontSize: 12 }} />
-                  {evolucaoSaldo.data.especies.map((especie, i) => (
-                    <Line
-                      key={especie}
-                      type="monotone"
-                      dataKey={especie}
-                      stroke={CORES_LINHA[i % CORES_LINHA.length]}
-                      strokeWidth={2}
-                      dot={{ r: 3 }}
-                    />
-                  ))}
+                  {evolucaoSaldo.data.especies.map((especie, i) => {
+                    const cor = CORES_LINHA[i % CORES_LINHA.length]
+                    const datasComOperacao = evolucaoSaldo.data.datasComOperacao[especie]
+                    return (
+                      <Line
+                        key={especie}
+                        type="monotone"
+                        dataKey={especie}
+                        stroke={cor}
+                        strokeWidth={2}
+                        dot={(props: { cx?: number; cy?: number; payload?: { data: string } }) => {
+                          const { cx, cy, payload } = props
+                          if (cx == null || cy == null || !payload?.data || !datasComOperacao?.has(payload.data)) {
+                            return null
+                          }
+                          return <circle cx={cx} cy={cy} r={3} fill={cor} stroke={cor} />
+                        }}
+                      />
+                    )
+                  })}
                 </LineChart>
               </ResponsiveContainer>
             </div>
