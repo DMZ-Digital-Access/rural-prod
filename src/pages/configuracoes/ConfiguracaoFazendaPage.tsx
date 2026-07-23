@@ -1,10 +1,9 @@
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { Link } from "react-router-dom"
 import { toast } from "sonner"
-import { PlusIcon } from "lucide-react"
+import { ImageIcon, PlusIcon } from "lucide-react"
 import { useFazendaAtual } from "@/hooks/useFazendaAtual"
 import { useFazendasDoUsuario } from "@/hooks/useFazendasDoUsuario"
-import { useAtualizarNomeFazenda } from "@/hooks/useAtualizarNomeFazenda"
 import { useCriarFazenda } from "@/hooks/useCriarFazenda"
 import {
   useAtualizarMeuEmail,
@@ -12,18 +11,32 @@ import {
   useUsuarioAtual,
 } from "@/hooks/useUsuarioAtual"
 import {
+  useAtualizarDadosFazenda,
   useAtualizarFinalidadesFazenda,
   useEspeciesDaFazenda,
   useFazendaPerfil,
+  useLogoFazendaUrl,
+  useMarcaGadoFazendaUrl,
   useToggleEspecieDaFazenda,
+  useUploadLogoFazenda,
+  useUploadMarcaGadoFazenda,
+  type AreaUnidade,
   type FinalidadeRebanho,
 } from "@/hooks/useFazendaPerfil"
 import { useEspecies } from "@/hooks/useEspecies"
 import { criarFazendaSchema } from "@/lib/validations/fazenda"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { NumericInput } from "@/components/ui/numeric-input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import {
   Dialog,
   DialogContent,
@@ -38,6 +51,13 @@ const PAPEL_LABELS: Record<string, string> = {
   membro: "Membro",
   financeiro: "Financeiro",
 }
+
+const AREA_UNIDADES: { value: AreaUnidade; label: string }[] = [
+  { value: "hectares", label: "Hectares" },
+  { value: "alqueires", label: "Alqueires" },
+  { value: "acre", label: "Acre" },
+  { value: "modulo_fiscal", label: "Módulo fiscal" },
+]
 
 const FINALIDADES: { value: FinalidadeRebanho; label: string }[] = [
   { value: "recria", label: "Recria" },
@@ -122,24 +142,28 @@ function TipoPecuariaSection({
   const perfilQuery = useFazendaPerfil(fazendaId)
   const atualizarFinalidades = useAtualizarFinalidadesFazenda(fazendaId)
 
+  // Espécies e finalidades vivem em local state até o clique em Salvar
+  // (pedido de JP, 2026-07-23: antes espécie salvava imediatamente por
+  // clique, sem passar pelo botão Salvar — daí parecer que "editar só os
+  // animais" não "ativava" nada; agora as duas mudanças, juntas ou
+  // separadas, habilitam o mesmo botão único).
+  const [especiesLocais, setEspeciesLocais] = useState<string[]>([])
   const [finalidadesLocais, setFinalidadesLocais] = useState<FinalidadeRebanho[]>([])
+
+  useEffect(() => {
+    setEspeciesLocais(especiesDaFazendaQuery.data ?? [])
+  }, [especiesDaFazendaQuery.data])
+
   useEffect(() => {
     setFinalidadesLocais(perfilQuery.data?.finalidades_rebanho ?? [])
   }, [perfilQuery.data?.finalidades_rebanho])
 
-  const especiesSelecionadas = new Set(especiesDaFazendaQuery.data ?? [])
-
-  async function handleToggleEspecie(especieId: string) {
-    try {
-      await toggleEspecie.mutateAsync({
-        especieId,
-        incluir: !especiesSelecionadas.has(especieId),
-      })
-    } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Erro ao atualizar tipo de animal."
-      )
-    }
+  function toggleEspecieLocal(especieId: string) {
+    setEspeciesLocais((atual) =>
+      atual.includes(especieId)
+        ? atual.filter((item) => item !== especieId)
+        : [...atual, especieId]
+    )
   }
 
   function toggleFinalidadeLocal(finalidade: FinalidadeRebanho) {
@@ -150,25 +174,51 @@ function TipoPecuariaSection({
     )
   }
 
-  async function salvarFinalidades() {
-    try {
-      await atualizarFinalidades.mutateAsync(finalidadesLocais)
-      toast.success("Finalidade do rebanho atualizada.")
-    } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Erro ao salvar finalidade do rebanho."
-      )
-    }
-  }
-
+  const especiesMudaram = !mesmoConjunto(
+    especiesLocais,
+    especiesDaFazendaQuery.data ?? []
+  )
   const finalidadesMudaram = !mesmoConjunto(
     finalidadesLocais,
     perfilQuery.data?.finalidades_rebanho ?? []
   )
+  const salvando = toggleEspecie.isPending || atualizarFinalidades.isPending
+
+  async function salvar() {
+    try {
+      if (especiesMudaram) {
+        const especiesSalvas = new Set(especiesDaFazendaQuery.data ?? [])
+        const especiesLocaisSet = new Set(especiesLocais)
+        const paraIncluir = especiesLocais.filter((id) => !especiesSalvas.has(id))
+        const paraRemover = (especiesDaFazendaQuery.data ?? []).filter(
+          (id) => !especiesLocaisSet.has(id)
+        )
+
+        await Promise.all([
+          ...paraIncluir.map((especieId) =>
+            toggleEspecie.mutateAsync({ especieId, incluir: true })
+          ),
+          ...paraRemover.map((especieId) =>
+            toggleEspecie.mutateAsync({ especieId, incluir: false })
+          ),
+        ])
+      }
+
+      if (finalidadesMudaram) {
+        await atualizarFinalidades.mutateAsync(finalidadesLocais)
+      }
+
+      toast.success("Tipo de pecuária atualizado.")
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Erro ao salvar tipo de pecuária."
+      )
+    }
+  }
 
   return (
     <div className="rounded-lg border border-border bg-card p-4 sm:max-w-lg">
-      <h2 className="mb-3 text-lg font-medium">Tipo de Pecuária</h2>
+      <h2 className="mb-3 text-lg font-medium">Tipo de pecuária</h2>
 
       <div className="mb-4">
         <Label className="mb-2 block">Tipos de Animais da Fazenda</Label>
@@ -178,9 +228,9 @@ function TipoPecuariaSection({
               key={especie.id}
               type="button"
               size="sm"
-              variant={especiesSelecionadas.has(especie.id) ? "default" : "outline"}
-              disabled={somenteLeitura || toggleEspecie.isPending}
-              onClick={() => handleToggleEspecie(especie.id)}
+              variant={especiesLocais.includes(especie.id) ? "default" : "outline"}
+              disabled={somenteLeitura}
+              onClick={() => toggleEspecieLocal(especie.id)}
             >
               {especie.nome}
             </Button>
@@ -206,18 +256,19 @@ function TipoPecuariaSection({
             </Button>
           ))}
         </div>
-        {!somenteLeitura && (
-          <div className="mt-3">
-            <Button
-              size="sm"
-              onClick={salvarFinalidades}
-              disabled={atualizarFinalidades.isPending || !finalidadesMudaram}
-            >
-              {atualizarFinalidades.isPending ? "Salvando…" : "Salvar"}
-            </Button>
-          </div>
-        )}
       </div>
+
+      {!somenteLeitura && (
+        <div className="mt-3">
+          <Button
+            size="sm"
+            onClick={salvar}
+            disabled={salvando || (!especiesMudaram && !finalidadesMudaram)}
+          >
+            {salvando ? "Salvando…" : "Salvar"}
+          </Button>
+        </div>
+      )}
     </div>
   )
 }
@@ -237,12 +288,33 @@ export function ConfiguracaoFazendaPage() {
   const somenteLeituraFazenda = fazendaAtual?.papel === "financeiro"
   const ehAdminDaFazendaAtual = fazendaAtual?.papel === "admin"
 
-  const atualizarNomeFazenda = useAtualizarNomeFazenda(fazendaAtual?.fazenda_id)
+  const perfilFazendaQuery = useFazendaPerfil(fazendaAtual?.fazenda_id)
+  const atualizarDadosFazenda = useAtualizarDadosFazenda(fazendaAtual?.fazenda_id)
+
   const [nomeFazenda, setNomeFazenda] = useState("")
+  const [municipio, setMunicipio] = useState("")
+  const [localizacaoNome, setLocalizacaoNome] = useState("")
+  const [localizacaoCoordenadas, setLocalizacaoCoordenadas] = useState("")
+  const [areaValor, setAreaValor] = useState<number | null>(null)
+  const [areaUnidade, setAreaUnidade] = useState<AreaUnidade>("hectares")
 
   useEffect(() => {
-    if (fazendaAtual?.nome !== undefined) setNomeFazenda(fazendaAtual.nome)
-  }, [fazendaAtual?.nome])
+    const perfil = perfilFazendaQuery.data
+    if (!perfil) return
+    setNomeFazenda(perfil.nome)
+    setMunicipio(perfil.municipio ?? "")
+    setLocalizacaoNome(perfil.localizacao_nome ?? "")
+    setLocalizacaoCoordenadas(perfil.localizacao_coordenadas ?? "")
+    setAreaValor(perfil.area_valor)
+    setAreaUnidade(perfil.area_unidade ?? "hectares")
+  }, [perfilFazendaQuery.data])
+
+  const uploadLogo = useUploadLogoFazenda(fazendaAtual?.fazenda_id)
+  const uploadMarcaGado = useUploadMarcaGadoFazenda(fazendaAtual?.fazenda_id)
+  const logoUrlQuery = useLogoFazendaUrl(perfilFazendaQuery.data?.logo_path)
+  const marcaGadoUrlQuery = useMarcaGadoFazendaUrl(perfilFazendaQuery.data?.marca_gado_path)
+  const logoInputRef = useRef<HTMLInputElement | null>(null)
+  const marcaGadoInputRef = useRef<HTMLInputElement | null>(null)
 
   const usuarioQuery = useUsuarioAtual()
   const atualizarMeusDados = useAtualizarMeusDados()
@@ -261,12 +333,47 @@ export function ConfiguracaoFazendaPage() {
 
   const jaEhAdminEmAlgumaFazenda = (fazendasQuery.data ?? []).some((f) => f.papel === "admin")
 
-  async function salvarNomeFazenda() {
+  const perfil = perfilFazendaQuery.data
+  const dadosFazendaMudaram =
+    !!perfil &&
+    (nomeFazenda !== perfil.nome ||
+      municipio !== (perfil.municipio ?? "") ||
+      localizacaoNome !== (perfil.localizacao_nome ?? "") ||
+      localizacaoCoordenadas !== (perfil.localizacao_coordenadas ?? "") ||
+      areaValor !== perfil.area_valor ||
+      areaUnidade !== (perfil.area_unidade ?? "hectares"))
+
+  async function salvarDadosFazenda() {
     try {
-      await atualizarNomeFazenda.mutateAsync(nomeFazenda)
-      toast.success("Nome da fazenda atualizado.")
+      await atualizarDadosFazenda.mutateAsync({
+        nome: nomeFazenda,
+        municipio: municipio.trim() || null,
+        localizacao_nome: localizacaoNome.trim() || null,
+        localizacao_coordenadas: localizacaoCoordenadas.trim() || null,
+        area_valor: areaValor,
+        area_unidade: areaValor === null ? null : areaUnidade,
+      })
+      toast.success("Dados da fazenda atualizados.")
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Erro ao salvar nome da fazenda.")
+      toast.error(error instanceof Error ? error.message : "Erro ao salvar dados da fazenda.")
+    }
+  }
+
+  async function handleUploadLogo(arquivo: File) {
+    try {
+      await uploadLogo.mutateAsync(arquivo)
+      toast.success("Logo da fazenda atualizada.")
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Erro ao enviar logo.")
+    }
+  }
+
+  async function handleUploadMarcaGado(arquivo: File) {
+    try {
+      await uploadMarcaGado.mutateAsync(arquivo)
+      toast.success("Marca do gado atualizada.")
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Erro ao enviar marca do gado.")
     }
   }
 
@@ -310,28 +417,175 @@ export function ConfiguracaoFazendaPage() {
 
       <div className="rounded-lg border border-border bg-card p-4 sm:max-w-lg">
         <h2 className="mb-3 text-lg font-medium">Dados da fazenda</h2>
-        <div className="grid gap-1.5">
-          <Label htmlFor="nome-fazenda">Nome</Label>
-          <Input
-            id="nome-fazenda"
-            value={nomeFazenda}
-            onChange={(e) => setNomeFazenda(e.target.value)}
-            disabled={somenteLeituraFazenda}
-          />
+        <div className="grid gap-3">
+          <div className="grid gap-1.5">
+            <Label htmlFor="nome-fazenda">Nome</Label>
+            <Input
+              id="nome-fazenda"
+              value={nomeFazenda}
+              onChange={(e) => setNomeFazenda(e.target.value)}
+              disabled={somenteLeituraFazenda}
+            />
+          </div>
+          <div className="grid gap-1.5">
+            <Label htmlFor="municipio-fazenda">Município</Label>
+            <Input
+              id="municipio-fazenda"
+              value={municipio}
+              onChange={(e) => setMunicipio(e.target.value)}
+              disabled={somenteLeituraFazenda}
+            />
+          </div>
+          <div className="grid gap-1.5">
+            <Label htmlFor="localizacao-nome-fazenda">Localização</Label>
+            <Input
+              id="localizacao-nome-fazenda"
+              placeholder="Nome do local (Google Places)"
+              value={localizacaoNome}
+              onChange={(e) => setLocalizacaoNome(e.target.value)}
+              disabled={somenteLeituraFazenda}
+            />
+          </div>
+          <div className="grid gap-1.5">
+            <Label htmlFor="localizacao-coordenadas-fazenda">
+              Localização por coordenadas
+            </Label>
+            <Input
+              id="localizacao-coordenadas-fazenda"
+              placeholder="Ex.: -19.7483, -47.9319 (Google Maps)"
+              value={localizacaoCoordenadas}
+              onChange={(e) => setLocalizacaoCoordenadas(e.target.value)}
+              disabled={somenteLeituraFazenda}
+            />
+          </div>
+          <div className="grid gap-1.5">
+            <Label htmlFor="area-fazenda">Área</Label>
+            <div className="flex gap-2">
+              <NumericInput
+                id="area-fazenda"
+                casasDecimais={1}
+                value={areaValor}
+                onChange={setAreaValor}
+                disabled={somenteLeituraFazenda}
+                className="flex-1"
+              />
+              <Select
+                value={areaUnidade}
+                onValueChange={(v) => v && setAreaUnidade(v as AreaUnidade)}
+                disabled={somenteLeituraFazenda}
+              >
+                <SelectTrigger className="w-40 shrink-0">
+                  <SelectValue>
+                    {(v: string) =>
+                      AREA_UNIDADES.find((u) => u.value === v)?.label ?? ""
+                    }
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {AREA_UNIDADES.map((unidade) => (
+                    <SelectItem key={unidade.value} value={unidade.value}>
+                      {unidade.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3 border-t border-border pt-3">
+            <div className="grid gap-1.5">
+              <Label>Logo da fazenda</Label>
+              <div className="relative flex size-24 items-center justify-center overflow-hidden rounded-lg border border-border bg-muted">
+                {logoUrlQuery.data ? (
+                  <img
+                    src={logoUrlQuery.data}
+                    alt=""
+                    className="absolute inset-0 size-full object-contain"
+                  />
+                ) : (
+                  <ImageIcon className="size-6 text-muted-foreground" />
+                )}
+              </div>
+              {!somenteLeituraFazenda && (
+                <>
+                  <input
+                    ref={logoInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    className="hidden"
+                    onChange={(e) => {
+                      const arquivo = e.target.files?.[0]
+                      if (arquivo) handleUploadLogo(arquivo)
+                      e.target.value = ""
+                    }}
+                  />
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    disabled={uploadLogo.isPending}
+                    onClick={() => logoInputRef.current?.click()}
+                  >
+                    {uploadLogo.isPending ? "Enviando…" : "Selecionar imagem"}
+                  </Button>
+                </>
+              )}
+            </div>
+
+            <div className="grid gap-1.5">
+              <Label>Marca do gado</Label>
+              <div className="relative flex size-24 items-center justify-center overflow-hidden rounded-lg border border-border bg-muted">
+                {marcaGadoUrlQuery.data ? (
+                  <img
+                    src={marcaGadoUrlQuery.data}
+                    alt=""
+                    className="absolute inset-0 size-full object-contain"
+                  />
+                ) : (
+                  <ImageIcon className="size-6 text-muted-foreground" />
+                )}
+              </div>
+              {!somenteLeituraFazenda && (
+                <>
+                  <input
+                    ref={marcaGadoInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    className="hidden"
+                    onChange={(e) => {
+                      const arquivo = e.target.files?.[0]
+                      if (arquivo) handleUploadMarcaGado(arquivo)
+                      e.target.value = ""
+                    }}
+                  />
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    disabled={uploadMarcaGado.isPending}
+                    onClick={() => marcaGadoInputRef.current?.click()}
+                  >
+                    {uploadMarcaGado.isPending ? "Enviando…" : "Selecionar imagem"}
+                  </Button>
+                </>
+              )}
+            </div>
+          </div>
         </div>
+
         {somenteLeituraFazenda && (
           <p className="mt-2 text-sm text-muted-foreground">
-            Papel financeiro não pode alterar o nome da fazenda.
+            Papel financeiro não pode alterar os dados da fazenda.
           </p>
         )}
         {!somenteLeituraFazenda && (
           <div className="mt-3">
             <Button
               size="sm"
-              onClick={salvarNomeFazenda}
-              disabled={atualizarNomeFazenda.isPending || nomeFazenda === fazendaAtual?.nome}
+              onClick={salvarDadosFazenda}
+              disabled={atualizarDadosFazenda.isPending || !dadosFazendaMudaram}
             >
-              {atualizarNomeFazenda.isPending ? "Salvando…" : "Salvar"}
+              {atualizarDadosFazenda.isPending ? "Salvando…" : "Salvar"}
             </Button>
           </div>
         )}
@@ -405,7 +659,7 @@ export function ConfiguracaoFazendaPage() {
 
       <div className="rounded-lg border border-border bg-card p-4 sm:max-w-lg">
         <div className="mb-3 flex items-center justify-between gap-2">
-          <h2 className="text-lg font-medium">Administração de Fazendas</h2>
+          <h2 className="text-lg font-medium">Administração de fazendas</h2>
           {jaEhAdminEmAlgumaFazenda && <CriarFazendaDialog />}
         </div>
 

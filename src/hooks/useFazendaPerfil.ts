@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { supabase } from "@/lib/supabase"
 
 export type FinalidadeRebanho = "recria" | "engorda" | "leite"
+export type AreaUnidade = "hectares" | "alqueires" | "acre" | "modulo_fiscal"
 
 export type FazendaPerfil = {
   id: string
@@ -9,6 +10,13 @@ export type FazendaPerfil = {
   descricao: string | null
   imagem_hero_path: string | null
   finalidades_rebanho: FinalidadeRebanho[]
+  municipio: string | null
+  localizacao_nome: string | null
+  localizacao_coordenadas: string | null
+  area_valor: number | null
+  area_unidade: AreaUnidade | null
+  logo_path: string | null
+  marca_gado_path: string | null
 }
 
 const fazendaPerfilKey = (fazendaId: string | undefined) =>
@@ -25,7 +33,9 @@ export function useFazendaPerfil(fazendaId: string | undefined) {
     queryFn: async (): Promise<FazendaPerfil> => {
       const { data, error } = await supabase
         .from("fazendas")
-        .select("id, nome, descricao, imagem_hero_path, finalidades_rebanho")
+        .select(
+          "id, nome, descricao, imagem_hero_path, finalidades_rebanho, municipio, localizacao_nome, localizacao_coordenadas, area_valor, area_unidade, logo_path, marca_gado_path"
+        )
         .eq("id", fazendaId as string)
         .single()
 
@@ -33,6 +43,40 @@ export function useFazendaPerfil(fazendaId: string | undefined) {
       return data
     },
     enabled: !!fazendaId,
+  })
+}
+
+export type DadosFazenda = {
+  nome: string
+  municipio: string | null
+  localizacao_nome: string | null
+  localizacao_coordenadas: string | null
+  area_valor: number | null
+  area_unidade: AreaUnidade | null
+}
+
+/**
+ * Dados da fazenda (Configurações, 2026-07-23) — nome + município +
+ * localização (nome/coordenadas, texto livre por ora — sem integração real
+ * do Google Places/Maps) + área (valor + unidade, salvos exatamente como o
+ * usuário escolher, sem conversão entre unidades). Só admin/membro (trigger
+ * restringir_alteracao_nome_fazenda, migration 20260723220000, estendida da
+ * original que só cobria `nome`).
+ */
+export function useAtualizarDadosFazenda(fazendaId: string | undefined) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (dados: DadosFazenda) => {
+      if (!fazendaId) throw new Error("Fazenda não identificada.")
+
+      const { error } = await supabase.from("fazendas").update(dados).eq("id", fazendaId)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: fazendaPerfilKey(fazendaId) })
+      queryClient.invalidateQueries({ queryKey: ["fazendas-do-usuario"] })
+    },
   })
 }
 
@@ -135,6 +179,99 @@ export function useHeroFazendaUrl(caminho: string | null | undefined) {
     queryFn: async (): Promise<string> => {
       const { data, error } = await supabase.storage
         .from("fazendas-hero")
+        .createSignedUrl(caminho as string, 3600)
+      if (error) throw error
+      return data.signedUrl
+    },
+    enabled: !!caminho,
+  })
+}
+
+/**
+ * Logo da fazenda e Marca do gado (Configurações > Dados da fazenda,
+ * 2026-07-23) — dois campos de imagem opcionais, bucket `fazendas-imagens`
+ * (separado de `fazendas-hero`, que é só a capa do Perfil da Fazenda).
+ * Mesmo padrão de upload/URL assinada de `useUploadHeroFazenda`/
+ * `useHeroFazendaUrl`.
+ */
+export function useUploadLogoFazenda(fazendaId: string | undefined) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (arquivo: File) => {
+      if (!fazendaId) throw new Error("Fazenda não identificada.")
+
+      const extensao = arquivo.name.split(".").pop()?.toLowerCase() || "jpg"
+      const caminho = `${fazendaId}/logo.${extensao}`
+
+      const { error: uploadError } = await supabase.storage
+        .from("fazendas-imagens")
+        .upload(caminho, arquivo, { upsert: true, contentType: arquivo.type })
+      if (uploadError) throw uploadError
+
+      const { error } = await supabase
+        .from("fazendas")
+        .update({ logo_path: caminho })
+        .eq("id", fazendaId)
+      if (error) throw error
+
+      return caminho
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: fazendaPerfilKey(fazendaId) })
+    },
+  })
+}
+
+export function useLogoFazendaUrl(caminho: string | null | undefined) {
+  return useQuery({
+    queryKey: ["fazenda-logo-url", caminho] as const,
+    queryFn: async (): Promise<string> => {
+      const { data, error } = await supabase.storage
+        .from("fazendas-imagens")
+        .createSignedUrl(caminho as string, 3600)
+      if (error) throw error
+      return data.signedUrl
+    },
+    enabled: !!caminho,
+  })
+}
+
+export function useUploadMarcaGadoFazenda(fazendaId: string | undefined) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (arquivo: File) => {
+      if (!fazendaId) throw new Error("Fazenda não identificada.")
+
+      const extensao = arquivo.name.split(".").pop()?.toLowerCase() || "jpg"
+      const caminho = `${fazendaId}/marca-gado.${extensao}`
+
+      const { error: uploadError } = await supabase.storage
+        .from("fazendas-imagens")
+        .upload(caminho, arquivo, { upsert: true, contentType: arquivo.type })
+      if (uploadError) throw uploadError
+
+      const { error } = await supabase
+        .from("fazendas")
+        .update({ marca_gado_path: caminho })
+        .eq("id", fazendaId)
+      if (error) throw error
+
+      return caminho
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: fazendaPerfilKey(fazendaId) })
+    },
+  })
+}
+
+export function useMarcaGadoFazendaUrl(caminho: string | null | undefined) {
+  return useQuery({
+    queryKey: ["fazenda-marca-gado-url", caminho] as const,
+    queryFn: async (): Promise<string> => {
+      const { data, error } = await supabase.storage
+        .from("fazendas-imagens")
         .createSignedUrl(caminho as string, 3600)
       if (error) throw error
       return data.signedUrl
