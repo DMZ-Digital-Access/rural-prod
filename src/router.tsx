@@ -79,6 +79,20 @@ export const router = createBrowserRouter([
           })),
       },
       {
+        path: "dia-vacinacao",
+        lazy: () =>
+          import("@/pages/rebanho/DiaVacinacaoPage").then((m) => ({
+            Component: m.DiaVacinacaoPage,
+          })),
+      },
+      {
+        path: "dia-embarque",
+        lazy: () =>
+          import("@/pages/rebanho/DiaEmbarquePage").then((m) => ({
+            Component: m.DiaEmbarquePage,
+          })),
+      },
+      {
         path: "lancamento-rapido",
         lazy: () =>
           import("@/pages/lancamento-rapido/LancamentoRapidoPage").then((m) => ({

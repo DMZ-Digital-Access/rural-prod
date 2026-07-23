@@ -31,6 +31,8 @@ const manejoIndividual: NavItem[] = [
   { to: "/app/lotes", label: "Lotes" },
   { to: "/app/comparativo", label: "Comparativo" },
   { to: "/app/dia-pesagem", label: "Dia de Pesagem" },
+  { to: "/app/dia-vacinacao", label: "Dia de Vacinação" },
+  { to: "/app/dia-embarque", label: "Dia de Embarque" },
 ]
 
 const rebanhoCompliance: NavItem[] = [

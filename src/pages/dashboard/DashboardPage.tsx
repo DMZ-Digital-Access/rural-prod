@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react"
 import { Link } from "react-router-dom"
-import { InfoIcon, WeightIcon, ZapIcon } from "lucide-react"
+import { InfoIcon, SyringeIcon, TruckIcon, WeightIcon, ZapIcon } from "lucide-react"
 import {
   Bar,
   BarChart,
@@ -37,7 +37,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import type { CategoriaAnimal, StatusAnimal } from "@/lib/types/rebanho"
+import type { StatusAnimal } from "@/lib/types/rebanho"
 
 const GMD_INFO_TEXTO =
   "GMD significa Ganho Médio Diário. Na pecuária, é o indicador que mede quantos quilos o animal engorda por dia em média. É a principal métrica utilizada para avaliar a saúde nutricional do rebanho e a lucratividade das fases de recria e engorda."
@@ -110,21 +110,29 @@ export function DashboardPage() {
   const stats = useMemo(() => {
     const animais = animaisQuery.data ?? []
     const ativos = animais.filter((a) => a.status === "ativo")
-    const gmdsValidos = ativos
+
+    // KPIs do topo escopados a Bovino (pedido de JP, 2026-07-23) — o filtro
+    // de lote já vem aplicado antes, via `useAnimais(fazendaId, loteId)`, e
+    // essas contas derivam de `animais` (já filtrado), então respeitam o
+    // lote selecionado automaticamente.
+    const ativosBovinos = ativos.filter((a) => a.especie_nome === "Bovino")
+    const gmdsValidos = ativosBovinos
       .map((a) => a.gmd_medio_kg)
       .filter((v): v is number => v !== null)
-    const pesosValidos = ativos
+    const pesosValidos = ativosBovinos
       .map((a) => a.peso_atual_kg)
       .filter((v): v is number => v !== null)
 
-    const gmdMedioGeral =
+    const gmdMedioBovinos =
       gmdsValidos.length > 0
         ? gmdsValidos.reduce((acc, v) => acc + v, 0) / gmdsValidos.length
         : null
-    const pesoMedioGeral =
+    const pesoMedioBovinos =
       pesosValidos.length > 0
         ? pesosValidos.reduce((acc, v) => acc + v, 0) / pesosValidos.length
         : null
+    const pesoTotalBovinos =
+      pesosValidos.length > 0 ? pesosValidos.reduce((acc, v) => acc + v, 0) : null
 
     const porStatus = animais.reduce(
       (acc, a) => {
@@ -134,30 +142,31 @@ export function DashboardPage() {
       {} as Record<StatusAnimal, number>
     )
 
-    // Animais pendentes de individualização (ADR-0006) não têm categoria
-    // calculável ainda (data_nascimento null) — ficam fora da distribuição
-    // por categoria, contados à parte.
-    const pendentesIndividualizacao = ativos.filter((a) => a.categoria === null).length
-    const porCategoriaMap = ativos.reduce(
+    // Distribuição por Tipo de Animal (todas as espécies, só ativos) — ao
+    // contrário da antiga distribuição por categoria (faixa etária), a
+    // espécie já é conhecida mesmo pra animais pendentes de
+    // individualização (atribuída na entrada em lote, independente da data
+    // de nascimento), então nenhum animal ativo fica de fora daqui.
+    const porTipoAnimalMap = ativos.reduce(
       (acc, a) => {
-        if (a.categoria === null) return acc
-        acc[a.categoria] = (acc[a.categoria] ?? 0) + 1
+        const tipo = a.especie_nome ?? "Não classificado"
+        acc[tipo] = (acc[tipo] ?? 0) + 1
         return acc
       },
-      {} as Record<CategoriaAnimal, number>
+      {} as Record<string, number>
     )
-    const porCategoria = Object.entries(porCategoriaMap).map(
-      ([categoria, quantidade]) => ({ categoria, quantidade })
+    const porTipoAnimal = Object.entries(porTipoAnimalMap).map(
+      ([tipo, quantidade]) => ({ tipo, quantidade })
     )
 
     return {
       totalAnimais: animais.length,
-      totalAtivos: ativos.length,
-      gmdMedioGeral,
-      pesoMedioGeral,
+      totalAtivosBovinos: ativosBovinos.length,
+      gmdMedioBovinos,
+      pesoMedioBovinos,
+      pesoTotalBovinos,
       porStatus,
-      porCategoria,
-      pendentesIndividualizacao,
+      porTipoAnimal,
     }
   }, [animaisQuery.data])
 
@@ -203,7 +212,7 @@ export function DashboardPage() {
       </div>
 
       {fazenda?.papel !== "financeiro" && (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           <Link
             to="/app/lancamento-rapido"
             className="flex items-center gap-3 rounded-xl border border-border bg-card p-4 transition-colors hover:border-foreground/30 hover:bg-muted"
@@ -229,6 +238,32 @@ export function DashboardPage() {
               </p>
             </div>
           </Link>
+
+          <Link
+            to="/app/dia-vacinacao"
+            className="flex items-center gap-3 rounded-xl border border-border bg-card p-4 transition-colors hover:border-foreground/30 hover:bg-muted"
+          >
+            <SyringeIcon className="size-6 shrink-0 text-muted-foreground" />
+            <div>
+              <p className="font-medium">Dia de Vacinação</p>
+              <p className="text-sm text-muted-foreground">
+                Registrar a vacinação de vários animais.
+              </p>
+            </div>
+          </Link>
+
+          <Link
+            to="/app/dia-embarque"
+            className="flex items-center gap-3 rounded-xl border border-border bg-card p-4 transition-colors hover:border-foreground/30 hover:bg-muted"
+          >
+            <TruckIcon className="size-6 shrink-0 text-muted-foreground" />
+            <div>
+              <p className="font-medium">Dia de Embarque</p>
+              <p className="text-sm text-muted-foreground">
+                Registrar o embarque de vários animais.
+              </p>
+            </div>
+          </Link>
         </div>
       )}
 
@@ -239,25 +274,32 @@ export function DashboardPage() {
       {animaisQuery.data && (
         <>
           <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-            <StatTile label="Animais ativos" value={String(stats.totalAtivos)} />
             <StatTile
-              label="Animais (todos os status)"
-              value={String(stats.totalAnimais)}
+              label="Bovinos Ativos Hoje"
+              value={String(stats.totalAtivosBovinos)}
             />
             <StatTile
-              label="Peso médio (ativos)"
+              label="Peso médio bovinos ativos"
               value={
-                stats.pesoMedioGeral === null
+                stats.pesoMedioBovinos === null
                   ? "—"
-                  : `${stats.pesoMedioGeral.toFixed(1)} kg`
+                  : `${stats.pesoMedioBovinos.toFixed(1)} kg`
               }
             />
             <StatTile
-              label="GMD médio (ativos)"
+              label="Peso total bovinos ativos"
               value={
-                stats.gmdMedioGeral === null
+                stats.pesoTotalBovinos === null
                   ? "—"
-                  : `${stats.gmdMedioGeral.toFixed(1)} kg/dia`
+                  : `${stats.pesoTotalBovinos.toFixed(1)} kg`
+              }
+            />
+            <StatTile
+              label="GMD bovinos ativos"
+              value={
+                stats.gmdMedioBovinos === null
+                  ? "—"
+                  : `${stats.gmdMedioBovinos.toFixed(1)} kg/dia`
               }
               info={GMD_INFO_TEXTO}
             />
@@ -291,25 +333,25 @@ export function DashboardPage() {
 
             <Card>
               <CardHeader>
-                <CardTitle>Distribuição por categoria</CardTitle>
+                <CardTitle>Distribuição por Tipo de Animal</CardTitle>
                 <CardDescription>Só animais ativos.</CardDescription>
               </CardHeader>
-              <CardContent className="flex flex-col gap-2">
-                {stats.porCategoria.length === 0 ? (
+              <CardContent>
+                {stats.porTipoAnimal.length === 0 ? (
                   <p className="text-sm text-muted-foreground">
                     Sem animais ativos.
                   </p>
                 ) : (
                   <div className="h-52">
                     <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={stats.porCategoria}>
+                      <BarChart data={stats.porTipoAnimal}>
                         <CartesianGrid
                           strokeDasharray="3 3"
                           vertical={false}
                           stroke="var(--border)"
                         />
                         <XAxis
-                          dataKey="categoria"
+                          dataKey="tipo"
                           tickLine={false}
                           axisLine={false}
                           fontSize={12}
@@ -340,15 +382,6 @@ export function DashboardPage() {
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
-                )}
-                {stats.pendentesIndividualizacao > 0 && (
-                  <p className="text-xs text-muted-foreground">
-                    {stats.pendentesIndividualizacao}{" "}
-                    {stats.pendentesIndividualizacao === 1
-                      ? "animal pendente de individualização"
-                      : "animais pendentes de individualização"}{" "}
-                    (fora desta distribuição).
-                  </p>
                 )}
               </CardContent>
             </Card>

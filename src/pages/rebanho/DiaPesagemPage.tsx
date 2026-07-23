@@ -364,7 +364,7 @@ export function DiaPesagemPage() {
                     <Dialog open={confirmarFinal} onOpenChange={setConfirmarFinal}>
                       <DialogTrigger
                         render={
-                          <Button type="button" variant="ghost" size="sm">
+                          <Button type="button" variant="outline" size="sm">
                             Pesagem Concluída
                           </Button>
                         }
