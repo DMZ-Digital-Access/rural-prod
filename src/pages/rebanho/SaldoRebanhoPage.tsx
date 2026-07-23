@@ -40,12 +40,12 @@ export function SaldoRebanhoPage() {
   const saldoQuery = useSaldoRebanho(fazenda?.fazenda_id, dataReferencia)
 
   // Seleciona a primeira espécie com movimentação real assim que os dados
-  // carregam (senão a primeira do catálogo, ordem alfabética) — evita abrir
-  // sempre em uma espécie sem nenhum dado (ex.: Abelhas) quando o produtor
-  // só tem Bovinos. Espera as DUAS queries resolverem antes de decidir —
+  // carregam (senão a primeira do catálogo ativo, ordem alfabética) — evita
+  // abrir sempre numa espécie sem nenhum dado quando o produtor só usa
+  // outra. Espera as DUAS queries resolverem antes de decidir —
   // `especiesQuery` costuma responder mais rápido que a RPC de saldo, e
-  // decidir cedo demais trava sempre em "Abelhas" (primeira em ordem
-  // alfabética) mesmo quando há saldo real em outra espécie.
+  // decidir cedo demais trava sempre na primeira espécie do catálogo em
+  // ordem alfabética mesmo quando há saldo real em outra.
   useEffect(() => {
     if (especieId || !especiesQuery.data?.length || !saldoQuery.data) return
     const comMovimento = saldoQuery.data.find(
