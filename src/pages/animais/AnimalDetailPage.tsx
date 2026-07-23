@@ -48,6 +48,23 @@ function formatPeso(kg: number | null) {
   return kg === null ? "—" : `${formatNumero(kg, 1)} kg`
 }
 
+/**
+ * Idade em meses até completar 12 (pedido de JP, 2026-07-23); a partir daí,
+ * anos + meses restantes (ex.: "1 ano e 3 meses", "2 anos"). Usado tanto na
+ * idade atual quanto na idade na aquisição.
+ */
+function formatIdade(meses: number | null): string {
+  if (meses === null) return "—"
+  if (meses < 12) return `${formatNumero(meses)} ${meses === 1 ? "mês" : "meses"}`
+
+  const anos = Math.floor(meses / 12)
+  const mesesRestantes = meses % 12
+  const anosLabel = `${formatNumero(anos)} ${anos === 1 ? "ano" : "anos"}`
+
+  if (mesesRestantes === 0) return anosLabel
+  return `${anosLabel} e ${formatNumero(mesesRestantes)} ${mesesRestantes === 1 ? "mês" : "meses"}`
+}
+
 const origemLabels: Record<string, string> = {
   compra: "Comprado",
   nascimento: "Nascido na fazenda",
@@ -168,11 +185,7 @@ export function AnimalDetailPage() {
             </div>
             <div>
               <dt className="text-xs text-muted-foreground">Idade</dt>
-              <dd className="mt-1 text-sm">
-                {animal.idade_meses === null
-                  ? "—"
-                  : `${formatNumero(animal.idade_meses)} meses`}
-              </dd>
+              <dd className="mt-1 text-sm">{formatIdade(animal.idade_meses)}</dd>
             </div>
             <div>
               <dt className="text-xs text-muted-foreground">Peso inicial</dt>
@@ -242,11 +255,7 @@ export function AnimalDetailPage() {
               </div>
               <div>
                 <dt className="text-xs text-muted-foreground">Idade na aquisição</dt>
-                <dd className="mt-1 text-sm">
-                  {animal.idade_meses_aquisicao === null
-                    ? "—"
-                    : `${formatNumero(animal.idade_meses_aquisicao)} meses`}
-                </dd>
+                <dd className="mt-1 text-sm">{formatIdade(animal.idade_meses_aquisicao)}</dd>
               </div>
               <div className="col-span-2 sm:col-span-4">
                 <Link
