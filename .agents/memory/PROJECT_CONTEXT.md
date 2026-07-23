@@ -565,7 +565,11 @@
   `/app/configuracoes` deixou de ser placeholder (dados da fazenda/usuário + lista "Minhas
   Fazendas"). Achado de RLS corrigido: `fazendas.nome` só editável por admin/membro (financeiro
   não).
-- **Última atualização:** 2026-07-22 — **Auditoria de responsividade mobile em todas as telas**
+- **Última atualização:** 2026-07-22 — **Code splitting por rota** (item 11 do roadmap
+  resolvido) — `router.tsx` reescrito com `lazy` nativo do React Router. Bundle principal caiu
+  de 1,46MB pra ~350KB. Validado com Playwright contra o build de produção real (`vite preview`).
+  Ver `.agents/memory/log/2026-07-22-code-splitting.md`.
+- **Atualização anterior:** 2026-07-22 — **Auditoria de responsividade mobile em todas as telas**
   (item 10 do roadmap resolvido) — sweep Playwright real nas 23 rotas de `/app/*`. 3 bugs reais
   corrigidos (tabelas sem `overflow-x-auto`: `AnimaisListPage`/`ComparativoPage`/
   `LoteDetailPage`, sobras da Fase 2). Ver `.agents/memory/log/2026-07-22-auditoria-mobile.md`.
@@ -716,7 +720,11 @@ ainda não pra executar):**
     `overflow-x-auto`: `AnimaisListPage`/`ComparativoPage`/`LoteDetailPage`, sobras de páginas
     da Fase 2 anteriores ao padrão consolidado). Ver
     `.agents/memory/log/2026-07-22-auditoria-mobile.md`.
-11. Code splitting — build já avisa bundle >500kB, sem divisão por rota.
+11. ~~Code splitting.~~ **RESOLVIDO em 2026-07-22** — `router.tsx` reescrito com `lazy` nativo
+    do data router. Bundle principal caiu de 1,46MB pra ~350KB; aviso de "chunks >500kB" sumiu
+    do build. Validado com Playwright contra o BUILD DE PRODUÇÃO (`vite preview`, não o dev
+    server) — chunks carregando sob demanda por rota, confirmado incrementalmente. Ver
+    `.agents/memory/log/2026-07-22-code-splitting.md`.
 
 🔵 Roadmap futuro (Fase 6 da spec): PWA/offline, gráficos de evolução temporal mais ricos
 (parcialmente atendido pelo gráfico de Evolução do Saldo do Painel Inteligente), alertas
@@ -954,6 +962,21 @@ responde HTTP 200, não que a UI renderiza/interage corretamente.
 ---
 
 ## 5. Histórico de Tarefas Complexas (mais recente primeiro)
+
+### 2026-07-22 — Code splitting por rota — `developer` (via Claude)
+
+- **O que foi feito:** `router.tsx` reescrito usando o `lazy` nativo do data router do React
+  Router (`createBrowserRouter`) — cada rota-folha (e `FinanceiroLayout`) carrega seu próprio
+  chunk sob demanda em vez de tudo entrar no bundle inicial. `ProtectedRoute`/`Navigate`/
+  `NotFoundPage` continuam eager (críticos/pequenos). Removido também o mecanismo morto
+  `appRoutes`/`PlaceholderPage` (array vazio desde o fim da Fase 4).
+- **Resultado:** bundle principal caiu de 1,46MB pra ~350KB (109KB gzip) — aviso de "chunks
+  >500kB" sumiu do build.
+- **Validado:** `build`/`lint`/`test` (36/36); Playwright real contra o BUILD DE PRODUÇÃO
+  (`vite preview`, não o dev server) — contagem de chunks JS distintos cresce incrementalmente a
+  cada rota nova visitada (28→86 no total), confirmando carregamento sob demanda de verdade.
+  Testado também reload direto numa rota interna, sem erro.
+- **Gate do `cyber_chief`:** não se aplica (só bundling/roteamento).
 
 ### 2026-07-22 — Auditoria de responsividade mobile em todas as telas — `developer` (via Claude)
 
