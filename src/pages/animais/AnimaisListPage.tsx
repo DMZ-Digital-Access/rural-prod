@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom"
+import { useNavigate } from "react-router-dom"
 import { useFazendaAtual } from "@/hooks/useFazendaAtual"
 import { useAnimais } from "@/hooks/useAnimais"
 import { useLotes } from "@/hooks/useLotes"
@@ -17,11 +17,11 @@ import { EntradaSaidaLoteDialog } from "@/pages/animais/EntradaSaidaLoteDialog"
 import { animalPendenteIndividualizacao } from "@/lib/types/rebanho"
 
 function formatPeso(kg: number | null) {
-  return kg === null ? "—" : `${kg.toFixed(1)} kg`
+  return kg === null ? "—" : kg.toFixed(1)
 }
 
 function formatGmd(kg: number | null) {
-  return kg === null ? "—" : `${kg.toFixed(1)} kg/dia`
+  return kg === null ? "—" : kg.toFixed(1)
 }
 
 function formatData(data: string | null) {
@@ -30,6 +30,7 @@ function formatData(data: string | null) {
 }
 
 export function AnimaisListPage() {
+  const navigate = useNavigate()
   const { data: fazenda } = useFazendaAtual()
   const animaisQuery = useAnimais(fazenda?.fazenda_id)
   const lotesQuery = useLotes(fazenda?.fazenda_id)
@@ -78,33 +79,42 @@ export function AnimaisListPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Identificação</TableHead>
-                <TableHead className="hidden md:table-cell">Tipo de Animal</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="hidden sm:table-cell">Lote</TableHead>
-                <TableHead>Peso atual</TableHead>
-                <TableHead className="hidden sm:table-cell">GMD</TableHead>
-                <TableHead className="hidden lg:table-cell">
+                <TableHead className="hidden text-center md:table-cell">
+                  Tipo de Animal
+                </TableHead>
+                <TableHead className="text-center">Status</TableHead>
+                <TableHead className="hidden text-center sm:table-cell">
+                  Lote
+                </TableHead>
+                <TableHead className="text-center whitespace-normal">
+                  Peso atual (kg)
+                </TableHead>
+                <TableHead className="hidden text-center whitespace-normal sm:table-cell">
+                  GMD (kg/dia)
+                </TableHead>
+                <TableHead className="hidden text-center lg:table-cell">
                   Última pesagem
                 </TableHead>
-                <TableHead className="text-right">Ações</TableHead>
+                <TableHead className="text-center">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {animaisQuery.data.map((animal) => (
-                <TableRow key={animal.id}>
+                <TableRow
+                  key={animal.id}
+                  onClick={() => navigate(`/app/animais/${animal.id}`)}
+                  className="cursor-pointer"
+                >
                   <TableCell>
-                    <Link
-                      to={`/app/animais/${animal.id}`}
-                      className="font-medium text-primary underline-offset-4 hover:underline"
-                    >
+                    <span className="font-medium text-primary">
                       {animal.identificacao}
-                    </Link>
+                    </span>
                   </TableCell>
-                  <TableCell className="hidden md:table-cell">
+                  <TableCell className="hidden text-center md:table-cell">
                     {animal.especie_nome ?? "—"}
                   </TableCell>
-                  <TableCell>
-                    <div className="flex flex-wrap items-center gap-1">
+                  <TableCell className="text-center">
+                    <div className="flex flex-wrap items-center justify-center gap-1">
                       <StatusAnimalBadge status={animal.status} />
                       {animalPendenteIndividualizacao(animal) && (
                         <Badge
@@ -116,17 +126,22 @@ export function AnimaisListPage() {
                       )}
                     </div>
                   </TableCell>
-                  <TableCell className="hidden sm:table-cell">
+                  <TableCell className="hidden text-center sm:table-cell">
                     {animal.lote_id ? "Sim" : "Não"}
                   </TableCell>
-                  <TableCell>{formatPeso(animal.peso_atual_kg)}</TableCell>
-                  <TableCell className="hidden sm:table-cell">
+                  <TableCell className="text-center">
+                    {formatPeso(animal.peso_atual_kg)}
+                  </TableCell>
+                  <TableCell className="hidden text-center sm:table-cell">
                     {formatGmd(animal.gmd_medio_kg)}
                   </TableCell>
-                  <TableCell className="hidden lg:table-cell">
+                  <TableCell className="hidden text-center lg:table-cell">
                     {formatData(animal.ultima_pesagem_data)}
                   </TableCell>
-                  <TableCell className="text-right">
+                  <TableCell
+                    className="text-center"
+                    onClick={(e) => e.stopPropagation()}
+                  >
                     <EditarAnimalDialog animal={animal} lotes={lotes} />
                   </TableCell>
                 </TableRow>
