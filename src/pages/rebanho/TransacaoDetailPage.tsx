@@ -12,6 +12,7 @@ import {
   useGtasDaTransacao,
   useTransacao,
   useTransacaoDetalhe,
+  useTransacaoTemVinculoIndividual,
   useUploadDocumentoTransacao,
   type TipoDocumentoTransacao,
 } from "@/hooks/useTransacoes"
@@ -147,12 +148,14 @@ export function TransacaoDetailPage() {
   const transacaoQuery = useTransacao(id)
   const detalheQuery = useTransacaoDetalhe(id)
   const gtasQuery = useGtasDaTransacao(id)
+  const temVinculoIndividualQuery = useTransacaoTemVinculoIndividual(id)
   const atualizarTransacao = useAtualizarTransacao(id ?? "")
   const uploadDocumento = useUploadDocumentoTransacao(fazenda?.fazenda_id, id ?? "")
   const [enviando, setEnviando] = useState<TipoDocumentoTransacao | null>(null)
 
   const especiesQuery = useEspecies()
   const transacao = transacaoQuery.data
+  const temVinculoIndividual = temVinculoIndividualQuery.data ?? false
 
   const form = useForm<AtualizarTransacaoFormValues>({
     resolver: zodResolver(atualizarTransacaoSchema),
@@ -160,7 +163,8 @@ export function TransacaoDetailPage() {
       outra_parte: "",
       data_operacao: "",
       especie_id: "",
-      quantidade_animais: undefined as unknown as number,
+      quantidade_machos: undefined as unknown as number,
+      quantidade_femeas: undefined as unknown as number,
       numero_nota: "",
       valor_nota: null,
       peso_total_kg: null,
@@ -173,21 +177,32 @@ export function TransacaoDetailPage() {
   // transação carrega, o que faz o Select (Base UI) trocar de
   // não-controlado para controlado e travar sem valor exibido (mesmo
   // problema já visto em SaidaAnimaisIndividuaisForm/EntradaAgregadaForm) —
-  // por isso o reset explícito aqui em vez da opção `values`.
+  // por isso o reset explícito aqui em vez da opção `values`. Machos/fêmeas
+  // vêm da soma de transacoes_detalhe (não de quantidade_animais direto) —
+  // é a fonte que a RPC atualizar_entrada_saida_lote realmente ressincroniza
+  // (ver hook useAtualizarTransacao).
   useEffect(() => {
-    if (!transacao) return
+    if (!transacao || !detalheQuery.data) return
+    const machos = detalheQuery.data
+      .filter((linha) => linha.sexo === "macho")
+      .reduce((soma, linha) => soma + linha.quantidade, 0)
+    const femeas = detalheQuery.data
+      .filter((linha) => linha.sexo === "femea")
+      .reduce((soma, linha) => soma + linha.quantidade, 0)
+
     form.reset({
       outra_parte: transacao.outra_parte,
       data_operacao: transacao.data_operacao,
       especie_id: transacao.especie_id,
-      quantidade_animais: transacao.quantidade_animais,
+      quantidade_machos: machos,
+      quantidade_femeas: femeas,
       numero_nota: transacao.numero_nota ?? "",
       valor_nota: transacao.valor_nota,
       peso_total_kg: transacao.peso_total_kg,
       status_gta_transacao: transacao.status_gta_transacao,
       observacoes: transacao.observacoes ?? "",
     })
-  }, [transacao, form])
+  }, [transacao, detalheQuery.data, form])
 
   async function onSubmit(values: AtualizarTransacaoFormValues) {
     try {
@@ -395,16 +410,17 @@ export function TransacaoDetailPage() {
 
                     <FormField
                       control={form.control}
-                      name="quantidade_animais"
+                      name="quantidade_machos"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Número de animais</FormLabel>
+                          <FormLabel>Machos</FormLabel>
                           <FormControl>
                             <Input
                               type="number"
                               step="1"
-                              min="1"
+                              min="0"
                               inputMode="numeric"
+                              disabled={temVinculoIndividual}
                               name={field.name}
                               onBlur={field.onBlur}
                               ref={field.ref}
@@ -416,6 +432,41 @@ export function TransacaoDetailPage() {
                               }
                             />
                           </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="quantidade_femeas"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Fêmeas</FormLabel>
+                          <FormControl>
+                            <Input
+                              type="number"
+                              step="1"
+                              min="0"
+                              inputMode="numeric"
+                              disabled={temVinculoIndividual}
+                              name={field.name}
+                              onBlur={field.onBlur}
+                              ref={field.ref}
+                              value={field.value ?? ""}
+                              onChange={(e) =>
+                                field.onChange(
+                                  e.target.value === "" ? undefined : e.target.valueAsNumber
+                                )
+                              }
+                            />
+                          </FormControl>
+                          {temVinculoIndividual && (
+                            <p className="text-xs text-muted-foreground">
+                              Vinculada a animais individuais — a quantidade é derivada dos
+                              animais selecionados, não editável aqui.
+                            </p>
+                          )}
                           <FormMessage />
                         </FormItem>
                       )}

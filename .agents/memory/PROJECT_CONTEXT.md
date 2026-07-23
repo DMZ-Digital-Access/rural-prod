@@ -963,6 +963,69 @@ responde HTTP 200, não que a UI renderiza/interage corretamente.
 
 ## 5. Histórico de Tarefas Complexas (mais recente primeiro)
 
+### 2026-07-23 — Correção: quantidade de cabeças dessincronizava do detalhamento ao editar transação — `developer` (via Claude)
+
+- **Achado (a partir de um relato de JP):** o card "Cabeças" do Painel Inteligente mostrava 125
+  cabeças compradas no ano, mas nenhum outro lugar do sistema (Saldo de Rebanho, lista de
+  Animais) refletia esse número. Investigação em produção (query direta via `psql`/pooler)
+  confirmou a causa raiz: `useAtualizarTransacao` (formulário "Editar operação" da tela de
+  detalhe de Transação) fazia `UPDATE` direto em `transacoes.quantidade_animais` sem tocar
+  `transacoes_detalhe` (a quebra por sexo que alimenta `obter_saldo_rebanho()`/Saldo de Rebanho).
+  Um registro real (compra da Frigorífico Zimmer, 2026-07-20) tinha sido criado com 20 cabeças
+  (13 macho + 7 fêmea, tudo consistente) e editado horas depois para "50" sem que o
+  detalhamento acompanhasse — daí a divergência (125 vs 95 no total do ano).
+- **Correção:** nova RPC `atualizar_entrada_saida_lote()` (migration
+  `20260723100000_atualizar_entrada_saida_lote.sql`) — mesma garantia atômica que
+  `registrar_entrada_saida_lote()` (ADR-0005/0006) já dava na criação, agora também na edição:
+  recebe `quantidade_machos`/`quantidade_femeas` (não mais um número solto), recalcula o total e
+  ressincroniza `transacoes_detalhe` numa única transação. `SECURITY DEFINER` com checagem
+  imperativa de autorização no corpo (padrão ADR-0002 D2) — necessário porque normalizar
+  `transacoes_detalhe` exige `DELETE`, e essa tabela não tem policy de `DELETE` por desenho
+  (migration do item 11, seção 6). Transações já vinculadas a animais individuais via
+  `transacoes_animais` (Venda/Óbito/Consumo com seleção individual, ADR-0004) têm a edição de
+  quantidade **bloqueada na própria RPC** (não só escondida no frontend) — a quantidade real vem
+  de quais animais foram vinculados, não de um número solto.
+- **Frontend:** `TransacaoDetailPage.tsx` — campo único "Número de animais" substituído por
+  "Machos"/"Fêmeas" editáveis (mesmo padrão de `EntradaAgregadaForm`), desabilitados e com nota
+  explicativa quando a transação tem vínculo individual (`useTransacaoTemVinculoIndividual`,
+  hook novo). `atualizarTransacaoSchema` validando soma > 0 em vez de um `quantidade_animais`
+  solto.
+- **Limite documentado, não resolvido:** animais PENDENTES (ADR-0006, criados na entrada de
+  lote) não têm nenhum vínculo rastreável de volta à transação de origem — só uma convenção de
+  nomenclatura por data+tipo, que inclusive colide entre duas transações do mesmo tipo no mesmo
+  dia (achado incidental desta investigação: duas compras no mesmo dia disputam a mesma faixa de
+  numeração `COMPRA-2026-07-20-NNN`). Esta RPC não reconcilia contagem de animais pendentes ao
+  editar — reconciliar isso com segurança exigiria mudança de schema (FK de `animais` de volta
+  pra `transacoes`), fora do escopo deste achado pontual. Registrado aqui para decisão futura.
+- **Dado real corrigido:** a transação da Frigorífico Zimmer foi restaurada para 20 cabeças
+  (13 macho + 7 fêmea, o valor original antes da edição divergente) usando a própria RPC
+  corrigida, a pedido de JP — total do ano no Painel Inteligente passou de 125 para 95,
+  batendo exatamente com Saldo de Rebanho.
+- **Também nesta tarefa:** card "Cabeças compra/venda" renomeado para "Cabeças entradas/saídas"
+  (o número é fluxo do ano, não estoque atual — nome antigo induzia à leitura errada que
+  motivou o relato original de JP) + nota explicativa abaixo do título "Resumo Financeiro"
+  distinguindo R$ (receitas/despesas) de cabeças (movimentação do rebanho).
+- **Validado:** `atualizar_entrada_saida_lote()` testada diretamente contra o banco local (não
+  só via UI) — cenário de edição agregada (20→50, detalhe ressincronizado, `consistente=true`)
+  e cenário de proteção (transação com vínculo individual ignora machos/fêmeas=99/99 recebidos,
+  mantém a quantidade real derivada do vínculo). `build`/`lint`/`test` (36/36) e suíte pgTAP
+  (63/63) limpos antes e depois do deploy em produção. Sem navegador real disponível com
+  credencial de teste válida nesta sessão — validação de UI ficou só no nível de build/tipo, não
+  clique-a-clique; achado registrado para uma sessão futura com Playwright configurado no
+  projeto (ver também a nota de 2026-07-17 sobre `/run-skill-generator`).
+- **Gate do `cyber_chief`:** ainda não feito — recomendado antes de considerar esta RPC
+  definitivamente fechada, dado que é `SECURITY DEFINER` com `DELETE` em `transacoes_detalhe`.
+- **Nota lateral (achado incidental, sem relação com o bug acima):** durante a mesma
+  investigação, o ambiente LOCAL de desenvolvimento foi corrigido de dois problemas de
+  infraestrutura sem relação com o código do projeto, causados por um `supabase db reset` que
+  falhou pela metade numa tarefa anterior: (1) `auth.uid()`/`auth.role()`/`auth.email()` locais
+  perderam o fallback de parsing do JSON `request.jwt.claims`, quebrando toda a suíte pgTAP
+  (corrigido com `create or replace function` direto no schema `auth`, fora de qualquer
+  migration do projeto); (2) reaplicação manual de ~10 migrations após o reset corrompeu
+  acentuação (mojibake) em `pg_proc.prosrc` de várias funções — causa raiz: `Get-Content -Raw`
+  do PowerShell sem `-Encoding UTF8` explícito lê mal arquivos UTF-8 sem BOM. Ver
+  `feedback_powershell_utf8_psql` na memória pessoal do Claude para o gotcha completo.
+
 ### 2026-07-22 — Code splitting por rota — `developer` (via Claude)
 
 - **O que foi feito:** `router.tsx` reescrito usando o `lazy` nativo do data router do React

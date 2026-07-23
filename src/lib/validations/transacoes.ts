@@ -90,22 +90,41 @@ export const statusGtaTransacaoSchema = z.enum(["despendenciada", "n_a", "penden
 
 const hojeISOTransacao = () => new Date().toISOString().slice(0, 10)
 
-export const atualizarTransacaoSchema = z.object({
-  outra_parte: z.string().trim().min(1, "Informe a outra parte da operação"),
-  data_operacao: z
-    .string()
-    .min(1, "Informe a data da operação")
-    .refine((v) => v <= hojeISOTransacao(), "A data da operação não pode ser no futuro"),
-  especie_id: z.string().min(1, "Selecione a espécie"),
-  quantidade_animais: z
-    .number({ error: "Informe o número de animais" })
-    .int("O número de animais precisa ser inteiro")
-    .positive("O número de animais precisa ser maior que zero"),
-  numero_nota: z.string().trim(),
-  valor_nota: z.number().min(0, "O valor não pode ser negativo").nullable(),
-  peso_total_kg: z.number().min(0, "O peso total não pode ser negativo").nullable(),
-  status_gta_transacao: statusGtaTransacaoSchema,
-  observacoes: z.string().trim(),
-})
+// quantidade_machos/quantidade_femeas (não mais um `quantidade_animais` solto)
+// — achado real, 2026-07-22/23: editar o total direto, sem tocar
+// transacoes_detalhe, deixava o número do Painel Inteligente divergir do
+// Saldo de Rebanho. atualizar_entrada_saida_lote() recalcula o total como
+// machos+fêmeas e ressincroniza transacoes_detalhe atomicamente. Quando a
+// transação já está vinculada a animais individuais (transacoes_animais —
+// Venda/Óbito/Consumo com seleção individual), esses dois campos são
+// somente leitura na UI e ignorados pela RPC (quantidade real vem dos
+// vínculos, não de um número solto) — validação de soma > 0 continua
+// correta nesse caso porque os campos são preenchidos com os valores reais.
+export const atualizarTransacaoSchema = z
+  .object({
+    outra_parte: z.string().trim().min(1, "Informe a outra parte da operação"),
+    data_operacao: z
+      .string()
+      .min(1, "Informe a data da operação")
+      .refine((v) => v <= hojeISOTransacao(), "A data da operação não pode ser no futuro"),
+    especie_id: z.string().min(1, "Selecione a espécie"),
+    quantidade_machos: z
+      .number({ error: "Informe a quantidade de machos" })
+      .int("A quantidade de machos precisa ser inteira")
+      .min(0, "A quantidade de machos não pode ser negativa"),
+    quantidade_femeas: z
+      .number({ error: "Informe a quantidade de fêmeas" })
+      .int("A quantidade de fêmeas precisa ser inteira")
+      .min(0, "A quantidade de fêmeas não pode ser negativa"),
+    numero_nota: z.string().trim(),
+    valor_nota: z.number().min(0, "O valor não pode ser negativo").nullable(),
+    peso_total_kg: z.number().min(0, "O peso total não pode ser negativo").nullable(),
+    status_gta_transacao: statusGtaTransacaoSchema,
+    observacoes: z.string().trim(),
+  })
+  .refine((v) => v.quantidade_machos + v.quantidade_femeas > 0, {
+    message: "Informe ao menos um animal (machos ou fêmeas)",
+    path: ["quantidade_femeas"],
+  })
 
 export type AtualizarTransacaoFormValues = z.infer<typeof atualizarTransacaoSchema>

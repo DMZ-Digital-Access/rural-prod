@@ -260,6 +260,10 @@ export function PainelInteligentePage() {
 
       <div className="flex flex-col gap-3">
         <h2 className="text-lg font-medium">Resumo Financeiro — {ANO_ATUAL}</h2>
+        <p className="text-sm text-muted-foreground">
+          Receitas e despesas em R$ do período; cabeças conta a movimentação de entrada/saída
+          de animais do rebanho, não valor financeiro.
+        </p>
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           <Card>
             <CardContent className="flex flex-col gap-1">
@@ -293,7 +297,7 @@ export function PainelInteligentePage() {
           </Card>
           <Card>
             <CardContent className="flex flex-col gap-1">
-              <span className="text-xs text-muted-foreground">Cabeças compra/venda</span>
+              <span className="text-xs text-muted-foreground">Cabeças entradas / saídas</span>
               <span className="text-xl font-semibold tabular-nums">
                 {resumoTransacoesAno.data?.totalCompradas ?? 0} /{" "}
                 {resumoTransacoesAno.data?.totalVendidas ?? 0}

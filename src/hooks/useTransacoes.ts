@@ -225,31 +225,56 @@ export function useTransacao(id: string | undefined) {
 }
 
 /**
+ * Vínculo a animais individuais (Venda/Óbito/Consumo com seleção
+ * individual, ADR-0004) — quando existe, a quantidade de cabeças da
+ * transação é derivada de QUAIS animais foram vinculados na criação, não
+ * um número solto editável depois.
+ */
+export function useTransacaoTemVinculoIndividual(transacaoId: string | undefined) {
+  return useQuery({
+    queryKey: ["transacoes", "tem-vinculo-individual", transacaoId] as const,
+    queryFn: async (): Promise<boolean> => {
+      const { count, error } = await supabase
+        .from("transacoes_animais")
+        .select("id", { count: "exact", head: true })
+        .eq("transacao_id", transacaoId as string)
+
+      if (error) throw error
+      return (count ?? 0) > 0
+    },
+    enabled: !!transacaoId,
+  })
+}
+
+/**
  * Completa dados/documentação de uma transação já lançada — numero_nota,
- * valor_nota, peso_total_kg, status_gta_transacao e observacoes. Nenhum
- * desses campos é obrigatório na criação (ver EntradaAgregadaForm/
- * SaidaAnimaisIndividuaisForm) — o produtor volta aqui conforme os
- * documentos forem chegando.
+ * valor_nota, peso_total_kg, status_gta_transacao, observacoes e (só para
+ * transações agregadas, sem vínculo individual) a quantidade de cabeças.
+ * SEMPRE via RPC `atualizar_entrada_saida_lote`, nunca UPDATE direto em
+ * `transacoes`: a RPC garante a mesma sincronização atômica entre
+ * quantidade_animais e transacoes_detalhe que a criação já tinha — achado
+ * real, 2026-07-22/23 (ver comentário da migration
+ * 20260723100000_atualizar_entrada_saida_lote.sql): o UPDATE direto que
+ * existia aqui antes deixava os dois números divergirem silenciosamente.
  */
 export function useAtualizarTransacao(id: string) {
   const queryClient = useQueryClient()
 
   return useMutation({
     mutationFn: async (values: AtualizarTransacaoFormValues) => {
-      const { error } = await supabase
-        .from("transacoes")
-        .update({
-          outra_parte: values.outra_parte.trim(),
-          data_operacao: values.data_operacao,
-          especie_id: values.especie_id,
-          quantidade_animais: values.quantidade_animais,
-          numero_nota: values.numero_nota.trim() || null,
-          valor_nota: values.valor_nota,
-          peso_total_kg: values.peso_total_kg,
-          status_gta_transacao: values.status_gta_transacao,
-          observacoes: values.observacoes.trim() || null,
-        })
-        .eq("id", id)
+      const { error } = await supabase.rpc("atualizar_entrada_saida_lote", {
+        p_transacao_id: id,
+        p_outra_parte: values.outra_parte.trim(),
+        p_data_operacao: values.data_operacao,
+        p_especie_id: values.especie_id,
+        p_quantidade_machos: values.quantidade_machos,
+        p_quantidade_femeas: values.quantidade_femeas,
+        p_numero_nota: values.numero_nota.trim(),
+        p_valor_nota: values.valor_nota,
+        p_peso_total_kg: values.peso_total_kg,
+        p_status_gta_transacao: values.status_gta_transacao,
+        p_observacoes: values.observacoes.trim(),
+      })
 
       if (error) throw error
     },
