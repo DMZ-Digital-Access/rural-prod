@@ -78,6 +78,14 @@ export function useEvolucaoSaldoAno(fazendaId: string | undefined, ano: number) 
         if (r.error) throw r.error
       })
 
+      // especiesSet só ganha uma espécie quando ela teve qtd_registrada != 0
+      // em ALGUM checkpoint (2026-07-23, pedido de JP: "omitir na legenda
+      // itens que nunca tiveram histórico de existência na fazenda, no
+      // tempo gráfico apresentado") — sem essa checagem, TODA espécie ativa
+      // do catálogo apareceria sempre na legenda, mesmo uma que a fazenda
+      // nunca criou: obter_saldo_rebanho() devolve uma "espinha" com todo o
+      // catálogo (inclusive linhas de qtd_registrada=0), e o loop original
+      // adicionava especie_nome incondicionalmente pra cada linha.
       const especiesSet = new Set<string>()
       const acumuladoPorData = new Map<string, Record<string, number>>()
 
@@ -86,7 +94,7 @@ export function useEvolucaoSaldoAno(fazendaId: string | undefined, ano: number) 
         const acumulado: Record<string, number> = {}
         for (const linha of linhas) {
           if (linha.fazenda_id !== fazendaId) continue
-          especiesSet.add(linha.especie_nome)
+          if (linha.qtd_registrada !== 0) especiesSet.add(linha.especie_nome)
           acumulado[linha.especie_nome] = (acumulado[linha.especie_nome] ?? 0) + linha.qtd_registrada
         }
         acumuladoPorData.set(data, acumulado)

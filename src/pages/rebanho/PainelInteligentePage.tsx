@@ -147,8 +147,21 @@ export function PainelInteligentePage() {
     nomesEspeciesDaFazenda.has(especie.especieNome)
   )
 
-  // --- Resumo financeiro do ano ---
-  const movimentos = fluxoCaixaAno.data ?? []
+  // --- Resumo Financeiro do Rebanho: só transações de compra/venda de
+  // animais (origem='transacao_animal'), não o fluxo de caixa consolidado
+  // inteiro (que também soma lançamentos financeiros gerais) — pedido de
+  // JP, 2026-07-23: "mostrar apenas os valores de transações com
+  // animais". Antes desta mudança, este card já misturava as duas fontes
+  // (igual à página Financeiro), o que também explicava a impressão de
+  // "não bate com a página Financeiro": aquela página, por padrão, mostra
+  // TODOS OS ANOS combinados (filtro.ano começa null), enquanto este
+  // painel sempre filtrou só o ano corrente — comparação teria que ser
+  // feita com o mesmo ano selecionado nos dois lugares pra bater; com o
+  // escopo agora restrito a só transações de animais, os dois números são
+  // deliberadamente diferentes (aqui é só rebanho, lá é a fazenda inteira).
+  const movimentos = (fluxoCaixaAno.data ?? []).filter(
+    (m) => m.origem === "transacao_animal"
+  )
   const totalReceitas = movimentos
     .filter((m) => m.tipo === "receita")
     .reduce((soma, m) => soma + m.valor, 0)
@@ -286,10 +299,11 @@ export function PainelInteligentePage() {
       )}
 
       <div className="flex flex-col gap-3">
-        <h2 className="text-lg font-medium">Resumo Financeiro — {ANO_ATUAL}</h2>
+        <h2 className="text-lg font-medium">Resumo Financeiro do Rebanho — {ANO_ATUAL}</h2>
         <p className="text-sm text-muted-foreground">
-          Receitas e despesas em R$ do período; cabeças conta a movimentação de entrada/saída
-          de animais do rebanho, não valor financeiro.
+          Só compra/venda de animais (não inclui lançamentos financeiros gerais — veja o
+          total da fazenda inteira em Financeiro). Cabeças conta a movimentação de
+          entrada/saída de animais do rebanho, não valor financeiro.
         </p>
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           <Card>
