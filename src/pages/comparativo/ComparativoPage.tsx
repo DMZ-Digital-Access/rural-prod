@@ -181,26 +181,28 @@ export function ComparativoPage() {
               <CardTitle>Tabela comparativa</CardTitle>
             </CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Lote</TableHead>
-                    <TableHead>Animais ativos</TableHead>
-                    <TableHead>Peso médio</TableHead>
-                    <TableHead>GMD médio</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {lotesComparaveis.map((lote) => (
-                    <TableRow key={lote.id}>
-                      <TableCell className="font-medium">{lote.nome}</TableCell>
-                      <TableCell>{lote.numero_animais_ativos}</TableCell>
-                      <TableCell>{formatPeso(lote.peso_medio_kg)}</TableCell>
-                      <TableCell>{formatGmd(lote.gmd_medio_kg)}</TableCell>
+              <div className="overflow-x-auto rounded-lg border border-border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Lote</TableHead>
+                      <TableHead>Animais ativos</TableHead>
+                      <TableHead>Peso médio</TableHead>
+                      <TableHead>GMD médio</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {lotesComparaveis.map((lote) => (
+                      <TableRow key={lote.id}>
+                        <TableCell className="font-medium">{lote.nome}</TableCell>
+                        <TableCell>{lote.numero_animais_ativos}</TableCell>
+                        <TableCell>{formatPeso(lote.peso_medio_kg)}</TableCell>
+                        <TableCell>{formatGmd(lote.gmd_medio_kg)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
             </CardContent>
           </Card>
         </>

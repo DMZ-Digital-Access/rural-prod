@@ -74,65 +74,67 @@ export function AnimaisListPage() {
       )}
 
       {animaisQuery.data && animaisQuery.data.length > 0 && (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Identificação</TableHead>
-              <TableHead className="hidden md:table-cell">Categoria</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="hidden sm:table-cell">Lote</TableHead>
-              <TableHead>Peso atual</TableHead>
-              <TableHead className="hidden sm:table-cell">GMD</TableHead>
-              <TableHead className="hidden lg:table-cell">
-                Última pesagem
-              </TableHead>
-              <TableHead className="text-right">Ações</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {animaisQuery.data.map((animal) => (
-              <TableRow key={animal.id}>
-                <TableCell>
-                  <Link
-                    to={`/app/animais/${animal.id}`}
-                    className="font-medium text-primary underline-offset-4 hover:underline"
-                  >
-                    {animal.identificacao}
-                  </Link>
-                </TableCell>
-                <TableCell className="hidden md:table-cell">
-                  {animal.categoria ?? "—"}
-                </TableCell>
-                <TableCell>
-                  <div className="flex flex-wrap items-center gap-1">
-                    <StatusAnimalBadge status={animal.status} />
-                    {animalPendenteIndividualizacao(animal) && (
-                      <Badge
-                        variant="outline"
-                        className="border-amber-600/20 bg-amber-600/10 text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/15 dark:text-amber-400"
-                      >
-                        Pendente
-                      </Badge>
-                    )}
-                  </div>
-                </TableCell>
-                <TableCell className="hidden sm:table-cell">
-                  {animal.lote_id ? "Sim" : "Não"}
-                </TableCell>
-                <TableCell>{formatPeso(animal.peso_atual_kg)}</TableCell>
-                <TableCell className="hidden sm:table-cell">
-                  {formatGmd(animal.gmd_medio_kg)}
-                </TableCell>
-                <TableCell className="hidden lg:table-cell">
-                  {formatData(animal.ultima_pesagem_data)}
-                </TableCell>
-                <TableCell className="text-right">
-                  <EditarAnimalDialog animal={animal} lotes={lotes} />
-                </TableCell>
+        <div className="overflow-x-auto rounded-lg border border-border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Identificação</TableHead>
+                <TableHead className="hidden md:table-cell">Categoria</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="hidden sm:table-cell">Lote</TableHead>
+                <TableHead>Peso atual</TableHead>
+                <TableHead className="hidden sm:table-cell">GMD</TableHead>
+                <TableHead className="hidden lg:table-cell">
+                  Última pesagem
+                </TableHead>
+                <TableHead className="text-right">Ações</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHeader>
+            <TableBody>
+              {animaisQuery.data.map((animal) => (
+                <TableRow key={animal.id}>
+                  <TableCell>
+                    <Link
+                      to={`/app/animais/${animal.id}`}
+                      className="font-medium text-primary underline-offset-4 hover:underline"
+                    >
+                      {animal.identificacao}
+                    </Link>
+                  </TableCell>
+                  <TableCell className="hidden md:table-cell">
+                    {animal.categoria ?? "—"}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex flex-wrap items-center gap-1">
+                      <StatusAnimalBadge status={animal.status} />
+                      {animalPendenteIndividualizacao(animal) && (
+                        <Badge
+                          variant="outline"
+                          className="border-amber-600/20 bg-amber-600/10 text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/15 dark:text-amber-400"
+                        >
+                          Pendente
+                        </Badge>
+                      )}
+                    </div>
+                  </TableCell>
+                  <TableCell className="hidden sm:table-cell">
+                    {animal.lote_id ? "Sim" : "Não"}
+                  </TableCell>
+                  <TableCell>{formatPeso(animal.peso_atual_kg)}</TableCell>
+                  <TableCell className="hidden sm:table-cell">
+                    {formatGmd(animal.gmd_medio_kg)}
+                  </TableCell>
+                  <TableCell className="hidden lg:table-cell">
+                    {formatData(animal.ultima_pesagem_data)}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <EditarAnimalDialog animal={animal} lotes={lotes} />
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
       )}
     </div>
   )

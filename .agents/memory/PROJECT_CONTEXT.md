@@ -565,7 +565,11 @@
   `/app/configuracoes` deixou de ser placeholder (dados da fazenda/usuário + lista "Minhas
   Fazendas"). Achado de RLS corrigido: `fazendas.nome` só editável por admin/membro (financeiro
   não).
-- **Última atualização:** 2026-07-22 — **Gate formal do `cyber_chief` pro multi-fazenda (Fases
+- **Última atualização:** 2026-07-22 — **Auditoria de responsividade mobile em todas as telas**
+  (item 10 do roadmap resolvido) — sweep Playwright real nas 23 rotas de `/app/*`. 3 bugs reais
+  corrigidos (tabelas sem `overflow-x-auto`: `AnimaisListPage`/`ComparativoPage`/
+  `LoteDetailPage`, sobras da Fase 2). Ver `.agents/memory/log/2026-07-22-auditoria-mobile.md`.
+- **Atualização anterior:** 2026-07-22 — **Gate formal do `cyber_chief` pro multi-fazenda (Fases
   A+B) + tela Equipe, veredito 🟢 Seguro, sem achados** — verificação adversarial de IDOR/
   elevação de privilégio em `criar_fazenda`/`listar_membros_fazenda`/`remover_membro`, nenhum
   bypass encontrado. Item 4 do roadmap resolvido (seção 4). Ver
@@ -707,8 +711,11 @@ ainda não pra executar):**
 🟢 "Ultra profissional" (Fase 5 da spec, não iniciada):
 8. Testes automatizados cobrindo Fase 3/4 (hoje só Fase 1/2 têm suíte pgTAP real).
 9. Monitoramento de erros em produção (Sentry ou equivalente) — não existe hoje.
-10. Auditoria de responsividade mobile em TODAS as telas como um todo (feito tela por tela
-    conforme construída, nunca revisado de conjunto).
+10. ~~Auditoria de responsividade mobile em TODAS as telas.~~ **RESOLVIDO em 2026-07-22** —
+    sweep Playwright (390px) nas 23 rotas de `/app/*`. 3 bugs reais corrigidos (tabelas sem
+    `overflow-x-auto`: `AnimaisListPage`/`ComparativoPage`/`LoteDetailPage`, sobras de páginas
+    da Fase 2 anteriores ao padrão consolidado). Ver
+    `.agents/memory/log/2026-07-22-auditoria-mobile.md`.
 11. Code splitting — build já avisa bundle >500kB, sem divisão por rota.
 
 🔵 Roadmap futuro (Fase 6 da spec): PWA/offline, gráficos de evolução temporal mais ricos
@@ -947,6 +954,25 @@ responde HTTP 200, não que a UI renderiza/interage corretamente.
 ---
 
 ## 5. Histórico de Tarefas Complexas (mais recente primeiro)
+
+### 2026-07-22 — Auditoria de responsividade mobile em todas as telas — `developer` (via Claude)
+
+- **O que foi feito:** sweep Playwright real (390×844) nas 23 rotas de `/app/*` — checagem
+  automática de overflow horizontal + screenshot completo de cada uma pra revisão visual manual
+  (overflow automático sozinho não pega conteúdo cortado dentro de um container já-rolável, que
+  não vaza pra fora da página mas ainda fica mal indicado visualmente).
+- **3 bugs reais corrigidos:** `AnimaisListPage.tsx`, `ComparativoPage.tsx`,
+  `LoteDetailPage.tsx` — tabelas sem nenhum wrapper `overflow-x-auto`, coluna "Ações" genuinamente
+  inacessível no mobile (sem rolagem nenhuma). Eram sobras de páginas da Fase 2, de antes do
+  padrão `overflow-x-auto` se consolidar nas telas mais recentes.
+- **Falso alarme investigado e descartado:** abas de Financeiro e tabelas de
+  `SaldoRebanhoPage`/`FluxoCaixaPage` pareciam cortadas nas screenshots, mas já tinham
+  `overflow-x-auto` — são roláveis de verdade, só falta uma pista visual de que dá pra arrastar
+  (não bloqueante).
+- **Validado:** `build`/`lint`/`test` (36/36); Playwright confirmou as 3 tabelas corrigidas
+  realmente roláveis (script que rola até o fim do container e confirma a coluna "Ações"
+  aparecendo). Nenhuma das 23 rotas tem overflow horizontal da página.
+- **Gate do `cyber_chief`:** não se aplica (só CSS/layout).
 
 ### 2026-07-22 — Security review: multi-fazenda (Fases A+B) + tela Equipe — `cyber_chief` (CONSTANTINE, via Claude)
 

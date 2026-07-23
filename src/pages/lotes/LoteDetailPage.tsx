@@ -170,47 +170,49 @@ export function LoteDetailPage() {
             </p>
           )}
           {animaisQuery.data && animaisQuery.data.length > 0 && (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Identificação</TableHead>
-                  <TableHead className="hidden md:table-cell">
-                    Categoria
-                  </TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Peso atual</TableHead>
-                  <TableHead className="hidden sm:table-cell">GMD</TableHead>
-                  <TableHead>Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {animaisQuery.data.map((animal) => (
-                  <TableRow key={animal.id}>
-                    <TableCell>
-                      <Link
-                        to={`/app/animais/${animal.id}`}
-                        className="font-medium text-primary underline-offset-4 hover:underline"
-                      >
-                        {animal.identificacao}
-                      </Link>
-                    </TableCell>
-                    <TableCell className="hidden md:table-cell">
-                      {animal.categoria ?? "—"}
-                    </TableCell>
-                    <TableCell>
-                      <StatusAnimalBadge status={animal.status} />
-                    </TableCell>
-                    <TableCell>{formatPeso(animal.peso_atual_kg)}</TableCell>
-                    <TableCell className="hidden sm:table-cell">
-                      {formatGmd(animal.gmd_medio_kg)}
-                    </TableCell>
-                    <TableCell>
-                      <MudarLoteDialog animal={animal} lotes={lotesQuery.data ?? []} />
-                    </TableCell>
+            <div className="overflow-x-auto rounded-lg border border-border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Identificação</TableHead>
+                    <TableHead className="hidden md:table-cell">
+                      Categoria
+                    </TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Peso atual</TableHead>
+                    <TableHead className="hidden sm:table-cell">GMD</TableHead>
+                    <TableHead>Ações</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {animaisQuery.data.map((animal) => (
+                    <TableRow key={animal.id}>
+                      <TableCell>
+                        <Link
+                          to={`/app/animais/${animal.id}`}
+                          className="font-medium text-primary underline-offset-4 hover:underline"
+                        >
+                          {animal.identificacao}
+                        </Link>
+                      </TableCell>
+                      <TableCell className="hidden md:table-cell">
+                        {animal.categoria ?? "—"}
+                      </TableCell>
+                      <TableCell>
+                        <StatusAnimalBadge status={animal.status} />
+                      </TableCell>
+                      <TableCell>{formatPeso(animal.peso_atual_kg)}</TableCell>
+                      <TableCell className="hidden sm:table-cell">
+                        {formatGmd(animal.gmd_medio_kg)}
+                      </TableCell>
+                      <TableCell>
+                        <MudarLoteDialog animal={animal} lotes={lotesQuery.data ?? []} />
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           )}
         </CardContent>
       </Card>
