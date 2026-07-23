@@ -4,6 +4,7 @@ import { useAnimal } from "@/hooks/useAnimais"
 import { usePesagens } from "@/hooks/usePesagens"
 import { useLotes } from "@/hooks/useLotes"
 import { useFazendaAtual } from "@/hooks/useFazendaAtual"
+import { formatNumero } from "@/lib/format"
 import {
   Card,
   CardContent,
@@ -29,7 +30,7 @@ function formatData(data: string | null) {
 }
 
 function formatPeso(kg: number | null) {
-  return kg === null ? "—" : `${kg.toFixed(1)} kg`
+  return kg === null ? "—" : `${formatNumero(kg, 1)} kg`
 }
 
 const origemLabels: Record<string, string> = {
@@ -135,7 +136,9 @@ export function AnimalDetailPage() {
             <div>
               <dt className="text-xs text-muted-foreground">Idade</dt>
               <dd className="mt-1 text-sm">
-                {animal.idade_meses === null ? "—" : `${animal.idade_meses} meses`}
+                {animal.idade_meses === null
+                  ? "—"
+                  : `${formatNumero(animal.idade_meses)} meses`}
               </dd>
             </div>
             <div>
@@ -155,7 +158,7 @@ export function AnimalDetailPage() {
               <dd className="mt-1 text-sm">
                 {animal.gmd_medio_kg === null
                   ? "—"
-                  : `${animal.gmd_medio_kg.toFixed(1)} kg/dia`}
+                  : `${formatNumero(animal.gmd_medio_kg, 1)} kg/dia`}
               </dd>
             </div>
             <div>
@@ -164,7 +167,7 @@ export function AnimalDetailPage() {
             </div>
             <div>
               <dt className="text-xs text-muted-foreground">Nº de pesagens</dt>
-              <dd className="mt-1 text-sm">{animal.numero_pesagens}</dd>
+              <dd className="mt-1 text-sm">{formatNumero(animal.numero_pesagens)}</dd>
             </div>
           </dl>
         </CardContent>
@@ -201,7 +204,7 @@ export function AnimalDetailPage() {
                 <dd className="mt-1 text-sm">
                   {animal.idade_meses_aquisicao === null
                     ? "—"
-                    : `${animal.idade_meses_aquisicao} meses`}
+                    : `${formatNumero(animal.idade_meses_aquisicao)} meses`}
                 </dd>
               </div>
               <div className="col-span-2 sm:col-span-4">

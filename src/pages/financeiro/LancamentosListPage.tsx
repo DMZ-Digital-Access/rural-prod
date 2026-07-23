@@ -9,6 +9,7 @@ import {
   type LancamentosFiltro,
 } from "@/hooks/useLancamentosFinanceiros"
 import { baixarCsv, gerarConteudoCsv } from "@/lib/exportarCsv"
+import { formatNumero } from "@/lib/format"
 import {
   Table,
   TableBody,
@@ -320,8 +321,8 @@ export function LancamentosListPage() {
 
           <div className="flex items-center justify-between gap-2">
             <p className="text-sm text-muted-foreground">
-              {total} lançamento{total === 1 ? "" : "s"} — página {pagina + 1} de{" "}
-              {totalPaginas}
+              {formatNumero(total)} lançamento{total === 1 ? "" : "s"} — página{" "}
+              {formatNumero(pagina + 1)} de {formatNumero(totalPaginas)}
             </p>
             <div className="flex gap-2">
               <Button

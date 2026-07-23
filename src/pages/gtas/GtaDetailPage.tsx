@@ -17,6 +17,7 @@ import { TipoOperacaoBadge } from "@/components/rebanho/TipoOperacaoBadge"
 import { GtaForm } from "@/pages/gtas/GtaForm"
 import type { Gta } from "@/lib/types/rebanho"
 import type { GtaFormValues } from "@/lib/validations/gtas"
+import { formatNumero } from "@/lib/format"
 
 function formatData(data: string | null) {
   if (!data) return "—"
@@ -158,7 +159,9 @@ export function GtaDetailPage() {
             </div>
             <div>
               <p className="text-xs text-muted-foreground">Nº de animais</p>
-              <p className="font-medium">{gta.quantidade_animais ?? "—"}</p>
+              <p className="font-medium">
+                {gta.quantidade_animais === null ? "—" : formatNumero(gta.quantidade_animais)}
+              </p>
             </div>
             <div>
               <p className="text-xs text-muted-foreground">Data de liberação</p>

@@ -44,6 +44,7 @@ import {
   type AtualizarTransacaoFormValues,
 } from "@/lib/validations/transacoes"
 import type { Transacao } from "@/lib/types/rebanho"
+import { formatNumero } from "@/lib/format"
 
 const statusGtaLabels: Record<Transacao["status_gta_transacao"], string> = {
   despendenciada: "GTA em dia",
@@ -269,7 +270,7 @@ export function TransacaoDetailPage() {
             </div>
             <div>
               <p className="text-xs text-muted-foreground">Nº de animais</p>
-              <p className="font-medium">{transacao.quantidade_animais}</p>
+              <p className="font-medium">{formatNumero(transacao.quantidade_animais)}</p>
             </div>
             <div>
               <p className="text-xs text-muted-foreground">Nº da nota</p>
@@ -314,7 +315,7 @@ export function TransacaoDetailPage() {
                   <Badge key={linha.id} variant="secondary">
                     {linha.sexo === "macho" ? "Macho" : "Fêmea"} —{" "}
                     {linha.agrupamentos_etarios?.label ?? "Não classificado"}:{" "}
-                    {linha.quantidade}
+                    {formatNumero(linha.quantidade)}
                   </Badge>
                 ))}
               </div>

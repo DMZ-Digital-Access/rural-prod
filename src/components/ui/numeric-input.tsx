@@ -1,5 +1,6 @@
 import { useState, useEffect, useId } from "react"
 import { Input } from "@/components/ui/input"
+import { formatNumero } from "@/lib/format"
 
 // Input numérico com exibição formatada pt-BR (separador de milhar ".",
 // decimal ","), enquanto o valor mantido no formulário continua sendo um
@@ -8,13 +9,6 @@ import { Input } from "@/components/ui/input"
 // separador de milhar, então o input aqui é type="text" com inputMode
 // numérico, formatando no blur e aceitando dígitos/vírgula durante a
 // digitação.
-
-function formatarPtBr(valor: number, casasDecimais: number) {
-  return valor.toLocaleString("pt-BR", {
-    minimumFractionDigits: casasDecimais,
-    maximumFractionDigits: casasDecimais,
-  })
-}
 
 function paraNumero(texto: string): number | null {
   const limpo = texto.replace(/\./g, "").replace(",", ".").trim()
@@ -41,7 +35,7 @@ export function NumericInput({
 >) {
   const inputId = useId()
   const [texto, setTexto] = useState(() =>
-    value === null || value === undefined ? "" : formatarPtBr(value, casasDecimais)
+    value === null || value === undefined ? "" : formatNumero(value, casasDecimais)
   )
 
   // Reformata quando o valor externo muda por um caminho que NÃO é a
@@ -56,7 +50,7 @@ export function NumericInput({
   // externo realmente diverge do que já está digitado.
   useEffect(() => {
     if (paraNumero(texto) === value) return
-    setTexto(value === null || value === undefined ? "" : formatarPtBr(value, casasDecimais))
+    setTexto(value === null || value === undefined ? "" : formatNumero(value, casasDecimais))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value, casasDecimais])
 
@@ -74,7 +68,7 @@ export function NumericInput({
       }}
       onBlur={() => {
         const numero = paraNumero(texto)
-        setTexto(numero === null ? "" : formatarPtBr(numero, casasDecimais))
+        setTexto(numero === null ? "" : formatNumero(numero, casasDecimais))
         onBlur?.()
       }}
     />

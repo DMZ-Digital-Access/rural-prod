@@ -2,6 +2,7 @@ import { Link, useNavigate, useParams } from "react-router-dom"
 import { ArrowLeftIcon } from "lucide-react"
 import { useLote, useLotes } from "@/hooks/useLotes"
 import { useAnimais } from "@/hooks/useAnimais"
+import { formatNumero } from "@/lib/format"
 import {
   Card,
   CardContent,
@@ -26,11 +27,11 @@ import { MudarLoteDialog } from "@/pages/lotes/MudarLoteDialog"
 import { AdicionarAnimaisDialog } from "@/pages/lotes/AdicionarAnimaisDialog"
 
 function formatPeso(kg: number | null) {
-  return kg === null ? "—" : `${kg.toFixed(1)} kg`
+  return kg === null ? "—" : `${formatNumero(kg, 1)} kg`
 }
 
 function formatGmd(kg: number | null) {
-  return kg === null ? "—" : `${kg.toFixed(1)} kg/dia`
+  return kg === null ? "—" : `${formatNumero(kg, 1)} kg/dia`
 }
 
 function formatData(data: string | null) {
@@ -133,11 +134,11 @@ export function LoteDetailPage() {
             </div>
             <div>
               <dt className="text-xs text-muted-foreground">Animais (total histórico)</dt>
-              <dd className="mt-1 text-sm">{lote.numero_animais_total}</dd>
+              <dd className="mt-1 text-sm">{formatNumero(lote.numero_animais_total)}</dd>
             </div>
             <div>
               <dt className="text-xs text-muted-foreground">Animais ativos</dt>
-              <dd className="mt-1 text-sm">{lote.numero_animais_ativos}</dd>
+              <dd className="mt-1 text-sm">{formatNumero(lote.numero_animais_ativos)}</dd>
             </div>
             <div>
               <dt className="text-xs text-muted-foreground">Peso total</dt>

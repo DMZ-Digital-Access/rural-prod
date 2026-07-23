@@ -3,6 +3,7 @@ import { Link } from "react-router-dom"
 import { toast } from "sonner"
 import { ChevronDownIcon, ChevronRightIcon, FileTextIcon } from "lucide-react"
 import { useFazendaAtual } from "@/hooks/useFazendaAtual"
+import { formatNumero } from "@/lib/format"
 import {
   useAbrirDocumentoDeclaracao,
   useDeclaracoesLista,
@@ -251,7 +252,8 @@ export function DeclaracoesRebanhoPage() {
                         {formatData(declaracao.data_declaracao)}
                       </TableCell>
                       <TableCell>
-                        {itens.length} espécie{itens.length === 1 ? "" : "s"} — {totalAnimais}{" "}
+                        {formatNumero(itens.length)} espécie{itens.length === 1 ? "" : "s"} —{" "}
+                        {formatNumero(totalAnimais)}{" "}
                         {totalAnimais === 1 ? "animal" : "animais"}
                       </TableCell>
                       <TableCell>
@@ -312,7 +314,7 @@ export function DeclaracoesRebanhoPage() {
                               >
                                 <span>{item.especies.nome}</span>
                                 <span className="font-medium tabular-nums">
-                                  {item.quantidade_declarada}
+                                  {formatNumero(item.quantidade_declarada)}
                                 </span>
                               </div>
                             ))}

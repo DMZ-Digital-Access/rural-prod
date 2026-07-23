@@ -4,6 +4,7 @@ import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react"
 import { useFazendaAtual } from "@/hooks/useFazendaAtual"
 import { useEspecies } from "@/hooks/useEspecies"
 import { useResumoSaldoAno, useTransacoesLista, type TransacoesFiltro } from "@/hooks/useTransacoes"
+import { formatNumero } from "@/lib/format"
 import {
   Table,
   TableBody,
@@ -112,17 +113,17 @@ export function TransacoesListPage() {
               <span className="text-xs text-muted-foreground">
                 Início de {filtro.ano}
               </span>
-              <span className="font-semibold">{linha.saldoInicio}</span>
+              <span className="font-semibold">{formatNumero(linha.saldoInicio)}</span>
             </div>
             <div className="mt-1 flex items-baseline justify-between">
               <span className="text-xs text-muted-foreground">
                 {filtro.ano === new Date().getFullYear() ? "Atual" : `Fim de ${filtro.ano}`}
               </span>
-              <span className="font-semibold">{linha.saldoFim}</span>
+              <span className="font-semibold">{formatNumero(linha.saldoFim)}</span>
             </div>
             {linha.pendente > 0 && (
               <p className="mt-1 text-xs text-orange-700 dark:text-orange-400">
-                {linha.pendente} pendente(s) de GTA
+                {formatNumero(linha.pendente)} pendente(s) de GTA
               </p>
             )}
           </div>
@@ -274,7 +275,7 @@ export function TransacoesListPage() {
                       {transacao.especies?.nome ?? "—"}
                     </TableCell>
                     <TableCell className="text-right">
-                      {transacao.quantidade_animais}
+                      {formatNumero(transacao.quantidade_animais)}
                     </TableCell>
                     <TableCell className="hidden md:table-cell text-right">
                       {formatMoeda(transacao.valor_nota)}
@@ -293,8 +294,8 @@ export function TransacoesListPage() {
 
           <div className="flex items-center justify-between gap-2">
             <p className="text-sm text-muted-foreground">
-              {total} transaç{total === 1 ? "ão" : "ões"} — página {pagina + 1} de{" "}
-              {totalPaginas}
+              {formatNumero(total)} transaç{total === 1 ? "ão" : "ões"} — página{" "}
+              {formatNumero(pagina + 1)} de {formatNumero(totalPaginas)}
             </p>
             <div className="flex gap-2">
               <Button

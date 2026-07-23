@@ -11,7 +11,7 @@ import {
 import { Link } from "react-router-dom"
 import { FileTextIcon, TruckIcon } from "lucide-react"
 import { useFazendaAtual } from "@/hooks/useFazendaAtual"
-import { useResumoSaldoAno, useTransacoesLista } from "@/hooks/useTransacoes"
+import { useTransacoesLista } from "@/hooks/useTransacoes"
 import {
   MESES_LABEL,
   useEvolucaoSaldoAno,
@@ -32,6 +32,8 @@ import {
 import { AlertaCard, type NivelAlerta } from "@/components/rebanho/AlertaCard"
 import { TipoOperacaoBadge } from "@/components/rebanho/TipoOperacaoBadge"
 import { TipoLancamentoBadge } from "@/components/rebanho/TipoLancamentoBadge"
+import { SaldoRebanhoCards } from "@/components/rebanho/SaldoRebanhoCards"
+import { formatNumero } from "@/lib/format"
 
 const ANO_ATUAL = new Date().getFullYear()
 
@@ -61,7 +63,6 @@ export function PainelInteligentePage() {
   const { data: fazenda } = useFazendaAtual()
   const fazendaId = fazenda?.fazenda_id
 
-  const resumoSaldo = useResumoSaldoAno(fazendaId, ANO_ATUAL)
   const evolucaoSaldo = useEvolucaoSaldoAno(fazendaId, ANO_ATUAL)
   const gtasPendentes = useGtasLista(
     fazendaId,
@@ -166,7 +167,7 @@ export function PainelInteligentePage() {
           titulo="GTAs pendentes de liberação"
           mensagem={
             totalGtasPendentes > 0
-              ? `${totalGtasPendentes} GTA${totalGtasPendentes === 1 ? "" : "s"} aguardando liberação.`
+              ? `${formatNumero(totalGtasPendentes)} GTA${totalGtasPendentes === 1 ? "" : "s"} aguardando liberação.`
               : "Nenhuma GTA pendente."
           }
           to="/app/rebanho/gtas"
@@ -181,33 +182,7 @@ export function PainelInteligentePage() {
         />
       </div>
 
-      <div className="flex flex-col gap-3">
-        <h2 className="text-lg font-medium">Saldo de Rebanho</h2>
-        {resumoSaldo.data && resumoSaldo.data.length === 0 && (
-          <p className="text-sm text-muted-foreground">
-            Nenhuma movimentação de animais registrada ainda.
-          </p>
-        )}
-        {resumoSaldo.data && resumoSaldo.data.length > 0 && (
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-            {resumoSaldo.data.map((especie) => (
-              <Card key={especie.especieNome}>
-                <CardContent className="flex flex-col gap-1">
-                  <span className="text-xs text-muted-foreground">{especie.especieNome}</span>
-                  <span className="text-2xl font-semibold tabular-nums">
-                    {especie.saldoFim}
-                  </span>
-                  {especie.pendente > 0 && (
-                    <span className="text-xs text-orange-600 dark:text-orange-400">
-                      {especie.pendente} pendente{especie.pendente === 1 ? "" : "s"}
-                    </span>
-                  )}
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        )}
-      </div>
+      <SaldoRebanhoCards fazendaId={fazendaId} ano={ANO_ATUAL} />
 
       {evolucaoSaldo.data && evolucaoSaldo.data.especies.length > 0 && (
         <Card>
@@ -240,11 +215,13 @@ export function PainelInteligentePage() {
                     axisLine={false}
                     fontSize={12}
                     stroke="var(--muted-foreground)"
+                    tickFormatter={(value: number) => formatNumero(value)}
                   />
                   <Tooltip
                     labelFormatter={(ts) =>
                       typeof ts === "number" ? new Date(ts).toLocaleDateString("pt-BR") : ""
                     }
+                    formatter={(value, nome) => [formatNumero(Number(value)), nome]}
                     contentStyle={{
                       background: "var(--popover)",
                       border: "1px solid var(--border)",
@@ -323,8 +300,8 @@ export function PainelInteligentePage() {
             <CardContent className="flex flex-col gap-1">
               <span className="text-xs text-muted-foreground">Cabeças entradas / saídas</span>
               <span className="text-xl font-semibold tabular-nums">
-                {resumoTransacoesAno.data?.totalCompradas ?? 0} /{" "}
-                {resumoTransacoesAno.data?.totalVendidas ?? 0}
+                {formatNumero(resumoTransacoesAno.data?.totalCompradas ?? 0)} /{" "}
+                {formatNumero(resumoTransacoesAno.data?.totalVendidas ?? 0)}
               </span>
             </CardContent>
           </Card>

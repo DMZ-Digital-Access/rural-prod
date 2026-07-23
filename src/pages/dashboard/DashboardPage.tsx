@@ -11,6 +11,7 @@ import {
   YAxis,
 } from "recharts"
 import { cn } from "@/lib/utils"
+import { formatNumero } from "@/lib/format"
 import { useFazendaAtual } from "@/hooks/useFazendaAtual"
 import { useAnimais } from "@/hooks/useAnimais"
 import { useLotes } from "@/hooks/useLotes"
@@ -247,7 +248,7 @@ export function DashboardPage() {
             <div>
               <p className="font-medium">Dia de Vacinação</p>
               <p className="text-sm text-muted-foreground">
-                Registrar a vacinação de vários animais.
+                Registrar a vacinação de animais.
               </p>
             </div>
           </Link>
@@ -260,7 +261,7 @@ export function DashboardPage() {
             <div>
               <p className="font-medium">Dia de Embarque</p>
               <p className="text-sm text-muted-foreground">
-                Registrar o embarque de vários animais.
+                Registra o embarque de animais.
               </p>
             </div>
           </Link>
@@ -276,14 +277,14 @@ export function DashboardPage() {
           <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
             <StatTile
               label="Bovinos Ativos Hoje"
-              value={String(stats.totalAtivosBovinos)}
+              value={formatNumero(stats.totalAtivosBovinos)}
             />
             <StatTile
               label="Peso médio bovinos ativos"
               value={
                 stats.pesoMedioBovinos === null
                   ? "—"
-                  : `${stats.pesoMedioBovinos.toFixed(1)} kg`
+                  : `${formatNumero(Math.round(stats.pesoMedioBovinos))} kg`
               }
             />
             <StatTile
@@ -291,7 +292,7 @@ export function DashboardPage() {
               value={
                 stats.pesoTotalBovinos === null
                   ? "—"
-                  : `${stats.pesoTotalBovinos.toFixed(1)} kg`
+                  : `${formatNumero(Math.round(stats.pesoTotalBovinos))} kg`
               }
             />
             <StatTile
@@ -299,7 +300,7 @@ export function DashboardPage() {
               value={
                 stats.gmdMedioBovinos === null
                   ? "—"
-                  : `${stats.gmdMedioBovinos.toFixed(1)} kg/dia`
+                  : `${formatNumero(Math.round(stats.gmdMedioBovinos))} kg/dia`
               }
               info={GMD_INFO_TEXTO}
             />
@@ -322,7 +323,7 @@ export function DashboardPage() {
                       >
                         <span>{statusLabels[status]}</span>
                         <span className="tabular-nums font-medium">
-                          {stats.porStatus[status] ?? 0}
+                          {formatNumero(stats.porStatus[status] ?? 0)}
                         </span>
                       </li>
                     ))}
@@ -363,6 +364,7 @@ export function DashboardPage() {
                           axisLine={false}
                           fontSize={12}
                           stroke="var(--muted-foreground)"
+                          tickFormatter={(value: number) => formatNumero(value)}
                         />
                         <Tooltip
                           cursor={{ fill: "var(--muted)" }}
@@ -373,6 +375,7 @@ export function DashboardPage() {
                             fontSize: 12,
                             color: "var(--popover-foreground)",
                           }}
+                          formatter={(value) => [formatNumero(Number(value)), "Quantidade"]}
                         />
                         <Bar
                           dataKey="quantidade"

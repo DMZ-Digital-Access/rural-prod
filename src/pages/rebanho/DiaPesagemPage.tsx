@@ -3,6 +3,7 @@ import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { toast } from "sonner"
 import { useAuth } from "@/lib/auth"
+import { formatNumero } from "@/lib/format"
 import { useFazendaAtual } from "@/hooks/useFazendaAtual"
 import {
   useBuscarAnimaisPorIdentificacao,
@@ -53,7 +54,7 @@ import {
 } from "@/components/ui/dialog"
 
 function formatPeso(kg: number) {
-  return `${kg.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 3 })} kg`
+  return `${formatNumero(kg, 1)} kg`
 }
 
 function formatDataHora(iso: string) {
@@ -351,7 +352,7 @@ export function DiaPesagemPage() {
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
                     {loteLabel && <span>{loteLabel}</span>}
-                    <span>Animais pesados: {stats.quantidade}</span>
+                    <span>Animais pesados: {formatNumero(stats.quantidade)}</span>
                     <span>
                       Peso médio: {stats.quantidade > 0 ? formatPeso(stats.pesoMedio) : "—"}
                     </span>
@@ -373,7 +374,7 @@ export function DiaPesagemPage() {
                         <DialogHeader>
                           <DialogTitle>Concluir esta pesagem?</DialogTitle>
                           <DialogDescription>
-                            {stats.quantidade} animal(is) pesado(s) nesta sessão. Depois de
+                            {formatNumero(stats.quantidade)} animal(is) pesado(s) nesta sessão. Depois de
                             concluir, ela vai para o histórico e uma nova pesagem começa do
                             zero. Mesmo sem concluir agora, os pesos já registrados continuam
                             salvos.
@@ -453,7 +454,7 @@ export function DiaPesagemPage() {
                   >
                     <TableCell>{formatDataHora(sessao.finalizada_em)}</TableCell>
                     <TableCell>{sessao.lote_nome ?? "—"}</TableCell>
-                    <TableCell>{sessao.quantidade_animais}</TableCell>
+                    <TableCell>{formatNumero(sessao.quantidade_animais)}</TableCell>
                     <TableCell>
                       {sessao.peso_medio_kg !== null ? formatPeso(sessao.peso_medio_kg) : "—"}
                     </TableCell>

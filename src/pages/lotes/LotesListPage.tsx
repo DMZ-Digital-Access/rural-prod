@@ -1,6 +1,9 @@
+import { useState } from "react"
 import { Link } from "react-router-dom"
+import { Tabs } from "@base-ui/react/tabs"
 import { useFazendaAtual } from "@/hooks/useFazendaAtual"
 import { useLotes } from "@/hooks/useLotes"
+import { formatNumero } from "@/lib/format"
 import {
   Table,
   TableBody,
@@ -9,22 +12,33 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { Badge } from "@/components/ui/badge"
 import { LoteFormDialog } from "@/pages/lotes/LoteFormDialog"
 import { ArquivarLoteButton } from "@/pages/lotes/ArquivarLoteButton"
 import { EncerrarLoteDialog } from "@/pages/lotes/EncerrarLoteDialog"
 
+const ABAS = [
+  { value: "ativos", label: "Ativos" },
+  { value: "arquivados", label: "Arquivados" },
+] as const
+
+type AbaLotes = (typeof ABAS)[number]["value"]
+
 function formatPeso(kg: number | null) {
-  return kg === null ? "—" : `${kg.toFixed(1)} kg`
+  return kg === null ? "—" : `${formatNumero(kg, 1)} kg`
 }
 
 function formatGmd(kg: number | null) {
-  return kg === null ? "—" : `${kg.toFixed(1)} kg/dia`
+  return kg === null ? "—" : `${formatNumero(kg, 1)} kg/dia`
 }
 
 export function LotesListPage() {
   const { data: fazenda } = useFazendaAtual()
   const lotesQuery = useLotes(fazenda?.fazenda_id)
+  const [aba, setAba] = useState<AbaLotes>("ativos")
+
+  const lotesFiltrados = (lotesQuery.data ?? []).filter((lote) =>
+    aba === "ativos" ? lote.ativo : !lote.ativo
+  )
 
   return (
     <div className="flex flex-col gap-4">
@@ -58,61 +72,70 @@ export function LotesListPage() {
       )}
 
       {lotesQuery.data && lotesQuery.data.length > 0 && (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Nome</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Animais ativos</TableHead>
-              <TableHead className="hidden sm:table-cell">Peso médio</TableHead>
-              <TableHead className="hidden md:table-cell">GMD médio</TableHead>
-              <TableHead className="text-right">Ações</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {lotesQuery.data.map((lote) => (
-              <TableRow key={lote.id}>
-                <TableCell>
-                  <Link
-                    to={`/app/lotes/${lote.id}`}
-                    className="font-medium text-primary underline-offset-4 hover:underline"
-                  >
-                    {lote.nome}
-                  </Link>
-                </TableCell>
-                <TableCell>
-                  {lote.ativo ? (
-                    <Badge
-                      variant="outline"
-                      className="border-green-600/20 bg-green-600/10 text-green-700 dark:border-green-500/30 dark:bg-green-500/15 dark:text-green-400"
-                    >
-                      Ativo
-                    </Badge>
-                  ) : (
-                    <Badge variant="secondary">Arquivado</Badge>
-                  )}
-                </TableCell>
-                <TableCell>{lote.numero_animais_ativos}</TableCell>
-                <TableCell className="hidden sm:table-cell">
-                  {formatPeso(lote.peso_medio_kg)}
-                </TableCell>
-                <TableCell className="hidden md:table-cell">
-                  {formatGmd(lote.gmd_medio_kg)}
-                </TableCell>
-                <TableCell className="text-right">
-                  <div className="flex justify-end gap-2">
-                    <LoteFormDialog mode="editar" lote={lote} />
-                    {lote.ativo ? (
-                      <EncerrarLoteDialog lote={lote} />
-                    ) : (
-                      <ArquivarLoteButton lote={lote} />
-                    )}
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+        <div className="flex flex-col gap-4">
+          <Tabs.Root value={aba} onValueChange={(v) => setAba(v as AbaLotes)}>
+            <Tabs.List className="flex gap-1 overflow-x-auto border-b border-border">
+              {ABAS.map((item) => (
+                <Tabs.Tab
+                  key={item.value}
+                  value={item.value}
+                  className="shrink-0 border-b-2 border-transparent px-3 py-2 text-sm font-medium whitespace-nowrap text-muted-foreground transition-colors hover:text-foreground aria-selected:border-foreground aria-selected:text-foreground"
+                >
+                  {item.label}
+                </Tabs.Tab>
+              ))}
+            </Tabs.List>
+          </Tabs.Root>
+
+          {lotesFiltrados.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              Nenhum lote {aba === "ativos" ? "ativo" : "arquivado"}.
+            </p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Nome</TableHead>
+                  <TableHead>Animais ativos</TableHead>
+                  <TableHead className="hidden sm:table-cell">Peso médio</TableHead>
+                  <TableHead className="hidden md:table-cell">GMD médio</TableHead>
+                  <TableHead className="text-right">Ações</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {lotesFiltrados.map((lote) => (
+                  <TableRow key={lote.id}>
+                    <TableCell>
+                      <Link
+                        to={`/app/lotes/${lote.id}`}
+                        className="font-medium text-primary underline-offset-4 hover:underline"
+                      >
+                        {lote.nome}
+                      </Link>
+                    </TableCell>
+                    <TableCell>{formatNumero(lote.numero_animais_ativos)}</TableCell>
+                    <TableCell className="hidden sm:table-cell">
+                      {formatPeso(lote.peso_medio_kg)}
+                    </TableCell>
+                    <TableCell className="hidden md:table-cell">
+                      {formatGmd(lote.gmd_medio_kg)}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-2">
+                        <LoteFormDialog mode="editar" lote={lote} />
+                        {lote.ativo ? (
+                          <EncerrarLoteDialog lote={lote} />
+                        ) : (
+                          <ArquivarLoteButton lote={lote} />
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </div>
       )}
     </div>
   )

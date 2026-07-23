@@ -3,6 +3,7 @@ import { PrinterIcon } from "lucide-react"
 import { useFazendaAtual } from "@/hooks/useFazendaAtual"
 import { useEspecies } from "@/hooks/useEspecies"
 import { useSaldoRebanho } from "@/hooks/useSaldoRebanho"
+import { formatNumero } from "@/lib/format"
 import {
   Table,
   TableBody,
@@ -155,14 +156,14 @@ export function SaldoRebanhoPage() {
                 <TableRow key={`${linha.agrupamento_etario_id ?? "nc"}-${linha.sexo}`}>
                   <TableCell>{linha.agrupamento_label}</TableCell>
                   <TableCell>{linha.sexo === "macho" ? "Macho" : "Fêmea"}</TableCell>
-                  <TableCell className="text-right">{linha.qtd_registrada}</TableCell>
-                  <TableCell className="text-right">{linha.qtd_pendente}</TableCell>
+                  <TableCell className="text-right">{formatNumero(linha.qtd_registrada)}</TableCell>
+                  <TableCell className="text-right">{formatNumero(linha.qtd_pendente)}</TableCell>
                 </TableRow>
               ))}
               <TableRow className="font-semibold">
                 <TableCell colSpan={2}>Total</TableCell>
-                <TableCell className="text-right">{totalRegistrada}</TableCell>
-                <TableCell className="text-right">{totalPendente}</TableCell>
+                <TableCell className="text-right">{formatNumero(totalRegistrada)}</TableCell>
+                <TableCell className="text-right">{formatNumero(totalPendente)}</TableCell>
               </TableRow>
             </TableBody>
           </Table>

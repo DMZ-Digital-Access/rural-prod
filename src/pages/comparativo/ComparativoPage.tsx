@@ -9,6 +9,7 @@ import {
 } from "recharts"
 import { useFazendaAtual } from "@/hooks/useFazendaAtual"
 import { useLotes } from "@/hooks/useLotes"
+import { formatNumero } from "@/lib/format"
 import {
   Card,
   CardContent,
@@ -26,11 +27,11 @@ import {
 } from "@/components/ui/table"
 
 function formatPeso(kg: number | null) {
-  return kg === null ? "—" : `${kg.toFixed(1)} kg`
+  return kg === null ? "—" : `${formatNumero(kg, 1)} kg`
 }
 
 function formatGmd(kg: number | null) {
-  return kg === null ? "—" : `${kg.toFixed(1)} kg/dia`
+  return kg === null ? "—" : `${formatNumero(kg, 1)} kg/dia`
 }
 
 /**
@@ -110,7 +111,10 @@ export function ComparativoPage() {
                           fontSize: 12,
                           color: "var(--popover-foreground)",
                         }}
-                        formatter={(value) => [`${Number(value).toFixed(1)} kg`, "Peso médio"]}
+                        formatter={(value) => [
+                          `${formatNumero(Number(value), 1)} kg`,
+                          "Peso médio",
+                        ]}
                       />
                       <Bar
                         dataKey="peso_medio_kg"
@@ -160,7 +164,7 @@ export function ComparativoPage() {
                           color: "var(--popover-foreground)",
                         }}
                         formatter={(value) => [
-                          `${Number(value).toFixed(3)} kg/dia`,
+                          `${formatNumero(Number(value), 1)} kg/dia`,
                           "GMD médio",
                         ]}
                       />
@@ -195,7 +199,7 @@ export function ComparativoPage() {
                     {lotesComparaveis.map((lote) => (
                       <TableRow key={lote.id}>
                         <TableCell className="font-medium">{lote.nome}</TableCell>
-                        <TableCell>{lote.numero_animais_ativos}</TableCell>
+                        <TableCell>{formatNumero(lote.numero_animais_ativos)}</TableCell>
                         <TableCell>{formatPeso(lote.peso_medio_kg)}</TableCell>
                         <TableCell>{formatGmd(lote.gmd_medio_kg)}</TableCell>
                       </TableRow>

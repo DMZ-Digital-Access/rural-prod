@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dialog"
 import { useDefinirLoteAtivo, useExcluirLote } from "@/hooks/useLotes"
 import type { LoteComEstatisticas } from "@/lib/types/rebanho"
+import { formatNumero } from "@/lib/format"
 
 type Etapa = "escolha" | "confirmar_exclusao"
 
@@ -116,7 +117,7 @@ export function EncerrarLoteDialog({
               <DialogDescription>
                 Esta ação não pode ser desfeita. Os{" "}
                 {lote.numero_animais_total > 0
-                  ? `${lote.numero_animais_total} animal(is) deste lote ficarão`
+                  ? `${formatNumero(lote.numero_animais_total)} animal(is) deste lote ficarão`
                   : "eventuais animais deste lote ficariam"}{" "}
                 sem lote associado, mas não serão apagados.
               </DialogDescription>

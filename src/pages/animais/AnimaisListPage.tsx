@@ -15,13 +15,17 @@ import { StatusAnimalBadge } from "@/components/rebanho/StatusAnimalBadge"
 import { EditarAnimalDialog } from "@/pages/animais/EditarAnimalDialog"
 import { EntradaSaidaLoteDialog } from "@/pages/animais/EntradaSaidaLoteDialog"
 import { animalPendenteIndividualizacao } from "@/lib/types/rebanho"
+import { formatNumero } from "@/lib/format"
+import { SaldoRebanhoCards } from "@/components/rebanho/SaldoRebanhoCards"
+
+const ANO_ATUAL = new Date().getFullYear()
 
 function formatPeso(kg: number | null) {
-  return kg === null ? "—" : kg.toFixed(1)
+  return kg === null ? "—" : formatNumero(kg, 1)
 }
 
 function formatGmd(kg: number | null) {
-  return kg === null ? "—" : kg.toFixed(1)
+  return kg === null ? "—" : formatNumero(kg, 1)
 }
 
 function formatData(data: string | null) {
@@ -50,6 +54,8 @@ export function AnimaisListPage() {
           <EntradaSaidaLoteDialog fazendaId={fazenda?.fazenda_id} />
         </div>
       </div>
+
+      <SaldoRebanhoCards fazendaId={fazenda?.fazenda_id} ano={ANO_ATUAL} />
 
       {animaisQuery.isLoading && (
         <p className="text-sm text-muted-foreground">Carregando animais…</p>
