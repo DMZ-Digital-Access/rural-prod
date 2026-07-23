@@ -565,7 +565,12 @@
   `/app/configuracoes` deixou de ser placeholder (dados da fazenda/usuário + lista "Minhas
   Fazendas"). Achado de RLS corrigido: `fazendas.nome` só editável por admin/membro (financeiro
   não).
-- **Última atualização:** 2026-07-22 — **Gráfico Evolução do Saldo mostra a variação na data
+- **Última atualização:** 2026-07-22 — **Gate formal do `cyber_chief` pro multi-fazenda (Fases
+  A+B) + tela Equipe, veredito 🟢 Seguro, sem achados** — verificação adversarial de IDOR/
+  elevação de privilégio em `criar_fazenda`/`listar_membros_fazenda`/`remover_membro`, nenhum
+  bypass encontrado. Item 4 do roadmap resolvido (seção 4). Ver
+  `.agents/memory/log/2026-07-22-cyber_chief-review-multi-fazenda.md`.
+- **Atualização anterior:** 2026-07-22 — **Gráfico Evolução do Saldo mostra a variação na data
   real** (não mais só 1 ponto por mês fechado) — eixo do tempo virou escala numérica, mas os
   rótulos continuam só no início de cada mês (pedido de JP). Ver
   `.agents/memory/log/2026-07-22-grafico-evolucao-saldo-datas-reais.md`. Também salvo nesta
@@ -689,8 +694,11 @@ ainda não pra executar):**
    atual do Supabase aguenta.
 
 🟡 Segurança/qualidade de dado pendentes:
-4. Multi-fazenda (Fases A+B, 2026-07-22) e a tela Equipe nunca passaram por um gate formal do
-   `cyber_chief` — construídas seguindo os padrões já revisados, mas sem revisão dedicada.
+4. ~~Multi-fazenda (Fases A+B) e a tela Equipe nunca passaram por um gate formal do
+   `cyber_chief`.~~ **RESOLVIDO em 2026-07-22 — gate formal concluído, veredito 🟢 Seguro, sem
+   achados.** Verificação adversarial específica de IDOR/elevação de privilégio em
+   `criar_fazenda`/`listar_membros_fazenda`/`remover_membro` — nenhum caminho de bypass
+   encontrado. Ver `.agents/memory/log/2026-07-22-cyber_chief-review-multi-fazenda.md`.
 5. `fazendas.estado` (usado pra travar o prazo regulatório certo por UF) está vazio em toda
    fazenda existente — risco documentado no gate de 2026-07-20 segue presente na prática.
 6. DELETE em `lancamentos_financeiros` sem trilha de auditoria (risco aceito, documentado).
@@ -939,6 +947,30 @@ responde HTTP 200, não que a UI renderiza/interage corretamente.
 ---
 
 ## 5. Histórico de Tarefas Complexas (mais recente primeiro)
+
+### 2026-07-22 — Security review: multi-fazenda (Fases A+B) + tela Equipe — `cyber_chief` (CONSTANTINE, via Claude)
+
+- **O que foi feito:** gate formal cobrindo as 4 migrations do multi-fazenda/Equipe
+  (`20260722150000` a `20260722180000`) + todo o frontend que as consome — item 4 do roadmap
+  salvo em 2026-07-22. Verificação adversarial focada em IDOR/elevação de privilégio: admin de
+  uma fazenda tentando agir sobre usuário/recurso de OUTRA fazenda (bloqueado em todos os pontos
+  de entrada), guarda "nunca zero admins" reaproveitando o padrão já validado no ADR-0002,
+  `listar_membros_fazenda` (SECURITY DEFINER) escopado corretamente sem vazamento cross-tenant.
+- **Veredito:** 🟢 Seguro, sem achados. Ver
+  `.agents/memory/log/2026-07-22-cyber_chief-review-multi-fazenda.md`.
+
+### 2026-07-22 — Gráfico Evolução do Saldo mostra a variação na data real — `developer` (via Claude)
+
+- **O que foi feito:** `useEvolucaoSaldoAno` reescrito — em vez de 12 checkpoints fixos (fim de
+  cada mês), busca as datas distintas de `transacoes.data_operacao` no ano (mais um checkpoint
+  final em hoje/31-12) e chama `obter_saldo_rebanho()` uma vez por data real. `XAxis` do gráfico
+  virou escala numérica de tempo — pontos na posição real, mas rótulos continuam só no início de
+  cada mês (pedido de JP). Tooltip mostra data real formatada; pontos habilitados nas linhas.
+- **Validado:** `build`/`lint`/`test` (36/36); Playwright real + conferência visual — eixo só com
+  nomes de mês, linha com pontos em posições reais (inclusive o salto de ~68 cabeças em
+  20-22/07/2026), tooltip com data correta. Ver
+  `.agents/memory/log/2026-07-22-grafico-evolucao-saldo-datas-reais.md`.
+- **Gate do `cyber_chief`:** não se aplica (só frontend, mesma RPC já revisada).
 
 ### 2026-07-22 — Exportar CSV em Lançamentos Gerais — `developer` (via Claude)
 
