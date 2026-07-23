@@ -15,6 +15,7 @@ import {
   usePesagensDaSessao,
   useRegistrarPesagemRapida,
   useSessaoPesagemAtiva,
+  type PesagemDaSessao,
   type SessaoPesagemHistorico,
 } from "@/hooks/usePesagens"
 import {
@@ -66,6 +67,27 @@ function formatDataHora(iso: string) {
 }
 
 /**
+ * Deriva o rótulo de lote da sessão ATIVA a partir dos animais já pesados
+ * (pedido de JP, 2026-07-23: "essa análise será feita pelo lote que está
+ * registrado em cada animal", sem input do usuário). Mesma regra de
+ * "coalesce pro sentinela" já usada em `listar_sessoes_pesagem_finalizadas`
+ * no backend — "sem lote" conta como seu próprio grupo distinto, então 1
+ * animal sem lote + 1 com Lote X não vira "mesmo lote" por engano.
+ */
+function calcularLoteLabel(pesagens: PesagemDaSessao[]): string | null {
+  if (pesagens.length === 0) return null
+
+  const idsDistintos = new Set(
+    pesagens.map((p) => p.animais.lote_id ?? "__sem_lote__")
+  )
+  if (idsDistintos.size > 1) return "Lotes: Variados"
+
+  const loteId = pesagens[0].animais.lote_id
+  if (!loteId) return "Lote: —"
+  return `Lote: ${pesagens[0].animais.lotes?.nome ?? "—"}`
+}
+
+/**
  * "Dia de Pesagem" (pedido de JP, 2026-07-23) — ferramenta de campo pra
  * pesar muitos animais em sequência rápida: busca por trecho da
  * identificação, peso, registrar, repete. Reaproveita `registrar_pesagem()`
@@ -73,10 +95,12 @@ function formatDataHora(iso: string) {
  * já vira correção do mesmo registro por conta própria da RPC.
  *
  * Sessão (2026-07-23, migration 20260723150000_sessoes_pesagem.sql): nasce
- * sozinha no 1º peso, fica em aberto até "Final da pesagem", e só então
- * vira uma linha na aba Histórico. Só UMA sessão em aberto por fazenda por
- * vez — um segundo usuário vê quem está pesando agora em vez de conseguir
- * começar uma nova (useSessaoPesagemAtiva + bloqueadoPorOutroUsuario).
+ * sozinha no 1º peso — cada pesagem já é salva na hora, então mesmo sem
+ * clicar em "Pesagem Concluída" nada se perde — e fica em aberto até o
+ * usuário concluir, só então virando uma linha na aba Histórico. Só UMA
+ * sessão em aberto por fazenda por vez — um segundo usuário vê quem está
+ * pesando agora em vez de conseguir começar uma nova
+ * (useSessaoPesagemAtiva + bloqueadoPorOutroUsuario).
  *
  * Layout: área de entrada (topo) NUNCA rola — só a lista de baixo (ou o
  * conteúdo da aba Histórico) tem overflow-y-auto. Identificação/Peso lado a
@@ -140,6 +164,7 @@ export function DiaPesagemPage() {
         ? pesagensSessao.reduce((soma, p) => soma + p.peso_kg, 0) / pesagensSessao.length
         : 0,
   }
+  const loteLabel = calcularLoteLabel(pesagensSessao)
 
   function selecionarAnimal(animal: AnimalBusca) {
     form.setValue("animal_id", animal.id)
@@ -174,13 +199,13 @@ export function DiaPesagemPage() {
     if (!sessaoIdAtual) return
     try {
       await finalizarSessao.mutateAsync(sessaoIdAtual)
-      toast.success("Pesagem finalizada — evento registrado no histórico.")
+      toast.success("Pesagem concluída — evento registrado no histórico.")
       setSessaoIdAtual(null)
       setConfirmarFinal(false)
       form.reset({ animal_id: "", identificacao: "", peso_kg: undefined as unknown as number })
     } catch (error) {
       toast.error(
-        error instanceof Error ? error.message : "Erro ao finalizar a pesagem."
+        error instanceof Error ? error.message : "Erro ao concluir a pesagem."
       )
     }
   }
@@ -325,6 +350,7 @@ export function DiaPesagemPage() {
 
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
+                    {loteLabel && <span>{loteLabel}</span>}
                     <span>Animais pesados: {stats.quantidade}</span>
                     <span>
                       Peso médio: {stats.quantidade > 0 ? formatPeso(stats.pesoMedio) : "—"}
@@ -339,17 +365,18 @@ export function DiaPesagemPage() {
                       <DialogTrigger
                         render={
                           <Button type="button" variant="ghost" size="sm">
-                            Final da pesagem
+                            Pesagem Concluída
                           </Button>
                         }
                       />
                       <DialogContent className="sm:max-w-sm">
                         <DialogHeader>
-                          <DialogTitle>Finalizar esta pesagem?</DialogTitle>
+                          <DialogTitle>Concluir esta pesagem?</DialogTitle>
                           <DialogDescription>
                             {stats.quantidade} animal(is) pesado(s) nesta sessão. Depois de
-                            finalizar, ela vai para o histórico e uma nova pesagem começa do
-                            zero.
+                            concluir, ela vai para o histórico e uma nova pesagem começa do
+                            zero. Mesmo sem concluir agora, os pesos já registrados continuam
+                            salvos.
                           </DialogDescription>
                         </DialogHeader>
                         <DialogFooter className="sm:flex-row sm:justify-end">
@@ -360,7 +387,7 @@ export function DiaPesagemPage() {
                             disabled={finalizarSessao.isPending}
                             onClick={handleFinalizar}
                           >
-                            {finalizarSessao.isPending ? "Finalizando…" : "Finalizar"}
+                            {finalizarSessao.isPending ? "Concluindo…" : "Concluir"}
                           </Button>
                         </DialogFooter>
                       </DialogContent>

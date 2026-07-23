@@ -159,7 +159,11 @@ export type PesagemDaSessao = {
   id: string
   peso_kg: number
   created_at: string
-  animais: { identificacao: string }
+  animais: {
+    identificacao: string
+    lote_id: string | null
+    lotes: { nome: string } | null
+  }
 }
 
 const pesagensDaSessaoKey = (sessaoId: string | undefined | null) =>
@@ -169,7 +173,11 @@ const pesagensDaSessaoKey = (sessaoId: string | undefined | null) =>
  * Pesagens de UMA sessão — serve tanto pra lista ao vivo da sessão ativa
  * quanto pro detalhe do histórico ao clicar numa linha já finalizada
  * (mesma forma de dado nos dois casos). Ordenado por `created_at desc` — o
- * animal recém-registrado aparece no topo.
+ * animal recém-registrado aparece no topo. `lote_id`/`lotes(nome)` embutidos
+ * (2026-07-23, pedido de JP) alimentam a derivação de "Lote: X" / "Lotes:
+ * Variados" da sessão ativa, calculada no client (mesma lógica de
+ * "coalesce pro sentinela `__sem_lote__`" já usada em
+ * `listar_sessoes_pesagem_finalizadas` no backend).
  */
 export function usePesagensDaSessao(sessaoId: string | undefined | null) {
   return useQuery({
@@ -177,7 +185,7 @@ export function usePesagensDaSessao(sessaoId: string | undefined | null) {
     queryFn: async (): Promise<PesagemDaSessao[]> => {
       const { data, error } = await supabase
         .from("pesagens")
-        .select("id, peso_kg, created_at, animais!inner(identificacao)")
+        .select("id, peso_kg, created_at, animais!inner(identificacao, lote_id, lotes(nome))")
         .eq("sessao_pesagem_id", sessaoId as string)
         .order("created_at", { ascending: false })
 
@@ -204,7 +212,7 @@ export type SessaoPesagemHistorico = {
  * `listar_sessoes_pesagem_finalizadas` (SECURITY DEFINER, mesmo motivo de
  * `useSessaoPesagemAtiva`: expõe usuario_nome entre colegas da fazenda).
  * lote_nome já vem calculado do backend (mesmo lote em todas as pesagens →
- * nome; nenhum lote → null; lotes diferentes → "Vários").
+ * nome; nenhum lote → null; lotes diferentes → "Variados").
  */
 export function useHistoricoSessoesPesagem(fazendaId: string | undefined) {
   return useQuery({
