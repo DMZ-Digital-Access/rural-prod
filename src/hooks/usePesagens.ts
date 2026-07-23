@@ -58,6 +58,35 @@ export function useRegistrarPesagem(animalId: string) {
   })
 }
 
+/**
+ * Exclui um registro do histórico de pesagens (pedido de JP, 2026-07-23 —
+ * permitir corrigir erro de digitação) — via RPC `excluir_pesagem`
+ * (migration 20260723200000): não existe policy de DELETE declarativa em
+ * `pesagens`, mesmo motivo de `useRegistrarPesagem`. O trigger
+ * `atualizar_animal_apos_pesagem()` (agora também AFTER DELETE) recalcula
+ * peso_atual_kg/gmd_medio_kg/ultima_pesagem_data automaticamente — sem
+ * nenhuma pesagem restante, volta ao baseline (peso_atual_kg =
+ * peso_inicial_kg, sem GMD/data).
+ */
+export function useExcluirPesagem(animalId: string) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (pesagemId: string) => {
+      const { error } = await supabase.rpc("excluir_pesagem", {
+        p_pesagem_id: pesagemId,
+      })
+
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: pesagensListKey(animalId) })
+      queryClient.invalidateQueries({ queryKey: ["animais"] })
+      queryClient.invalidateQueries({ queryKey: ["lotes"] })
+    },
+  })
+}
+
 const hojeISO = () => new Date().toISOString().slice(0, 10)
 
 // ============================================================================

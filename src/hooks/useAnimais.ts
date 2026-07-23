@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { supabase } from "@/lib/supabase"
-import type { AnimalComDetalhes } from "@/lib/types/rebanho"
+import type { AnimalComDetalhes, TipoOperacaoTransacao } from "@/lib/types/rebanho"
 import type { EditarAnimalFormValues } from "@/lib/validations/animais"
 
 const animaisListKey = (fazendaId: string | undefined, loteId?: string | null) =>
@@ -146,6 +146,85 @@ export function useAtualizarLoteDoAnimal(animalId: string) {
       queryClient.invalidateQueries({ queryKey: ["animais"] })
       queryClient.invalidateQueries({ queryKey: ["lotes"] })
     },
+  })
+}
+
+export type PeriodoLoteAnimal = {
+  id: string
+  lote_id: string | null
+  /** Denormalizado no momento do período — sobrevive à exclusão do lote
+   * (lote_id vira NULL via ON DELETE SET NULL, lote_nome não). */
+  lote_nome: string | null
+  data_inicio: string
+  data_fim: string | null
+}
+
+/**
+ * Histórico de lote do animal (Rastreabilidade do animal, 2026-07-23) — via
+ * `animais_historico_lote` (migration 20260723210000), alimentada só por
+ * trigger a partir dessa migration: animais já existentes não têm histórico
+ * anterior a ela. Ordenado por data_inicio asc (ordem cronológica da
+ * timeline).
+ */
+export function useHistoricoLoteAnimal(animalId: string | undefined) {
+  return useQuery({
+    queryKey: ["animais", "historico-lote", animalId] as const,
+    queryFn: async (): Promise<PeriodoLoteAnimal[]> => {
+      const { data, error } = await supabase
+        .from("animais_historico_lote")
+        .select("id, lote_id, lote_nome, data_inicio, data_fim")
+        .eq("animal_id", animalId as string)
+        .order("data_inicio", { ascending: true })
+
+      if (error) throw error
+      return data
+    },
+    enabled: !!animalId,
+  })
+}
+
+export type SaidaAnimal = {
+  tipo_operacao: TipoOperacaoTransacao
+  data_operacao: string
+  outra_parte: string
+  transacao_id: string
+}
+
+/**
+ * Saída do animal (venda/óbito/consumo), se houver — via `transacoes_animais`
+ * (só populada por essas 3 operações + compra/entrada/saída de pastoreio,
+ * ver ADR-0004/0005) embutindo `transacoes`. Um animal só sai uma vez (status
+ * deixa de ser 'ativo'), então no máximo uma linha.
+ */
+export function useSaidaAnimal(animalId: string | undefined) {
+  return useQuery({
+    queryKey: ["animais", "saida", animalId] as const,
+    queryFn: async (): Promise<SaidaAnimal | null> => {
+      const { data, error } = await supabase
+        .from("transacoes_animais")
+        .select("transacao_id, transacoes(tipo_operacao, data_operacao, outra_parte)")
+        .eq("animal_id", animalId as string)
+        .in("tipo_operacao_transacao", ["venda", "obito", "consumo"])
+        .limit(1)
+        .maybeSingle()
+
+      if (error) throw error
+      if (!data) return null
+
+      const transacao = data.transacoes as unknown as {
+        tipo_operacao: TipoOperacaoTransacao
+        data_operacao: string
+        outra_parte: string
+      }
+
+      return {
+        tipo_operacao: transacao.tipo_operacao,
+        data_operacao: transacao.data_operacao,
+        outra_parte: transacao.outra_parte,
+        transacao_id: data.transacao_id,
+      }
+    },
+    enabled: !!animalId,
   })
 }
 

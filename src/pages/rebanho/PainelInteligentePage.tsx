@@ -44,7 +44,6 @@ const CORES_LINHA = [
   "var(--chart-2)",
   "var(--chart-3)",
   "var(--chart-4)",
-  "var(--chart-5)",
 ]
 
 function formatMoeda(valor: number) {
@@ -269,7 +268,7 @@ export function PainelInteligentePage() {
           <Card>
             <CardContent className="flex flex-col gap-1">
               <span className="text-xs text-muted-foreground">Receitas</span>
-              <span className="text-xl font-semibold text-green-700 dark:text-green-400">
+              <span className="text-xl font-semibold text-macro-alta">
                 {formatMoeda(totalReceitas)}
               </span>
             </CardContent>
@@ -277,7 +276,7 @@ export function PainelInteligentePage() {
           <Card>
             <CardContent className="flex flex-col gap-1">
               <span className="text-xs text-muted-foreground">Despesas</span>
-              <span className="text-xl font-semibold text-blue-700 dark:text-blue-400">
+              <span className="text-xl font-semibold text-macro-baixa">
                 {formatMoeda(totalDespesas)}
               </span>
             </CardContent>
@@ -288,8 +287,8 @@ export function PainelInteligentePage() {
               <span
                 className={
                   saldoLiquido >= 0
-                    ? "text-xl font-semibold text-green-700 dark:text-green-400"
-                    : "text-xl font-semibold text-destructive"
+                    ? "text-xl font-semibold text-macro-alta"
+                    : "text-xl font-semibold text-macro-baixa"
                 }
               >
                 {formatMoeda(saldoLiquido)}
