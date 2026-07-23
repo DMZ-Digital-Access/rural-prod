@@ -963,6 +963,34 @@ responde HTTP 200, não que a UI renderiza/interage corretamente.
 
 ## 5. Histórico de Tarefas Complexas (mais recente primeiro)
 
+### 2026-07-23 — "Tipo de Animal" (espécie) substitui "Categoria" na lista de Animais — `developer` (via Claude)
+
+- **Achado ao investigar o pedido de JP** ("trocar a coluna de categoria pra tipo de animal"):
+  `animais` nunca teve espécie própria — `calcular_categoria_animal()` sempre assume bovino
+  (Bezerro/Novilho/Boi/...) independente da espécie real. Confirmado em produção que isso já
+  era um problema real: um lote de 26 ovinos (compra de 2026-06-11, "Ronaldo Rios") já
+  individualizado em `animais`, rotulado incorretamente com categorias de bovino.
+- **Schema (migration `20260723130000_especie_do_animal.sql`):** `animais.especie_id`
+  (nullable, FK `especies`) — `registrar_entrada_saida_lote()` passa a preenchê-lo direto de
+  `p_especie_id` (já recebido como parâmetro). Backfill do histórico em 2 passadas: (a) 87
+  animais com identificacao no padrão ADR-0006 — espécie inferida por match exato
+  fazenda+tipo+data contra `transacoes` (verificado manualmente que não há ambiguidade em
+  nenhum dia); (b) 3 animais legados sem esse padrão (cadastrados pelo extinto "Individualizar
+  Animal" standalone) — **assumidos Bovinos por decisão explícita de JP** (Eixo 1 era
+  bovino-only nessa época), não uma inferência automática. `animais_com_detalhes` ganha
+  `especie_nome` via join.
+- **Frontend:** `AnimaisListPage.tsx` — coluna "Categoria" vira "Tipo de Animal"
+  (`especie_nome`). `EditarAnimalDialog.tsx` ganha um Select de espécie editável (decisão de
+  JP — corrige os 3 casos legados e qualquer erro futuro na origem). `AnimalDetailPage.tsx`
+  ganha "Tipo de animal" no card "Dados do animal".
+- **Validado:** testado diretamente contra o banco local — `especie_id` correto por RPC
+  mesmo com duas compras de espécies diferentes na mesma fazenda em dias distintos; lógica de
+  fallback (animal sem padrão de identificação → Bovinos) confirmada. `build`/`lint`/`test`
+  (31/31) e pgTAP (63/63) limpos.
+- **Fora de escopo, registrado:** `calcular_categoria_animal()` continua espécie-cega
+  (sempre rótulos de bovino) — corrigir isso exigiria categorias zootécnicas por espécie,
+  não pedido nesta tarefa.
+
 ### 2026-07-23 — Rastreabilidade de origem do animal individualizado — `developer` (via Claude)
 
 - **Motivação:** ao investigar a inconsistência do card "Cabeças" (entrada anterior desta

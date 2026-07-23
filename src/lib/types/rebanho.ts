@@ -36,9 +36,10 @@ export type Animal = {
   updated_at: string
 }
 
-/** Linha crua de public.animais — campo novo de 2026-07-23 (rastreabilidade de origem). */
+/** Linha crua de public.animais — campos novos de 2026-07-23 (rastreabilidade de origem + espécie). */
 export type AnimalComOrigem = Animal & {
   transacao_origem_id: string | null
+  especie_id: string | null
 }
 
 /** Linha de public.animais_com_detalhes — SELECT sempre nesta view, nunca em `animais` direto. */
@@ -60,6 +61,8 @@ export type AnimalComDetalhes = AnimalComOrigem & {
   /** Idade do animal NA DATA da transação de origem (não hoje) — null se
    *  faltar data_nascimento (pendente) ou origem_data_operacao (sem origem). */
   idade_meses_aquisicao: number | null
+  /** "Tipo de Animal" (2026-07-23) — via especie_id (LEFT JOIN em especies). */
+  especie_nome: string | null
 }
 
 /** Um animal está pendente de individualização (ADR-0006) quando falta

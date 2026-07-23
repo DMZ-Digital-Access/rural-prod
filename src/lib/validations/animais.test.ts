@@ -8,6 +8,7 @@ describe("editarAnimalSchema", () => {
     status: "ativo" as const,
     data_nascimento: "2024-01-15",
     peso_inicial_kg: 35,
+    especie_id: null,
     idade_meses_aquisicao: null,
   }
 

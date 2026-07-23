@@ -41,6 +41,7 @@ export const editarAnimalSchema = z.object({
     .number()
     .positive("O peso inicial precisa ser maior que zero")
     .nullable(),
+  especie_id: z.string().nullable(),
   idade_meses_aquisicao: z
     .number()
     .int("A idade em meses precisa ser inteira")

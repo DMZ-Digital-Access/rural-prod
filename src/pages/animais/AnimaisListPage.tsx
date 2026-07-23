@@ -78,7 +78,7 @@ export function AnimaisListPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Identificação</TableHead>
-                <TableHead className="hidden md:table-cell">Categoria</TableHead>
+                <TableHead className="hidden md:table-cell">Tipo de Animal</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="hidden sm:table-cell">Lote</TableHead>
                 <TableHead>Peso atual</TableHead>
@@ -101,7 +101,7 @@ export function AnimaisListPage() {
                     </Link>
                   </TableCell>
                   <TableCell className="hidden md:table-cell">
-                    {animal.categoria ?? "—"}
+                    {animal.especie_nome ?? "—"}
                   </TableCell>
                   <TableCell>
                     <div className="flex flex-wrap items-center gap-1">

@@ -68,6 +68,11 @@ export function useAtualizarAnimal(animalId: string) {
           // informados (a edição não força completude).
           data_nascimento: values.data_nascimento || null,
           peso_inicial_kg: values.peso_inicial_kg,
+          // 2026-07-23: correção manual pontual — normalmente vem da
+          // transação de origem (registrar_entrada_saida_lote), editável
+          // aqui pros 3 animais legados sem origem rastreada ou caso a
+          // espécie da transação de origem esteja errada.
+          especie_id: values.especie_id,
         })
         .eq("id", animalId)
 

@@ -104,6 +104,10 @@ export function AnimalDetailPage() {
         <CardContent>
           <dl className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
             <div>
+              <dt className="text-xs text-muted-foreground">Tipo de animal</dt>
+              <dd className="mt-1 text-sm">{animal.especie_nome ?? "—"}</dd>
+            </div>
+            <div>
               <dt className="text-xs text-muted-foreground">Status</dt>
               <dd className="mt-1">
                 <StatusAnimalBadge status={animal.status} />

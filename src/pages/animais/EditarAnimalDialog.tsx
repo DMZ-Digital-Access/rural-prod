@@ -32,6 +32,7 @@ import {
 import { LoteSelectField } from "@/components/rebanho/LoteSelectField"
 import { editarAnimalSchema, type EditarAnimalFormValues } from "@/lib/validations/animais"
 import { useAtualizarAnimal } from "@/hooks/useAnimais"
+import { useEspecies } from "@/hooks/useEspecies"
 import {
   animalPendenteIndividualizacao,
   type AnimalComDetalhes,
@@ -81,6 +82,7 @@ export function EditarAnimalDialog({
   const [open, setOpen] = useState(false)
   const [modoIdade, setModoIdade] = useState<ModoIdade>("data_exata")
   const atualizarAnimal = useAtualizarAnimal(animal.id)
+  const especiesQuery = useEspecies()
 
   const pendente = animalPendenteIndividualizacao(animal)
   const temOrigemRastreada = animal.origem_data_operacao !== null
@@ -93,6 +95,7 @@ export function EditarAnimalDialog({
       status: animal.status,
       data_nascimento: animal.data_nascimento,
       peso_inicial_kg: animal.peso_inicial_kg,
+      especie_id: animal.especie_id,
       idade_meses_aquisicao: animal.idade_meses_aquisicao,
     },
   })
@@ -107,6 +110,7 @@ export function EditarAnimalDialog({
         status: animal.status,
         data_nascimento: animal.data_nascimento,
         peso_inicial_kg: animal.peso_inicial_kg,
+        especie_id: animal.especie_id,
         idade_meses_aquisicao: animal.idade_meses_aquisicao,
       })
       setModoIdade("data_exata")
@@ -175,6 +179,35 @@ export function EditarAnimalDialog({
                   <FormControl>
                     <Input {...field} />
                   </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="especie_id"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Tipo de animal</FormLabel>
+                  <Select value={field.value ?? undefined} onValueChange={field.onChange}>
+                    <FormControl>
+                      <SelectTrigger className="w-full">
+                        <SelectValue>
+                          {(v: string) =>
+                            especiesQuery.data?.find((e) => e.id === v)?.nome ?? ""
+                          }
+                        </SelectValue>
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {especiesQuery.data?.map((especie) => (
+                        <SelectItem key={especie.id} value={especie.id}>
+                          {especie.nome}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <FormMessage />
                 </FormItem>
               )}
