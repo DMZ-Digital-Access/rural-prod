@@ -1,10 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { supabase } from "@/lib/supabase"
 import type { AnimalComDetalhes } from "@/lib/types/rebanho"
-import type {
-  CriarAnimalFormValues,
-  EditarAnimalFormValues,
-} from "@/lib/validations/animais"
+import type { EditarAnimalFormValues } from "@/lib/validations/animais"
 
 const animaisListKey = (fazendaId: string | undefined, loteId?: string | null) =>
   ["animais", "list", fazendaId, loteId ?? null] as const
@@ -52,40 +49,6 @@ export function useAnimal(id: string | undefined) {
       return data
     },
     enabled: !!id,
-  })
-}
-
-export function useCriarAnimal(fazendaId: string | undefined) {
-  const queryClient = useQueryClient()
-
-  return useMutation({
-    mutationFn: async (values: CriarAnimalFormValues) => {
-      if (!fazendaId) throw new Error("Fazenda não identificada.")
-
-      // peso_atual_kg/gmd_medio_kg/ultima_pesagem_data NUNCA são enviados —
-      // são calculados pelo backend (inicializar_peso_atual_animal(), ver
-      // migration da Fase 2), que sobrescreve incondicionalmente qualquer
-      // valor enviado de qualquer forma.
-      const { data, error } = await supabase
-        .from("animais")
-        .insert({
-          fazenda_id: fazendaId,
-          identificacao: values.identificacao.trim(),
-          data_nascimento: values.data_nascimento,
-          sexo: values.sexo,
-          peso_inicial_kg: values.peso_inicial_kg,
-          lote_id: values.lote_id,
-        })
-        .select("id")
-        .single()
-
-      if (error) throw error
-      return data
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["animais"] })
-      queryClient.invalidateQueries({ queryKey: ["lotes"] })
-    },
   })
 }
 

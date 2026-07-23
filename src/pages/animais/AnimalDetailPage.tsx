@@ -32,6 +32,12 @@ function formatPeso(kg: number | null) {
   return kg === null ? "—" : `${kg.toFixed(1)} kg`
 }
 
+const origemLabels: Record<string, string> = {
+  compra: "Comprado",
+  nascimento: "Nascido na fazenda",
+  entrada_pastoreio: "Entrada de pastoreio",
+}
+
 export function AnimalDetailPage() {
   const { id } = useParams<{ id: string }>()
   const { data: fazenda } = useFazendaAtual()
@@ -157,6 +163,57 @@ export function AnimalDetailPage() {
               <dd className="mt-1 text-sm">{animal.numero_pesagens}</dd>
             </div>
           </dl>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Origem</CardTitle>
+          <CardDescription>
+            De onde este animal veio — comprado, nascido na fazenda ou entrada de pastoreio.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {animal.transacao_origem_id ? (
+            <dl className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+              <div>
+                <dt className="text-xs text-muted-foreground">Tipo</dt>
+                <dd className="mt-1 text-sm">
+                  {origemLabels[animal.origem_tipo_operacao ?? ""] ?? "—"}
+                </dd>
+              </div>
+              {animal.origem_tipo_operacao !== "nascimento" && (
+                <div>
+                  <dt className="text-xs text-muted-foreground">De quem</dt>
+                  <dd className="mt-1 text-sm">{animal.origem_outra_parte ?? "—"}</dd>
+                </div>
+              )}
+              <div>
+                <dt className="text-xs text-muted-foreground">Data de aquisição</dt>
+                <dd className="mt-1 text-sm">{formatData(animal.origem_data_operacao)}</dd>
+              </div>
+              <div>
+                <dt className="text-xs text-muted-foreground">Idade na aquisição</dt>
+                <dd className="mt-1 text-sm">
+                  {animal.idade_meses_aquisicao === null
+                    ? "—"
+                    : `${animal.idade_meses_aquisicao} meses`}
+                </dd>
+              </div>
+              <div className="col-span-2 sm:col-span-4">
+                <Link
+                  to={`/app/financeiro/transacoes/${animal.transacao_origem_id}`}
+                  className="text-sm text-primary underline-offset-4 hover:underline"
+                >
+                  Ver transação de origem
+                </Link>
+              </div>
+            </dl>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              Origem não rastreada — animal cadastrado antes deste recurso.
+            </p>
+          )}
         </CardContent>
       </Card>
 

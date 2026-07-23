@@ -12,7 +12,6 @@ import {
 } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { StatusAnimalBadge } from "@/components/rebanho/StatusAnimalBadge"
-import { CriarAnimalDialog } from "@/pages/animais/CriarAnimalDialog"
 import { EditarAnimalDialog } from "@/pages/animais/EditarAnimalDialog"
 import { EntradaSaidaLoteDialog } from "@/pages/animais/EntradaSaidaLoteDialog"
 import { animalPendenteIndividualizacao } from "@/lib/types/rebanho"
@@ -48,7 +47,6 @@ export function AnimaisListPage() {
         </div>
         <div className="flex flex-col gap-2 sm:flex-row">
           <EntradaSaidaLoteDialog fazendaId={fazenda?.fazenda_id} />
-          <CriarAnimalDialog fazendaId={fazenda?.fazenda_id} lotes={lotes} />
         </div>
       </div>
 
@@ -68,8 +66,9 @@ export function AnimaisListPage() {
       {animaisQuery.data && animaisQuery.data.length === 0 && (
         <p className="text-sm text-muted-foreground">
           Nenhum animal cadastrado ainda. Use "Entradas e Saídas de Animais de
-          Lote" para lançar a entrada no rebanho, e "Individualizar Animal"
-          para cadastrar cada exemplar.
+          Lote" para lançar a entrada no rebanho — cada animal criado fica
+          pendente de individualização até você completar o cadastro (ícone
+          de edição na lista).
         </p>
       )}
 

@@ -51,6 +51,26 @@ const statusLabels = Object.fromEntries(
 
 const hojeISO = () => new Date().toISOString().slice(0, 10)
 
+/**
+ * Subtrai N meses de uma data ISO (YYYY-MM-DD), retornando outra data ISO —
+ * usado para calcular uma data_nascimento aproximada a partir da idade
+ * informada na aquisição (2026-07-23: alternativa a digitar uma data exata,
+ * que muitas vezes não é conhecida em animais comprados). `setMonth` do
+ * Date nativo já rola o mês/ano corretamente sem lib extra.
+ */
+function subtrairMeses(dataIso: string, meses: number): string {
+  const data = new Date(`${dataIso}T00:00:00`)
+  data.setMonth(data.getMonth() - meses)
+  return data.toISOString().slice(0, 10)
+}
+
+function formatDataOrigem(dataIso: string | null) {
+  if (!dataIso) return "—"
+  return new Date(`${dataIso}T00:00:00`).toLocaleDateString("pt-BR")
+}
+
+type ModoIdade = "data_exata" | "idade_aproximada"
+
 export function EditarAnimalDialog({
   animal,
   lotes,
@@ -59,9 +79,11 @@ export function EditarAnimalDialog({
   lotes: LoteComEstatisticas[]
 }) {
   const [open, setOpen] = useState(false)
+  const [modoIdade, setModoIdade] = useState<ModoIdade>("data_exata")
   const atualizarAnimal = useAtualizarAnimal(animal.id)
 
   const pendente = animalPendenteIndividualizacao(animal)
+  const temOrigemRastreada = animal.origem_data_operacao !== null
 
   const form = useForm<EditarAnimalFormValues>({
     resolver: zodResolver(editarAnimalSchema),
@@ -71,6 +93,7 @@ export function EditarAnimalDialog({
       status: animal.status,
       data_nascimento: animal.data_nascimento,
       peso_inicial_kg: animal.peso_inicial_kg,
+      idade_meses_aquisicao: animal.idade_meses_aquisicao,
     },
   })
 
@@ -84,13 +107,26 @@ export function EditarAnimalDialog({
         status: animal.status,
         data_nascimento: animal.data_nascimento,
         peso_inicial_kg: animal.peso_inicial_kg,
+        idade_meses_aquisicao: animal.idade_meses_aquisicao,
       })
+      setModoIdade("data_exata")
     }
   }, [open, animal, form])
 
   async function onSubmit(values: EditarAnimalFormValues) {
     try {
-      await atualizarAnimal.mutateAsync(values)
+      const payload = { ...values }
+      if (
+        modoIdade === "idade_aproximada" &&
+        values.idade_meses_aquisicao !== null &&
+        animal.origem_data_operacao
+      ) {
+        payload.data_nascimento = subtrairMeses(
+          animal.origem_data_operacao,
+          values.idade_meses_aquisicao
+        )
+      }
+      await atualizarAnimal.mutateAsync(payload)
       toast.success("Animal atualizado com sucesso.")
       setOpen(false)
     } catch (error) {
@@ -192,30 +228,94 @@ export function EditarAnimalDialog({
               )}
             />
 
+            {temOrigemRastreada && (
+              <div className="flex flex-col gap-2">
+                <span className="text-sm font-medium">Idade / data de nascimento</span>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={modoIdade === "data_exata" ? "default" : "outline"}
+                    onClick={() => setModoIdade("data_exata")}
+                  >
+                    Data exata
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={modoIdade === "idade_aproximada" ? "default" : "outline"}
+                    onClick={() => setModoIdade("idade_aproximada")}
+                  >
+                    Idade aproximada na compra
+                  </Button>
+                </div>
+              </div>
+            )}
+
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <FormField
-                control={form.control}
-                name="data_nascimento"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Data de nascimento</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="date"
-                        max={hojeISO()}
-                        name={field.name}
-                        onBlur={field.onBlur}
-                        ref={field.ref}
-                        value={field.value ?? ""}
-                        onChange={(e) =>
-                          field.onChange(e.target.value === "" ? null : e.target.value)
-                        }
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              {modoIdade === "data_exata" || !temOrigemRastreada ? (
+                <FormField
+                  control={form.control}
+                  name="data_nascimento"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Data de nascimento</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="date"
+                          max={hojeISO()}
+                          name={field.name}
+                          onBlur={field.onBlur}
+                          ref={field.ref}
+                          value={field.value ?? ""}
+                          onChange={(e) =>
+                            field.onChange(e.target.value === "" ? null : e.target.value)
+                          }
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              ) : (
+                <FormField
+                  control={form.control}
+                  name="idade_meses_aquisicao"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Idade (meses) em {formatDataOrigem(animal.origem_data_operacao)}</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          step="1"
+                          min="0"
+                          inputMode="numeric"
+                          name={field.name}
+                          onBlur={field.onBlur}
+                          ref={field.ref}
+                          value={field.value ?? ""}
+                          onChange={(e) =>
+                            field.onChange(
+                              e.target.value === "" ? null : e.target.valueAsNumber
+                            )
+                          }
+                        />
+                      </FormControl>
+                      {field.value !== null &&
+                        field.value !== undefined &&
+                        animal.origem_data_operacao && (
+                          <p className="text-xs text-muted-foreground">
+                            Data de nascimento calculada:{" "}
+                            {formatDataOrigem(
+                              subtrairMeses(animal.origem_data_operacao, field.value)
+                            )}
+                          </p>
+                        )}
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
 
               <FormField
                 control={form.control}

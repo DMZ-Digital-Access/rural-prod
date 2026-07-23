@@ -36,8 +36,13 @@ export type Animal = {
   updated_at: string
 }
 
+/** Linha crua de public.animais — campo novo de 2026-07-23 (rastreabilidade de origem). */
+export type AnimalComOrigem = Animal & {
+  transacao_origem_id: string | null
+}
+
 /** Linha de public.animais_com_detalhes — SELECT sempre nesta view, nunca em `animais` direto. */
-export type AnimalComDetalhes = Animal & {
+export type AnimalComDetalhes = AnimalComOrigem & {
   // ADR-0006: null quando data_nascimento é null (animal pendente) —
   // calcular_categoria_animal() retorna NULL explicitamente, não fabrica
   // uma categoria de adulto.
@@ -46,11 +51,20 @@ export type AnimalComDetalhes = Animal & {
   categoria: CategoriaAnimal | null
   ganho_total_kg: number | null
   numero_pesagens: number
+  // 2026-07-23: origem rastreada via transacao_origem_id (LEFT JOIN em
+  // transacoes na view) — null quando o animal não tem origem rastreada
+  // (criado antes desta migration).
+  origem_tipo_operacao: TipoOperacaoTransacao | null
+  origem_outra_parte: string | null
+  origem_data_operacao: string | null
+  /** Idade do animal NA DATA da transação de origem (não hoje) — null se
+   *  faltar data_nascimento (pendente) ou origem_data_operacao (sem origem). */
+  idade_meses_aquisicao: number | null
 }
 
 /** Um animal está pendente de individualização (ADR-0006) quando falta
- *  data de nascimento ou peso inicial — preenchidos juntos por
- *  "Individualizar Animal". */
+ *  data de nascimento ou peso inicial — preenchidos ambos ao completar o
+ *  cadastro na tela de Animais (EditarAnimalDialog). */
 export function animalPendenteIndividualizacao(animal: Animal): boolean {
   return animal.data_nascimento === null || animal.peso_inicial_kg === null
 }

@@ -1,68 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { criarAnimalSchema, editarAnimalSchema } from "./animais"
-
-describe("criarAnimalSchema", () => {
-  const base = {
-    identificacao: "BR-001",
-    data_nascimento: "2024-01-15",
-    sexo: "macho" as const,
-    peso_inicial_kg: 35,
-    lote_id: null,
-  }
-
-  it("aceita payload completo e válido", () => {
-    const result = criarAnimalSchema.safeParse(base)
-    expect(result.success).toBe(true)
-  })
-
-  it("aceita lote_id preenchido", () => {
-    const result = criarAnimalSchema.safeParse({
-      ...base,
-      lote_id: "11111111-1111-1111-1111-111111111111",
-    })
-    expect(result.success).toBe(true)
-  })
-
-  it("rejeita identificação vazia", () => {
-    const result = criarAnimalSchema.safeParse({ ...base, identificacao: "  " })
-    expect(result.success).toBe(false)
-  })
-
-  it("rejeita data de nascimento no futuro", () => {
-    const amanha = new Date(Date.now() + 24 * 60 * 60 * 1000)
-      .toISOString()
-      .slice(0, 10)
-    const result = criarAnimalSchema.safeParse({
-      ...base,
-      data_nascimento: amanha,
-    })
-    expect(result.success).toBe(false)
-  })
-
-  it("rejeita sexo inválido", () => {
-    const result = criarAnimalSchema.safeParse({ ...base, sexo: "outro" })
-    expect(result.success).toBe(false)
-  })
-
-  it("rejeita peso inicial zero ou negativo", () => {
-    expect(criarAnimalSchema.safeParse({ ...base, peso_inicial_kg: 0 }).success).toBe(
-      false
-    )
-    expect(
-      criarAnimalSchema.safeParse({ ...base, peso_inicial_kg: -5 }).success
-    ).toBe(false)
-  })
-
-  it("aceita peso inicial fracionário", () => {
-    const result = criarAnimalSchema.safeParse({ ...base, peso_inicial_kg: 40.5 })
-    expect(result.success).toBe(true)
-  })
-
-  it("rejeita peso inicial vindo como string — o input converte para number via valueAsNumber antes do parse", () => {
-    const result = criarAnimalSchema.safeParse({ ...base, peso_inicial_kg: "40.5" })
-    expect(result.success).toBe(false)
-  })
-})
+import { editarAnimalSchema } from "./animais"
 
 describe("editarAnimalSchema", () => {
   const base = {
@@ -71,6 +8,7 @@ describe("editarAnimalSchema", () => {
     status: "ativo" as const,
     data_nascimento: "2024-01-15",
     peso_inicial_kg: 35,
+    idade_meses_aquisicao: null,
   }
 
   it("aceita animal pendente (data_nascimento/peso_inicial_kg nulos)", () => {
@@ -102,6 +40,24 @@ describe("editarAnimalSchema", () => {
   it("rejeita identificação vazia", () => {
     expect(
       editarAnimalSchema.safeParse({ ...base, identificacao: "" }).success
+    ).toBe(false)
+  })
+
+  it("aceita idade_meses_aquisicao preenchida", () => {
+    expect(
+      editarAnimalSchema.safeParse({ ...base, idade_meses_aquisicao: 10 }).success
+    ).toBe(true)
+  })
+
+  it("rejeita idade_meses_aquisicao negativa", () => {
+    expect(
+      editarAnimalSchema.safeParse({ ...base, idade_meses_aquisicao: -1 }).success
+    ).toBe(false)
+  })
+
+  it("rejeita idade_meses_aquisicao fracionária", () => {
+    expect(
+      editarAnimalSchema.safeParse({ ...base, idade_meses_aquisicao: 8.5 }).success
     ).toBe(false)
   })
 

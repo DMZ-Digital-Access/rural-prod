@@ -963,6 +963,53 @@ responde HTTP 200, não que a UI renderiza/interage corretamente.
 
 ## 5. Histórico de Tarefas Complexas (mais recente primeiro)
 
+### 2026-07-23 — Rastreabilidade de origem do animal individualizado — `developer` (via Claude)
+
+- **Motivação:** ao investigar a inconsistência do card "Cabeças" (entrada anterior desta
+  seção), achamos que animais pendentes (ADR-0006) não tinham nenhum vínculo rastreável de
+  volta à transação de origem — só uma convenção de nomenclatura por data+tipo, sujeita a
+  colisão entre duas transações do mesmo tipo/dia. Submetido a uma revisão simulada
+  (Constantine/cyber_chief, Sofia/db_sage, Alex/architect) antes de agir — achados: (1) a
+  numeração sequencial em si já evita colisão (continua do MAX existente, não reinicia — a
+  colisão observada tinha outra causa, uma migration aplicada no meio do dia); (2) havia uma
+  race condition real sob concorrência (duas chamadas simultâneas podiam ler o mesmo MAX antes
+  de commitar); (3) faltava um FK de `animais` de volta pra `transacoes`. JP então pediu
+  rastreabilidade completa: origem (comprado/nascido), idade na aquisição e data de aquisição
+  visíveis no card do animal.
+- **Decisões confirmadas com JP:** "permutado" não é um tipo de operação novo (só uma forma de
+  pagamento dentro de `compra`); a individualização aceita **idade aproximada em meses** como
+  alternativa a data de nascimento exata (sistema calcula e persiste uma `data_nascimento`
+  aproximada — fonte única da verdade); o botão standalone **"Individualizar Animal" foi
+  removido** (criava animal sem nenhuma transação, invisível pro Saldo de Rebanho/Painel — todo
+  animal agora nasce de uma Entrada/Saída de Lote).
+- **Schema (migration `20260723120000_rastreabilidade_origem_animal.sql`):**
+  `animais.transacao_origem_id` (nullable, `on delete set null`, sem backfill heurístico —
+  "origem desconhecida" honesta pro histórico); `registrar_entrada_saida_lote()` passa a
+  preencher essa coluna E ganha `pg_advisory_xact_lock(hashtext(fazenda+tipo+data))` antes de
+  calcular o próximo número (fecha a race condition do achado 2 acima); `animais_com_detalhes`
+  (`DROP`+`CREATE VIEW`, não `CREATE OR REPLACE` — `a.*` muda de posição) ganha
+  `origem_tipo_operacao`/`origem_outra_parte`/`origem_data_operacao` (via `LEFT JOIN
+  transacoes`) e `idade_meses_aquisicao` (meses entre `data_nascimento` e a data de origem, não
+  hoje).
+- **Frontend:** removidos `CriarAnimalDialog.tsx`, `useCriarAnimal`, `criarAnimalSchema`
+  (dead code). `EditarAnimalDialog.tsx` ganha um toggle "Data exata"/"Idade aproximada na
+  compra" (só aparece quando o animal tem origem rastreada) — no modo aproximado, calcula
+  `data_nascimento = data_de_origem - N meses` no client antes de enviar (sem RPC nova,
+  `useAtualizarAnimal` seleciona campos explicitamente, ignora `idade_meses_aquisicao`).
+  `AnimalDetailPage.tsx` ganha um card "Origem" (tipo/de quem/data/idade na aquisição + link
+  pra transação), com fallback "Origem não rastreada" pro histórico sem `transacao_origem_id`.
+- **Validado:** testado diretamente contra o banco local (não só via UI) — origem preenchida
+  corretamente nos animais pendentes gerados; duas compras sequenciais do mesmo tipo/dia
+  continuam a numeração sem colidir (001-015 e 016-020, cada uma com seu
+  `transacao_origem_id` correto); `idade_meses_aquisicao` calcula certo depois de completar
+  `data_nascimento`. `build`/`lint`/`test` (31/31, 5 a menos que antes — testes de
+  `criarAnimalSchema` removidos junto com o schema) e pgTAP (63/63) limpos.
+- **Fora de escopo, registrado:** rastreabilidade de destino (venda/óbito/consumo) já existe
+  parcialmente via `transacoes_animais`; backfill heurístico de `transacao_origem_id` pro
+  histórico não foi tentado (risco de atribuir origem errada).
+- **Gate do `cyber_chief`:** revisão simulada já feita antes de implementar (ver acima); gate
+  formal completo ainda pendente antes de considerar 100% fechado.
+
 ### 2026-07-23 — Correção: quantidade de cabeças dessincronizava do detalhamento ao editar transação — `developer` (via Claude)
 
 - **Achado (a partir de um relato de JP):** o card "Cabeças" do Painel Inteligente mostrava 125
