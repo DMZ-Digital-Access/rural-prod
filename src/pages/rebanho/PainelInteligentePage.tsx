@@ -12,6 +12,8 @@ import { Link } from "react-router-dom"
 import { FileTextIcon, TruckIcon } from "lucide-react"
 import { useFazendaAtual } from "@/hooks/useFazendaAtual"
 import { useResumoSaldoAno, useTransacoesLista } from "@/hooks/useTransacoes"
+import { useEspeciesDaFazenda } from "@/hooks/useFazendaPerfil"
+import { useEspecies } from "@/hooks/useEspecies"
 import {
   MESES_LABEL,
   useEvolucaoSaldoAno,
@@ -62,6 +64,8 @@ export function PainelInteligentePage() {
   const fazendaId = fazenda?.fazenda_id
 
   const resumoSaldo = useResumoSaldoAno(fazendaId, ANO_ATUAL)
+  const especiesCatalogo = useEspecies()
+  const especiesDaFazenda = useEspeciesDaFazenda(fazendaId)
   const evolucaoSaldo = useEvolucaoSaldoAno(fazendaId, ANO_ATUAL)
   const gtasPendentes = useGtasLista(
     fazendaId,
@@ -128,6 +132,21 @@ export function PainelInteligentePage() {
     }
   }
 
+  // --- Saldo de Rebanho: só os tipos de animais registrados como "Tipo de
+  // Pecuária" da fazenda (fazendas_especies, Configurações) — pedido de
+  // JP, 2026-07-23. obter_saldo_rebanho() sempre devolve uma "espinha"
+  // com TODA espécie do catálogo (mesmo as que a fazenda nunca trabalhou),
+  // então sem este filtro toda fazenda via cards de espécies que não cria.
+  const idsEspeciesDaFazenda = new Set(especiesDaFazenda.data ?? [])
+  const nomesEspeciesDaFazenda = new Set(
+    (especiesCatalogo.data ?? [])
+      .filter((e) => idsEspeciesDaFazenda.has(e.id))
+      .map((e) => e.nome)
+  )
+  const saldoFiltrado = (resumoSaldo.data ?? []).filter((especie) =>
+    nomesEspeciesDaFazenda.has(especie.especieNome)
+  )
+
   // --- Resumo financeiro do ano ---
   const movimentos = fluxoCaixaAno.data ?? []
   const totalReceitas = movimentos
@@ -170,14 +189,22 @@ export function PainelInteligentePage() {
 
       <div className="flex flex-col gap-3">
         <h2 className="text-lg font-medium">Saldo de Rebanho</h2>
-        {resumoSaldo.data && resumoSaldo.data.length === 0 && (
+        {especiesDaFazenda.data && especiesDaFazenda.data.length === 0 && (
           <p className="text-sm text-muted-foreground">
-            Nenhuma movimentação de animais registrada ainda.
+            Nenhum tipo de animal configurado ainda — configure em Configurações, seção
+            "Tipo de Pecuária".
           </p>
         )}
-        {resumoSaldo.data && resumoSaldo.data.length > 0 && (
+        {especiesDaFazenda.data &&
+          especiesDaFazenda.data.length > 0 &&
+          saldoFiltrado.length === 0 && (
+            <p className="text-sm text-muted-foreground">
+              Nenhuma movimentação de animais registrada ainda.
+            </p>
+          )}
+        {saldoFiltrado.length > 0 && (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-            {resumoSaldo.data.map((especie) => (
+            {saldoFiltrado.map((especie) => (
               <Card key={especie.especieNome}>
                 <CardContent className="flex flex-col gap-1">
                   <span className="text-xs text-muted-foreground">{especie.especieNome}</span>
