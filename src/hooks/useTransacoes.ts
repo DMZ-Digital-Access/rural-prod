@@ -406,9 +406,16 @@ export function useResumoSaldoAno(fazendaId: string | undefined, ano: number) {
         atual.pendente += l.qtd_pendente
       }
 
-      return Array.from(porEspecie.values()).sort((a, b) =>
-        a.especieNome.localeCompare(b.especieNome, "pt-BR")
-      )
+      // Só espécies com presença REAL (2026-07-23, pedido de JP: mostrar a
+      // totalidade dos animais que a fazenda tem de verdade, mesmo fora do
+      // Tipo de Pecuária declarado — nunca restringir por isso; só omitir
+      // uma espécie que nunca teve NENHUM saldo/pendência, real ou não).
+      // obter_saldo_rebanho() devolve uma "espinha" com todo o catálogo
+      // ativo (inclusive espécies que a fazenda nunca criou), e `linha()`
+      // era chamada incondicionalmente pra cada linha da RPC.
+      return Array.from(porEspecie.values())
+        .filter((e) => e.saldoInicio !== 0 || e.saldoFim !== 0 || e.pendente !== 0)
+        .sort((a, b) => a.especieNome.localeCompare(b.especieNome, "pt-BR"))
     },
     enabled: !!fazendaId,
   })
