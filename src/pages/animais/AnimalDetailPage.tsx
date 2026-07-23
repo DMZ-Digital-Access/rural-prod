@@ -155,7 +155,7 @@ export function AnimalDetailPage() {
               <dd className="mt-1 text-sm">
                 {animal.gmd_medio_kg === null
                   ? "—"
-                  : `${animal.gmd_medio_kg.toFixed(3)} kg/dia`}
+                  : `${animal.gmd_medio_kg.toFixed(1)} kg/dia`}
               </dd>
             </div>
             <div>

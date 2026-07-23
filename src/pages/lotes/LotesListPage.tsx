@@ -19,7 +19,7 @@ function formatPeso(kg: number | null) {
 }
 
 function formatGmd(kg: number | null) {
-  return kg === null ? "—" : `${kg.toFixed(3)} kg/dia`
+  return kg === null ? "—" : `${kg.toFixed(1)} kg/dia`
 }
 
 export function LotesListPage() {

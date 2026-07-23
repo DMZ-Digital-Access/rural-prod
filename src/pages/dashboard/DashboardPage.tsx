@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react"
 import { Link } from "react-router-dom"
-import { WeightIcon, ZapIcon } from "lucide-react"
+import { InfoIcon, WeightIcon, ZapIcon } from "lucide-react"
 import {
   Bar,
   BarChart,
@@ -10,6 +10,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts"
+import { cn } from "@/lib/utils"
 import { useFazendaAtual } from "@/hooks/useFazendaAtual"
 import { useAnimais } from "@/hooks/useAnimais"
 import { useLotes } from "@/hooks/useLotes"
@@ -20,6 +21,15 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
 import {
   Select,
   SelectContent,
@@ -28,6 +38,9 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import type { CategoriaAnimal, StatusAnimal } from "@/lib/types/rebanho"
+
+const GMD_INFO_TEXTO =
+  "GMD significa Ganho Médio Diário. Na pecuária, é o indicador que mede quantos quilos o animal engorda por dia em média. É a principal métrica utilizada para avaliar a saúde nutricional do rebanho e a lucratividade das fases de recria e engorda."
 
 const TODOS_OS_LOTES = "__todos__"
 
@@ -42,20 +55,44 @@ function StatTile({
   label,
   value,
   description,
+  info,
 }: {
   label: string
   value: string
   description?: string
+  info?: string
 }) {
   return (
-    <Card>
-      <CardContent className="flex flex-col gap-1">
+    <Card className="relative">
+      <CardContent className={cn("flex flex-col gap-1", info && "pr-8")}>
         <span className="text-xs text-muted-foreground">{label}</span>
         <span className="text-2xl font-semibold tabular-nums">{value}</span>
         {description && (
           <span className="text-xs text-muted-foreground">{description}</span>
         )}
       </CardContent>
+      {info && (
+        <Dialog>
+          <DialogTrigger
+            render={
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                className="absolute top-2 right-2 text-muted-foreground"
+              />
+            }
+          >
+            <InfoIcon />
+            <span className="sr-only">Mais informações sobre {label}</span>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{label}</DialogTitle>
+            </DialogHeader>
+            <DialogDescription>{info}</DialogDescription>
+          </DialogContent>
+        </Dialog>
+      )}
     </Card>
   )
 }
@@ -220,8 +257,9 @@ export function DashboardPage() {
               value={
                 stats.gmdMedioGeral === null
                   ? "—"
-                  : `${stats.gmdMedioGeral.toFixed(3)} kg/dia`
+                  : `${stats.gmdMedioGeral.toFixed(1)} kg/dia`
               }
+              info={GMD_INFO_TEXTO}
             />
           </div>
 
