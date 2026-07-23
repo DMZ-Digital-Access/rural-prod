@@ -53,7 +53,7 @@ export function SaidaAnimaisIndividuaisForm({
   const animaisQuery = useAnimais(fazendaId)
   const registrar = useRegistrarSaidaAnimaisIndividuais(fazendaId)
 
-  const especieBovinos = especiesQuery.data?.find((e) => e.nome === "Bovinos")
+  const especieBovinos = especiesQuery.data?.find((e) => e.nome === "Bovino")
 
   const animaisDisponiveis = (animaisQuery.data ?? []).filter(
     (a) => a.status === "ativo" && !animalPendenteIndividualizacao(a)
@@ -73,7 +73,7 @@ export function SaidaAnimaisIndividuaisForm({
   })
 
   // O catálogo de espécies carrega de forma assíncrona — popula especie_id
-  // assim que "Bovinos" resolver (única espécie do Eixo 1 hoje, sem seletor
+  // assim que "Bovino" resolver (única espécie do Eixo 1 hoje, sem seletor
   // visível aqui). tipo_operacao também é sincronizado se o usuário trocar
   // a operação no seletor do dialog pai sem fechar/reabrir este formulário.
   useEffect(() => {
