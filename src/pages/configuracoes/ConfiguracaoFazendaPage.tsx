@@ -1,11 +1,24 @@
 import { useEffect, useState } from "react"
+import { Link } from "react-router-dom"
 import { toast } from "sonner"
 import { PlusIcon } from "lucide-react"
 import { useFazendaAtual } from "@/hooks/useFazendaAtual"
 import { useFazendasDoUsuario } from "@/hooks/useFazendasDoUsuario"
 import { useAtualizarNomeFazenda } from "@/hooks/useAtualizarNomeFazenda"
 import { useCriarFazenda } from "@/hooks/useCriarFazenda"
-import { useAtualizarNomeUsuario, useUsuarioAtual } from "@/hooks/useUsuarioAtual"
+import {
+  useAtualizarMeuEmail,
+  useAtualizarMeusDados,
+  useUsuarioAtual,
+} from "@/hooks/useUsuarioAtual"
+import {
+  useAtualizarFinalidadesFazenda,
+  useEspeciesDaFazenda,
+  useFazendaPerfil,
+  useToggleEspecieDaFazenda,
+  type FinalidadeRebanho,
+} from "@/hooks/useFazendaPerfil"
+import { useEspecies } from "@/hooks/useEspecies"
 import { criarFazendaSchema } from "@/lib/validations/fazenda"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -24,6 +37,18 @@ const PAPEL_LABELS: Record<string, string> = {
   admin: "Admin",
   membro: "Membro",
   financeiro: "Financeiro",
+}
+
+const FINALIDADES: { value: FinalidadeRebanho; label: string }[] = [
+  { value: "recria", label: "Recria" },
+  { value: "engorda", label: "Engorda" },
+  { value: "leite", label: "Leite" },
+]
+
+function mesmoConjunto(a: string[], b: string[]) {
+  if (a.length !== b.length) return false
+  const setB = new Set(b)
+  return a.every((item) => setB.has(item))
 }
 
 function CriarFazendaDialog() {
@@ -54,7 +79,7 @@ function CriarFazendaDialog() {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger
         render={
-          <Button size="sm">
+          <Button size="sm" variant="outline">
             <PlusIcon />
             Criar nova fazenda
           </Button>
@@ -84,17 +109,133 @@ function CriarFazendaDialog() {
   )
 }
 
+function TipoPecuariaSection({
+  fazendaId,
+  somenteLeitura,
+}: {
+  fazendaId: string | undefined
+  somenteLeitura: boolean
+}) {
+  const especiesQuery = useEspecies()
+  const especiesDaFazendaQuery = useEspeciesDaFazenda(fazendaId)
+  const toggleEspecie = useToggleEspecieDaFazenda(fazendaId)
+  const perfilQuery = useFazendaPerfil(fazendaId)
+  const atualizarFinalidades = useAtualizarFinalidadesFazenda(fazendaId)
+
+  const [finalidadesLocais, setFinalidadesLocais] = useState<FinalidadeRebanho[]>([])
+  useEffect(() => {
+    setFinalidadesLocais(perfilQuery.data?.finalidades_rebanho ?? [])
+  }, [perfilQuery.data?.finalidades_rebanho])
+
+  const especiesSelecionadas = new Set(especiesDaFazendaQuery.data ?? [])
+
+  async function handleToggleEspecie(especieId: string) {
+    try {
+      await toggleEspecie.mutateAsync({
+        especieId,
+        incluir: !especiesSelecionadas.has(especieId),
+      })
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Erro ao atualizar tipo de animal."
+      )
+    }
+  }
+
+  function toggleFinalidadeLocal(finalidade: FinalidadeRebanho) {
+    setFinalidadesLocais((atual) =>
+      atual.includes(finalidade)
+        ? atual.filter((item) => item !== finalidade)
+        : [...atual, finalidade]
+    )
+  }
+
+  async function salvarFinalidades() {
+    try {
+      await atualizarFinalidades.mutateAsync(finalidadesLocais)
+      toast.success("Finalidade do rebanho atualizada.")
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Erro ao salvar finalidade do rebanho."
+      )
+    }
+  }
+
+  const finalidadesMudaram = !mesmoConjunto(
+    finalidadesLocais,
+    perfilQuery.data?.finalidades_rebanho ?? []
+  )
+
+  return (
+    <div className="rounded-lg border border-border bg-card p-4 sm:max-w-lg">
+      <h2 className="mb-3 text-lg font-medium">Tipo de Pecuária</h2>
+
+      <div className="mb-4">
+        <Label className="mb-2 block">Tipos de Animais da Fazenda</Label>
+        <div className="flex flex-wrap gap-2">
+          {especiesQuery.data?.map((especie) => (
+            <Button
+              key={especie.id}
+              type="button"
+              size="sm"
+              variant={especiesSelecionadas.has(especie.id) ? "default" : "outline"}
+              disabled={somenteLeitura || toggleEspecie.isPending}
+              onClick={() => handleToggleEspecie(especie.id)}
+            >
+              {especie.nome}
+            </Button>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <Label className="mb-2 block">Finalidade do Rebanho</Label>
+        <div className="flex flex-wrap gap-2">
+          {FINALIDADES.map((finalidade) => (
+            <Button
+              key={finalidade.value}
+              type="button"
+              size="sm"
+              variant={
+                finalidadesLocais.includes(finalidade.value) ? "default" : "outline"
+              }
+              disabled={somenteLeitura}
+              onClick={() => toggleFinalidadeLocal(finalidade.value)}
+            >
+              {finalidade.label}
+            </Button>
+          ))}
+        </div>
+        {!somenteLeitura && (
+          <div className="mt-3">
+            <Button
+              size="sm"
+              onClick={salvarFinalidades}
+              disabled={atualizarFinalidades.isPending || !finalidadesMudaram}
+            >
+              {atualizarFinalidades.isPending ? "Salvando…" : "Salvar"}
+            </Button>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 /**
- * Configurações > dados da fazenda e do usuário (spec seção 5.3, item 20 —
- * substitui o placeholder). Multi-fazenda (2026-07-22): também lista as
- * fazendas do usuário e permite criar uma adicional (só quem já é admin em
- * alguma fazenda — mesma checagem da RPC criar_fazenda, espelhada aqui pra
- * UX; a RPC é a autoridade real).
+ * Configurações > dados da fazenda e do usuário (reformulada 2026-07-23,
+ * pedido de JP): "Tipo de Pecuária" novo (sempre sobre a fazenda ATUAL,
+ * com banner de "Editando: X" pra nunca confundir com outra fazenda);
+ * "Meus dados" ganha telefone celular + e-mail editável de verdade;
+ * "Minhas fazendas" vira "Administração de Fazendas", com "Criar nova
+ * fazenda" discreto dentro dela e linhas onde o usuário é admin virando
+ * links pro Perfil da Fazenda (que absorveu a antiga tela "Equipe").
  */
 export function ConfiguracaoFazendaPage() {
   const { data: fazendaAtual } = useFazendaAtual()
   const fazendasQuery = useFazendasDoUsuario()
   const somenteLeituraFazenda = fazendaAtual?.papel === "financeiro"
+  const ehAdminDaFazendaAtual = fazendaAtual?.papel === "admin"
 
   const atualizarNomeFazenda = useAtualizarNomeFazenda(fazendaAtual?.fazenda_id)
   const [nomeFazenda, setNomeFazenda] = useState("")
@@ -104,12 +245,19 @@ export function ConfiguracaoFazendaPage() {
   }, [fazendaAtual?.nome])
 
   const usuarioQuery = useUsuarioAtual()
-  const atualizarNomeUsuario = useAtualizarNomeUsuario()
+  const atualizarMeusDados = useAtualizarMeusDados()
+  const atualizarMeuEmail = useAtualizarMeuEmail()
   const [nomeUsuario, setNomeUsuario] = useState("")
+  const [telefone, setTelefone] = useState("")
+  const [novoEmail, setNovoEmail] = useState("")
 
   useEffect(() => {
-    if (usuarioQuery.data?.nome !== undefined) setNomeUsuario(usuarioQuery.data.nome ?? "")
-  }, [usuarioQuery.data?.nome])
+    if (usuarioQuery.data) {
+      setNomeUsuario(usuarioQuery.data.nome ?? "")
+      setTelefone(usuarioQuery.data.telefone_celular ?? "")
+      setNovoEmail(usuarioQuery.data.email ?? "")
+    }
+  }, [usuarioQuery.data])
 
   const jaEhAdminEmAlgumaFazenda = (fazendasQuery.data ?? []).some((f) => f.papel === "admin")
 
@@ -122,12 +270,27 @@ export function ConfiguracaoFazendaPage() {
     }
   }
 
-  async function salvarNomeUsuario() {
+  async function salvarMeusDados() {
     try {
-      await atualizarNomeUsuario.mutateAsync(nomeUsuario)
-      toast.success("Nome atualizado.")
+      await atualizarMeusDados.mutateAsync({
+        nome: nomeUsuario,
+        telefone_celular: telefone.trim() || null,
+      })
+      toast.success("Dados atualizados.")
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Erro ao salvar nome.")
+      toast.error(error instanceof Error ? error.message : "Erro ao salvar dados.")
+    }
+  }
+
+  async function salvarNovoEmail() {
+    const email = novoEmail.trim()
+    try {
+      await atualizarMeuEmail.mutateAsync(email)
+      toast.success(
+        `Um e-mail de confirmação foi enviado para ${email}. Seu e-mail atual continua ativo até você confirmar.`
+      )
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Erro ao trocar de e-mail.")
     }
   }
 
@@ -137,6 +300,13 @@ export function ConfiguracaoFazendaPage() {
         <h1 className="text-2xl font-semibold">Configurações</h1>
         <p className="text-muted-foreground">Dados da fazenda e do usuário.</p>
       </div>
+
+      {fazendaAtual && (
+        <div className="flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-sm sm:max-w-lg">
+          <span className="text-muted-foreground">Editando a fazenda:</span>
+          <span className="font-medium">{fazendaAtual.nome}</span>
+        </div>
+      )}
 
       <div className="rounded-lg border border-border bg-card p-4 sm:max-w-lg">
         <h2 className="mb-3 text-lg font-medium">Dados da fazenda</h2>
@@ -167,6 +337,11 @@ export function ConfiguracaoFazendaPage() {
         )}
       </div>
 
+      <TipoPecuariaSection
+        fazendaId={fazendaAtual?.fazenda_id}
+        somenteLeitura={!ehAdminDaFazendaAtual}
+      />
+
       <div className="rounded-lg border border-border bg-card p-4 sm:max-w-lg">
         <h2 className="mb-3 text-lg font-medium">Meus dados</h2>
         <div className="grid gap-3">
@@ -179,16 +354,50 @@ export function ConfiguracaoFazendaPage() {
             />
           </div>
           <div className="grid gap-1.5">
-            <Label>E-mail</Label>
-            <Input value={usuarioQuery.data?.email ?? ""} disabled />
+            <Label htmlFor="telefone-usuario">Telefone celular</Label>
+            <Input
+              id="telefone-usuario"
+              type="tel"
+              placeholder="(00) 00000-0000"
+              value={telefone}
+              onChange={(e) => setTelefone(e.target.value)}
+            />
           </div>
           <div>
             <Button
               size="sm"
-              onClick={salvarNomeUsuario}
-              disabled={atualizarNomeUsuario.isPending || nomeUsuario === usuarioQuery.data?.nome}
+              onClick={salvarMeusDados}
+              disabled={
+                atualizarMeusDados.isPending ||
+                (nomeUsuario === usuarioQuery.data?.nome &&
+                  telefone === (usuarioQuery.data?.telefone_celular ?? ""))
+              }
             >
-              {atualizarNomeUsuario.isPending ? "Salvando…" : "Salvar"}
+              {atualizarMeusDados.isPending ? "Salvando…" : "Salvar"}
+            </Button>
+          </div>
+
+          <div className="grid gap-1.5 border-t border-border pt-3">
+            <Label htmlFor="email-usuario">E-mail</Label>
+            <Input
+              id="email-usuario"
+              type="email"
+              value={novoEmail}
+              onChange={(e) => setNovoEmail(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">
+              Trocar o e-mail exige confirmação por um link enviado ao endereço novo — o
+              e-mail atual continua ativo até você confirmar.
+            </p>
+          </div>
+          <div>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={salvarNovoEmail}
+              disabled={atualizarMeuEmail.isPending || novoEmail.trim() === usuarioQuery.data?.email}
+            >
+              {atualizarMeuEmail.isPending ? "Enviando…" : "Salvar novo e-mail"}
             </Button>
           </div>
         </div>
@@ -196,7 +405,7 @@ export function ConfiguracaoFazendaPage() {
 
       <div className="rounded-lg border border-border bg-card p-4 sm:max-w-lg">
         <div className="mb-3 flex items-center justify-between gap-2">
-          <h2 className="text-lg font-medium">Minhas fazendas</h2>
+          <h2 className="text-lg font-medium">Administração de Fazendas</h2>
           {jaEhAdminEmAlgumaFazenda && <CriarFazendaDialog />}
         </div>
 
@@ -206,15 +415,27 @@ export function ConfiguracaoFazendaPage() {
 
         {fazendasQuery.data && (
           <ul className="flex flex-col gap-2">
-            {fazendasQuery.data.map((f) => (
-              <li
-                key={f.fazenda_id}
-                className="flex items-center justify-between gap-2 rounded-lg border border-border px-3 py-2"
-              >
-                <span className="truncate text-sm">{f.nome}</span>
-                <Badge variant="secondary">{PAPEL_LABELS[f.papel] ?? f.papel}</Badge>
-              </li>
-            ))}
+            {fazendasQuery.data.map((f) =>
+              f.papel === "admin" ? (
+                <li key={f.fazenda_id}>
+                  <Link
+                    to={`/app/configuracoes/fazendas/${f.fazenda_id}`}
+                    className="flex items-center justify-between gap-2 rounded-lg border border-border px-3 py-2 transition-colors hover:border-foreground/30 hover:bg-muted"
+                  >
+                    <span className="truncate text-sm">{f.nome}</span>
+                    <Badge variant="secondary">{PAPEL_LABELS[f.papel] ?? f.papel}</Badge>
+                  </Link>
+                </li>
+              ) : (
+                <li
+                  key={f.fazenda_id}
+                  className="flex items-center justify-between gap-2 rounded-lg border border-border px-3 py-2"
+                >
+                  <span className="truncate text-sm">{f.nome}</span>
+                  <Badge variant="secondary">{PAPEL_LABELS[f.papel] ?? f.papel}</Badge>
+                </li>
+              )
+            )}
           </ul>
         )}
 

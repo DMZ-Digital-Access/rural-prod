@@ -1,8 +1,16 @@
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
+import { useParams, Link } from "react-router-dom"
 import { toast } from "sonner"
-import { PlusIcon, Trash2Icon } from "lucide-react"
+import { ArrowLeftIcon, ImageIcon, PlusIcon, Trash2Icon } from "lucide-react"
 import { useAuth } from "@/lib/auth"
-import { useFazendaAtual } from "@/hooks/useFazendaAtual"
+import { useFazendasDoUsuario } from "@/hooks/useFazendasDoUsuario"
+import { useAtualizarNomeFazenda } from "@/hooks/useAtualizarNomeFazenda"
+import {
+  useAtualizarDescricaoFazenda,
+  useFazendaPerfil,
+  useHeroFazendaUrl,
+  useUploadHeroFazenda,
+} from "@/hooks/useFazendaPerfil"
 import {
   useCancelarConvite,
   useConvidarMembro,
@@ -15,6 +23,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
 import {
   Select,
   SelectContent,
@@ -46,6 +55,8 @@ const PAPEL_LABELS: Record<string, string> = {
   membro: "Membro",
   financeiro: "Financeiro",
 }
+// Ordem de exibição pedida por JP: admins primeiro, depois membros, depois financeiro.
+const ORDEM_PAPEL: Record<string, number> = { admin: 0, membro: 1, financeiro: 2 }
 
 function formatData(data: string) {
   return new Date(data).toLocaleDateString("pt-BR")
@@ -78,13 +89,13 @@ function ConvidarMembroDialog({ fazendaId }: { fazendaId: string | undefined }) 
         render={
           <Button size="sm">
             <PlusIcon />
-            Convidar membro
+            Convidar usuário
           </Button>
         }
       />
       <DialogContent className="sm:max-w-sm">
         <DialogHeader>
-          <DialogTitle>Convidar membro</DialogTitle>
+          <DialogTitle>Convidar usuário</DialogTitle>
           <DialogDescription>
             Enviamos um e-mail com um link pra entrar na fazenda com o papel escolhido.
           </DialogDescription>
@@ -138,10 +149,10 @@ function RemoverMembroDialog({
   async function handleConfirmar() {
     try {
       await removerMembro.mutateAsync(membro.usuario_id)
-      toast.success(souEu ? "Você saiu da fazenda." : "Membro removido.")
+      toast.success(souEu ? "Você saiu da fazenda." : "Usuário removido.")
       setOpen(false)
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Erro ao remover membro.")
+      toast.error(error instanceof Error ? error.message : "Erro ao remover usuário.")
     }
   }
 
@@ -152,7 +163,7 @@ function RemoverMembroDialog({
           <Button
             variant="outline"
             size="icon-sm"
-            aria-label={souEu ? "Sair da fazenda" : "Remover membro"}
+            aria-label={souEu ? "Sair da fazenda" : "Remover usuário"}
           >
             <Trash2Icon />
           </Button>
@@ -166,7 +177,7 @@ function RemoverMembroDialog({
           <DialogDescription>
             {souEu
               ? "Você perde o acesso a esta fazenda imediatamente. Se você for o único admin, a ação será bloqueada."
-              : "O acesso deste membro a esta fazenda é removido imediatamente."}
+              : "O acesso deste usuário a esta fazenda é removido imediatamente."}
           </DialogDescription>
         </DialogHeader>
         <DialogFooter className="sm:flex-row sm:justify-end">
@@ -187,19 +198,68 @@ function RemoverMembroDialog({
 }
 
 /**
- * Equipe (Fase B do multi-fazenda, 2026-07-22) — substitui o placeholder de
- * `/app/configuracoes/equipe`. Admin-only (decisão confirmada com JP): quem
- * não é admin da fazenda atual não vê nada aqui, nem a lista de colegas.
+ * Perfil da Fazenda (2026-07-23) — aberto a partir de "Administração de
+ * Fazendas" (Configurações), só pra fazendas onde o usuário é admin. Hero
+ * image + nome + descrição livre + a lista de usuários com acesso (que até
+ * esta tarefa vivia numa tela "Equipe" separada — absorvida aqui, decisão
+ * de JP, pra não duplicar a mesma funcionalidade em dois lugares).
  */
-export function EquipePage() {
+export function FazendaPerfilPage() {
+  const { fazendaId } = useParams<{ fazendaId: string }>()
   const { user } = useAuth()
-  const { data: fazenda } = useFazendaAtual()
-  const ehAdmin = fazenda?.papel === "admin"
+  const fazendasDoUsuarioQuery = useFazendasDoUsuario()
+  const vinculo = fazendasDoUsuarioQuery.data?.find((f) => f.fazenda_id === fazendaId)
+  const ehAdmin = vinculo?.papel === "admin"
 
-  const membrosQuery = useMembrosFazenda(ehAdmin ? fazenda?.fazenda_id : undefined)
-  const convitesQuery = useConvitesFazenda(ehAdmin ? fazenda?.fazenda_id : undefined)
-  const promoverPapel = usePromoverPapel(fazenda?.fazenda_id)
-  const cancelarConvite = useCancelarConvite(fazenda?.fazenda_id)
+  const perfilQuery = useFazendaPerfil(ehAdmin ? fazendaId : undefined)
+  const perfil = perfilQuery.data
+  const heroUrlQuery = useHeroFazendaUrl(perfil?.imagem_hero_path)
+  const uploadHero = useUploadHeroFazenda(fazendaId)
+  const heroInputRef = useRef<HTMLInputElement | null>(null)
+
+  const atualizarNomeFazenda = useAtualizarNomeFazenda(fazendaId)
+  const [nome, setNome] = useState("")
+  useEffect(() => {
+    if (perfil?.nome !== undefined) setNome(perfil.nome)
+  }, [perfil?.nome])
+
+  const atualizarDescricao = useAtualizarDescricaoFazenda(fazendaId)
+  const [descricao, setDescricao] = useState("")
+  useEffect(() => {
+    setDescricao(perfil?.descricao ?? "")
+  }, [perfil?.descricao])
+
+  const membrosQuery = useMembrosFazenda(ehAdmin ? fazendaId : undefined)
+  const convitesQuery = useConvitesFazenda(ehAdmin ? fazendaId : undefined)
+  const promoverPapel = usePromoverPapel(fazendaId)
+  const cancelarConvite = useCancelarConvite(fazendaId)
+
+  async function handleUploadHero(arquivo: File) {
+    try {
+      await uploadHero.mutateAsync(arquivo)
+      toast.success("Imagem de capa atualizada.")
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Erro ao enviar imagem.")
+    }
+  }
+
+  async function salvarNome() {
+    try {
+      await atualizarNomeFazenda.mutateAsync(nome)
+      toast.success("Nome atualizado.")
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Erro ao salvar nome.")
+    }
+  }
+
+  async function salvarDescricao() {
+    try {
+      await atualizarDescricao.mutateAsync(descricao.trim() || null)
+      toast.success("Descrição atualizada.")
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Erro ao salvar descrição.")
+    }
+  }
 
   async function handleMudarPapel(usuarioId: string, novoPapel: string) {
     try {
@@ -219,12 +279,26 @@ export function EquipePage() {
     }
   }
 
-  if (!ehAdmin) {
+  const membrosOrdenados = [...(membrosQuery.data ?? [])].sort(
+    (a, b) => (ORDEM_PAPEL[a.papel] ?? 9) - (ORDEM_PAPEL[b.papel] ?? 9)
+  )
+
+  if (fazendasDoUsuarioQuery.isLoading) {
+    return <p className="text-sm text-muted-foreground">Carregando…</p>
+  }
+
+  if (!vinculo || !ehAdmin) {
     return (
       <div className="flex flex-col gap-4">
-        <h1 className="text-2xl font-semibold">Equipe</h1>
+        <Link
+          to="/app/configuracoes"
+          className="flex w-fit items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+        >
+          <ArrowLeftIcon className="size-4" />
+          Voltar para Configurações
+        </Link>
         <p className="text-sm text-muted-foreground">
-          Apenas o admin da fazenda tem acesso a esta tela.
+          Apenas o admin desta fazenda tem acesso ao perfil dela.
         </p>
       </div>
     )
@@ -232,18 +306,94 @@ export function EquipePage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold">Equipe</h1>
-          <p className="text-muted-foreground">
-            Membros e convites da fazenda {fazenda?.nome}.
-          </p>
+      <Link
+        to="/app/configuracoes"
+        className="flex w-fit items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+      >
+        <ArrowLeftIcon className="size-4" />
+        Voltar para Configurações
+      </Link>
+
+      <div className="relative flex h-40 items-end overflow-hidden rounded-xl border border-border bg-muted sm:h-56">
+        {heroUrlQuery.data ? (
+          <img
+            src={heroUrlQuery.data}
+            alt=""
+            className="absolute inset-0 size-full object-cover"
+          />
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center text-muted-foreground">
+            <ImageIcon className="size-10" />
+          </div>
+        )}
+        <input
+          ref={heroInputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          className="hidden"
+          onChange={(e) => {
+            const arquivo = e.target.files?.[0]
+            if (arquivo) handleUploadHero(arquivo)
+            e.target.value = ""
+          }}
+        />
+        <Button
+          type="button"
+          size="sm"
+          variant="secondary"
+          className="relative m-3"
+          disabled={uploadHero.isPending}
+          onClick={() => heroInputRef.current?.click()}
+        >
+          {uploadHero.isPending ? "Enviando…" : "Alterar imagem de capa"}
+        </Button>
+      </div>
+
+      <div className="rounded-lg border border-border bg-card p-4 sm:max-w-lg">
+        <div className="grid gap-1.5">
+          <Label htmlFor="nome-fazenda-perfil">Nome</Label>
+          <Input
+            id="nome-fazenda-perfil"
+            value={nome}
+            onChange={(e) => setNome(e.target.value)}
+            className="text-lg font-semibold"
+          />
         </div>
-        <ConvidarMembroDialog fazendaId={fazenda?.fazenda_id} />
+        <div className="mt-3">
+          <Button
+            size="sm"
+            onClick={salvarNome}
+            disabled={atualizarNomeFazenda.isPending || nome === perfil?.nome}
+          >
+            {atualizarNomeFazenda.isPending ? "Salvando…" : "Salvar"}
+          </Button>
+        </div>
+      </div>
+
+      <div className="rounded-lg border border-border bg-card p-4 sm:max-w-lg">
+        <h2 className="mb-3 text-lg font-medium">Sobre a fazenda</h2>
+        <Textarea
+          rows={4}
+          placeholder="Atividades, localização, fundação, fundadores…"
+          value={descricao}
+          onChange={(e) => setDescricao(e.target.value)}
+        />
+        <div className="mt-3">
+          <Button
+            size="sm"
+            onClick={salvarDescricao}
+            disabled={atualizarDescricao.isPending || descricao === (perfil?.descricao ?? "")}
+          >
+            {atualizarDescricao.isPending ? "Salvando…" : "Salvar"}
+          </Button>
+        </div>
       </div>
 
       <div className="rounded-lg border border-border bg-card p-4">
-        <h2 className="mb-3 text-lg font-medium">Membros</h2>
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <h2 className="text-lg font-medium">Usuários com acesso</h2>
+          <ConvidarMembroDialog fazendaId={fazendaId} />
+        </div>
 
         {membrosQuery.isLoading && (
           <p className="text-sm text-muted-foreground">Carregando…</p>
@@ -261,7 +411,7 @@ export function EquipePage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {membrosQuery.data.map((membro) => {
+                {membrosOrdenados.map((membro) => {
                   const souEu = membro.usuario_id === user?.id
                   return (
                     <TableRow key={membro.usuario_id}>
@@ -288,11 +438,7 @@ export function EquipePage() {
                         </Select>
                       </TableCell>
                       <TableCell>
-                        <RemoverMembroDialog
-                          membro={membro}
-                          souEu={souEu}
-                          fazendaId={fazenda?.fazenda_id}
-                        />
+                        <RemoverMembroDialog membro={membro} souEu={souEu} fazendaId={fazendaId} />
                       </TableCell>
                     </TableRow>
                   )
@@ -325,7 +471,9 @@ export function EquipePage() {
                 {convitesQuery.data.map((convite) => (
                   <TableRow key={convite.id}>
                     <TableCell>{convite.convidado_email}</TableCell>
-                    <TableCell>{PAPEL_LABELS[convite.papel_oferecido] ?? convite.papel_oferecido}</TableCell>
+                    <TableCell>
+                      {PAPEL_LABELS[convite.papel_oferecido] ?? convite.papel_oferecido}
+                    </TableCell>
                     <TableCell className="hidden sm:table-cell">
                       {formatData(convite.expires_at)}
                     </TableCell>

@@ -64,7 +64,6 @@ function getConfiguracoesItems(souAdminSoftware: boolean): NavItem[] {
           { to: "/app/configuracoes/extracao-ia", label: "Prompt de Extração (IA)" },
         ]
       : []),
-    { to: "/app/configuracoes/equipe", label: "Equipe" },
   ]
 }
 

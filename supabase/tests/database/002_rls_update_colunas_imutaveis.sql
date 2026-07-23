@@ -75,7 +75,7 @@ select throws_ok(
     (select v from t_ids where k = 'user_a')
   ),
   'P0001',
-  'usuarios.email não pode ser alterado pelo client — é espelho de auth.users.email',
+  'usuarios.email não pode ser alterado pelo client — é espelho de auth.users.email, use a troca de e-mail (confirmação por e-mail)',
   'update de usuarios.email pelo próprio dono falha (trigger de imutabilidade)'
 );
 

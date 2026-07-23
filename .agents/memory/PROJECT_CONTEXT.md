@@ -963,6 +963,48 @@ responde HTTP 200, não que a UI renderiza/interage corretamente.
 
 ## 5. Histórico de Tarefas Complexas (mais recente primeiro)
 
+### 2026-07-23 — Configurações reformulada + Perfil da Fazenda — `developer` (via Claude)
+
+- **Pedidos de JP (mesma conversa, várias mensagens):** e-mail editável de verdade em "Meus
+  dados" (hoje bloqueado por segurança) + telefone celular novo; seção de fazendas renomeada
+  "Administração de Fazendas" (com "Criar nova fazenda" discreto dentro dela, não em destaque);
+  fazendas onde o usuário é admin ficam clicáveis, abrindo um **Perfil da Fazenda** (hero image,
+  nome, descrição livre, lista de usuários com acesso — absorve a antiga tela "Equipe"); seção
+  nova **Tipo de Pecuária** (Tipos de Animais + Finalidade do Rebanho) na tela Configurações,
+  sobre a fazenda ATUAL, com banner "Editando: {nome}" bem visível pra não confundir de fazenda.
+- **E-mail editável (achado de segurança revisitado):** `usuarios.email` era bloqueado por
+  `prevent_usuarios_identity_change()` (revisão de 2026-07-16). Implementado via
+  `supabase.auth.updateUser({email})` — fluxo de confirmação NATIVO do Supabase Auth (JP não
+  sabe se o SMTP do projeto hospedado está configurado; código pronto de qualquer forma, mesma
+  ressalva do roadmap item 1). `auth.users.email` só muda quando a confirmação de fato completa
+  — um trigger novo (`sync_email_apos_confirmacao`) espelha pra `public.usuarios.email` só
+  então. Mecanismo de liberação da guarda: GUC local à transação
+  (`rural_prod.sync_email_confirmado`), MESMO padrão já usado por
+  `prevent_animais_campos_calculados_change`/`atualizar_animal_apos_pesagem` — deliberadamente
+  não um `disable/enable trigger` (que seria table-wide, abrindo uma janela de corrida sob
+  tráfego concorrente real). Testado com transações separadas (não só dentro de uma única
+  transação de teste, que mascararia o escopo real da GUC) — sync funciona, guarda continua
+  bloqueando update direto do client depois.
+- **Schema (migration `20260723160000_perfil_fazenda_e_meus_dados.sql`):** `usuarios.
+  telefone_celular`; `fazendas.descricao`/`imagem_hero_path`/`finalidades_rebanho` (`text[]` +
+  CHECK, lista fixa recria/engorda/leite — não uma tabela de catálogo nova, ao contrário de
+  `especies`); `fazendas_especies` (N:N com o catálogo `especies` já existente, escrita só
+  admin); trigger novo `restringir_alteracao_perfil_fazenda` (admin-only, mais estrito que
+  `restringir_alteracao_nome_fazenda` que já permite admin/membro). Bucket `fazendas-hero` (só
+  imagem, só admin) **não pôde ser testado localmente** — o schema `storage` local está
+  incompleto desde o `db reset` que falhou numa tarefa anterior desta sessão (storage-api nunca
+  terminou de inicializar); aplicado e verificado só depois do push pro remoto.
+- **Frontend:** `FazendaPerfilPage.tsx` nova (hero upload, nome, descrição, lista de usuários —
+  reaproveita quase 1:1 os hooks de `useEquipeFazenda.ts`, que já recebem `fazendaId` explícito,
+  só trocando a fonte pro id da ROTA em vez de `useFazendaAtual()`); `EquipePage.tsx` removida
+  (rota/menu "Equipe" também). `ConfiguracaoFazendaPage.tsx` reformulada com banner de fazenda
+  atual, seção Tipo de Pecuária, Meus Dados com telefone/e-mail, e a lista de fazendas
+  renomeada com links pras que o usuário administra.
+- **Validado:** `especies_da_fazenda` RLS testada (admin escreve, membro só lê); constraint de
+  `finalidades_rebanho` rejeitando valor fora da lista; `build`/`lint`/`test` (31/31) e pgTAP
+  (63/63) limpos (1 teste pgTAP existente ajustado — só mudança de texto da mensagem de erro,
+  comportamento continua o mesmo).
+
 ### 2026-07-23 — Sessões de "Dia de Pesagem" + histórico + ajustes de layout — `developer` (via Claude)
 
 - **Pedidos de JP (mesma conversa, em sequência):** (1) Identificação/Peso lado a lado numa

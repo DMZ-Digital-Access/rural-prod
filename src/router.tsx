@@ -196,9 +196,11 @@ export const router = createBrowserRouter([
           })),
       },
       {
-        path: "configuracoes/equipe",
+        path: "configuracoes/fazendas/:fazendaId",
         lazy: () =>
-          import("@/pages/configuracoes/EquipePage").then((m) => ({ Component: m.EquipePage })),
+          import("@/pages/configuracoes/FazendaPerfilPage").then((m) => ({
+            Component: m.FazendaPerfilPage,
+          })),
       },
     ],
   },
