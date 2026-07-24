@@ -5,6 +5,8 @@ import { ImageIcon, PlusIcon } from "lucide-react"
 import { useFazendaAtual } from "@/hooks/useFazendaAtual"
 import { useFazendasDoUsuario } from "@/hooks/useFazendasDoUsuario"
 import { useCriarFazenda } from "@/hooks/useCriarFazenda"
+import { useAtualizarEstadoFazenda, useEstadoFazenda } from "@/hooks/useEstadoFazenda"
+import { UFS } from "@/lib/estados"
 import {
   useAtualizarMeuEmail,
   useAtualizarMeusDados,
@@ -28,6 +30,7 @@ import { criarFazendaSchema } from "@/lib/validations/fazenda"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { NumericInput } from "@/components/ui/numeric-input"
+import { PhoneInput } from "@/components/ui/phone-input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -51,6 +54,8 @@ const PAPEL_LABELS: Record<string, string> = {
   membro: "Membro",
   financeiro: "Financeiro",
 }
+
+const SEM_UF = "__nenhuma__"
 
 const AREA_UNIDADES: { value: AreaUnidade; label: string }[] = [
   { value: "hectares", label: "Hectares" },
@@ -290,9 +295,12 @@ export function ConfiguracaoFazendaPage() {
 
   const perfilFazendaQuery = useFazendaPerfil(fazendaAtual?.fazenda_id)
   const atualizarDadosFazenda = useAtualizarDadosFazenda(fazendaAtual?.fazenda_id)
+  const estadoQuery = useEstadoFazenda(fazendaAtual?.fazenda_id)
+  const atualizarEstado = useAtualizarEstadoFazenda(fazendaAtual?.fazenda_id)
 
   const [nomeFazenda, setNomeFazenda] = useState("")
   const [municipio, setMunicipio] = useState("")
+  const [estado, setEstado] = useState(SEM_UF)
   const [localizacaoNome, setLocalizacaoNome] = useState("")
   const [localizacaoCoordenadas, setLocalizacaoCoordenadas] = useState("")
   const [areaValor, setAreaValor] = useState<number | null>(null)
@@ -308,6 +316,10 @@ export function ConfiguracaoFazendaPage() {
     setAreaValor(perfil.area_valor)
     setAreaUnidade(perfil.area_unidade ?? "hectares")
   }, [perfilFazendaQuery.data])
+
+  useEffect(() => {
+    if (estadoQuery.data) setEstado(estadoQuery.data)
+  }, [estadoQuery.data])
 
   const uploadLogo = useUploadLogoFazenda(fazendaAtual?.fazenda_id)
   const uploadMarcaGado = useUploadMarcaGadoFazenda(fazendaAtual?.fazenda_id)
@@ -334,25 +346,32 @@ export function ConfiguracaoFazendaPage() {
   const jaEhAdminEmAlgumaFazenda = (fazendasQuery.data ?? []).some((f) => f.papel === "admin")
 
   const perfil = perfilFazendaQuery.data
+  const estadoMudou = estado !== SEM_UF && estado !== (estadoQuery.data ?? SEM_UF)
   const dadosFazendaMudaram =
-    !!perfil &&
-    (nomeFazenda !== perfil.nome ||
-      municipio !== (perfil.municipio ?? "") ||
-      localizacaoNome !== (perfil.localizacao_nome ?? "") ||
-      localizacaoCoordenadas !== (perfil.localizacao_coordenadas ?? "") ||
-      areaValor !== perfil.area_valor ||
-      areaUnidade !== (perfil.area_unidade ?? "hectares"))
+    (!!perfil &&
+      (nomeFazenda !== perfil.nome ||
+        municipio !== (perfil.municipio ?? "") ||
+        localizacaoNome !== (perfil.localizacao_nome ?? "") ||
+        localizacaoCoordenadas !== (perfil.localizacao_coordenadas ?? "") ||
+        areaValor !== perfil.area_valor ||
+        areaUnidade !== (perfil.area_unidade ?? "hectares"))) ||
+    estadoMudou
 
   async function salvarDadosFazenda() {
     try {
-      await atualizarDadosFazenda.mutateAsync({
-        nome: nomeFazenda,
-        municipio: municipio.trim() || null,
-        localizacao_nome: localizacaoNome.trim() || null,
-        localizacao_coordenadas: localizacaoCoordenadas.trim() || null,
-        area_valor: areaValor,
-        area_unidade: areaValor === null ? null : areaUnidade,
-      })
+      if (perfil) {
+        await atualizarDadosFazenda.mutateAsync({
+          nome: nomeFazenda,
+          municipio: municipio.trim() || null,
+          localizacao_nome: localizacaoNome.trim() || null,
+          localizacao_coordenadas: localizacaoCoordenadas.trim() || null,
+          area_valor: areaValor,
+          area_unidade: areaValor === null ? null : areaUnidade,
+        })
+      }
+      if (estadoMudou) {
+        await atualizarEstado.mutateAsync(estado)
+      }
       toast.success("Dados da fazenda atualizados.")
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Erro ao salvar dados da fazenda.")
@@ -427,14 +446,35 @@ export function ConfiguracaoFazendaPage() {
               disabled={somenteLeituraFazenda}
             />
           </div>
-          <div className="grid gap-1.5">
-            <Label htmlFor="municipio-fazenda">Município</Label>
-            <Input
-              id="municipio-fazenda"
-              value={municipio}
-              onChange={(e) => setMunicipio(e.target.value)}
-              disabled={somenteLeituraFazenda}
-            />
+          <div className="flex gap-2">
+            <div className="grid flex-1 gap-1.5">
+              <Label htmlFor="municipio-fazenda">Município</Label>
+              <Input
+                id="municipio-fazenda"
+                value={municipio}
+                onChange={(e) => setMunicipio(e.target.value)}
+                disabled={somenteLeituraFazenda}
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="estado-fazenda">Estado</Label>
+              <Select
+                value={estado}
+                onValueChange={(v) => v && setEstado(v)}
+                disabled={somenteLeituraFazenda}
+              >
+                <SelectTrigger id="estado-fazenda" className="w-24">
+                  <SelectValue>{(v: string) => (v === SEM_UF ? "—" : v)}</SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {UFS.map((uf) => (
+                    <SelectItem key={uf} value={uf}>
+                      {uf}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
           <div className="grid gap-1.5">
             <Label htmlFor="localizacao-nome-fazenda">Localização</Label>
@@ -583,9 +623,15 @@ export function ConfiguracaoFazendaPage() {
             <Button
               size="sm"
               onClick={salvarDadosFazenda}
-              disabled={atualizarDadosFazenda.isPending || !dadosFazendaMudaram}
+              disabled={
+                atualizarDadosFazenda.isPending ||
+                atualizarEstado.isPending ||
+                !dadosFazendaMudaram
+              }
             >
-              {atualizarDadosFazenda.isPending ? "Salvando…" : "Salvar"}
+              {atualizarDadosFazenda.isPending || atualizarEstado.isPending
+                ? "Salvando…"
+                : "Salvar"}
             </Button>
           </div>
         )}
@@ -609,12 +655,10 @@ export function ConfiguracaoFazendaPage() {
           </div>
           <div className="grid gap-1.5">
             <Label htmlFor="telefone-usuario">Telefone celular</Label>
-            <Input
+            <PhoneInput
               id="telefone-usuario"
-              type="tel"
-              placeholder="(00) 00000-0000"
               value={telefone}
-              onChange={(e) => setTelefone(e.target.value)}
+              onChange={(v) => setTelefone(v ?? "")}
             />
           </div>
           <div>

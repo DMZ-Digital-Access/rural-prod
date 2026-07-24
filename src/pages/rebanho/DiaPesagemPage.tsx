@@ -124,10 +124,25 @@ export function DiaPesagemPage() {
   const sessaoAtiva = sessaoAtivaQuery.data ?? null
   const bloqueadoPorOutroUsuario = !!sessaoAtiva && sessaoAtiva.usuario_id !== user?.id
 
+  // Guarda o id da sessão que ACABAMOS de concluir (handleFinalizar) — a
+  // invalidação de sessaoAtivaQuery é assíncrona (invalidateQueries só
+  // dispara o refetch em background, não espera ele terminar), então por um
+  // instante depois de setSessaoIdAtual(null) o cache ainda pode devolver a
+  // MESMA sessão (já finalizada) como "ativa". Sem essa guarda, o efeito
+  // abaixo reabriria essa sessão já concluída, fazendo a lista da aba
+  // Pesagem continuar mostrando os animais de antes em vez de começar vazia
+  // (achado real de JP, 2026-07-24).
+  const sessaoRecemFinalizadaRef = useRef<string | null>(null)
+
   // Ao carregar (ou reabrir a tela no mesmo dia), se já existe uma sessão
   // ativa MINHA, retoma ela em vez de esperar um novo peso pra criar outra.
   useEffect(() => {
-    if (sessaoAtiva && sessaoAtiva.usuario_id === user?.id && !sessaoIdAtual) {
+    if (
+      sessaoAtiva &&
+      sessaoAtiva.usuario_id === user?.id &&
+      !sessaoIdAtual &&
+      sessaoAtiva.id !== sessaoRecemFinalizadaRef.current
+    ) {
       setSessaoIdAtual(sessaoAtiva.id)
     }
   }, [sessaoAtiva, user?.id, sessaoIdAtual])
@@ -199,6 +214,7 @@ export function DiaPesagemPage() {
   async function handleFinalizar() {
     if (!sessaoIdAtual) return
     try {
+      sessaoRecemFinalizadaRef.current = sessaoIdAtual
       await finalizarSessao.mutateAsync(sessaoIdAtual)
       toast.success("Pesagem concluída — evento registrado no histórico.")
       setSessaoIdAtual(null)

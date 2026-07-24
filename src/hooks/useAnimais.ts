@@ -43,18 +43,28 @@ export type AnimalBusca = { id: string; identificacao: string }
  * ou "R38" encontram "AR385", pedido explícito de JP), restrita a
  * `status = 'ativo'` (não faz sentido pesar animal já vendido/morto/baixado).
  * Só habilitada com termo não vazio — sem isso listaria a fazenda inteira a
- * cada tecla apagada.
+ * cada tecla apagada. `especieIds` (2026-07-24, Dia de Vacinação) filtra
+ * ainda mais por tipo de animal, quando informado — a tela de vacinação
+ * escolhe os tipos de animal ANTES de buscar por identificação, pra não
+ * misturar animais de espécies não selecionadas na sugestão.
  */
 export function useBuscarAnimaisPorIdentificacao(
   fazendaId: string | undefined,
-  termo: string
+  termo: string,
+  especieIds?: string[]
 ) {
   const termoLimpo = termo.trim()
 
   return useQuery({
-    queryKey: ["animais", "busca-identificacao", fazendaId, termoLimpo] as const,
+    queryKey: [
+      "animais",
+      "busca-identificacao",
+      fazendaId,
+      termoLimpo,
+      especieIds ?? null,
+    ] as const,
     queryFn: async (): Promise<AnimalBusca[]> => {
-      const { data, error } = await supabase
+      let query = supabase
         .from("animais")
         .select("id, identificacao")
         .eq("fazenda_id", fazendaId as string)
@@ -63,6 +73,11 @@ export function useBuscarAnimaisPorIdentificacao(
         .order("identificacao", { ascending: true })
         .limit(8)
 
+      if (especieIds && especieIds.length > 0) {
+        query = query.in("especie_id", especieIds)
+      }
+
+      const { data, error } = await query
       if (error) throw error
       return data
     },

@@ -24,13 +24,9 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { DefinirPrazoDialog } from "@/pages/configuracoes/DefinirPrazoDialog"
+import { UFS } from "@/lib/estados"
 
 const SEM_UF = "__nenhuma__"
-
-const UFS = [
-  "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG",
-  "PA", "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO",
-]
 
 function formatData(data: string) {
   return new Date(`${data}T00:00:00`).toLocaleDateString("pt-BR")

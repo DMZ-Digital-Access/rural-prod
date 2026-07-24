@@ -38,6 +38,8 @@ import { RastreabilidadeStepper } from "@/components/rebanho/RastreabilidadeStep
 import { EditarAnimalDialog } from "@/pages/animais/EditarAnimalDialog"
 import { RegistrarPesagemForm } from "@/pages/animais/RegistrarPesagemForm"
 import { ExcluirPesagemDialog } from "@/pages/animais/ExcluirPesagemDialog"
+import { VacinaDetalheDialog } from "@/pages/animais/VacinaDetalheDialog"
+import { useVacinasDoAnimal } from "@/hooks/useVacinacoes"
 
 function formatData(data: string | null) {
   if (!data) return "—"
@@ -83,6 +85,7 @@ export function AnimalDetailPage() {
   const lotesQuery = useLotes(fazenda?.fazenda_id)
   const historicoLoteQuery = useHistoricoLoteAnimal(id)
   const saidaQuery = useSaidaAnimal(id)
+  const vacinasQuery = useVacinasDoAnimal(id)
 
   if (animalQuery.isLoading) {
     return <p className="text-sm text-muted-foreground">Carregando animal…</p>
@@ -396,9 +399,21 @@ export function AnimalDetailPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-muted-foreground">
-            Nenhuma vacina registrada ainda — este recurso está em desenvolvimento.
-          </p>
+          {vacinasQuery.isLoading && (
+            <p className="text-sm text-muted-foreground">Carregando…</p>
+          )}
+          {vacinasQuery.data && vacinasQuery.data.length === 0 && (
+            <p className="text-sm text-muted-foreground">
+              Nenhuma vacina registrada ainda.
+            </p>
+          )}
+          {vacinasQuery.data && vacinasQuery.data.length > 0 && (
+            <div className="flex flex-col divide-y divide-border rounded-lg border border-border">
+              {vacinasQuery.data.map((vacinacao) => (
+                <VacinaDetalheDialog key={vacinacao.id} vacinacao={vacinacao} />
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

@@ -248,7 +248,7 @@ export function DashboardPage() {
             <div>
               <p className="font-medium">Dia de Vacinação</p>
               <p className="text-sm text-muted-foreground">
-                Registrar a vacinação de animais.
+                Registrar vacinação e medicação de animais.
               </p>
             </div>
           </Link>
