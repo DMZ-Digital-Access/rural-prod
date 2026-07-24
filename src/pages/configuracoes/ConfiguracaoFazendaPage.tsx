@@ -4,6 +4,7 @@ import { toast } from "sonner"
 import { ImageIcon, PlusIcon } from "lucide-react"
 import { useFazendaAtual } from "@/hooks/useFazendaAtual"
 import { useFazendasDoUsuario } from "@/hooks/useFazendasDoUsuario"
+import { useFazendaSelecionada } from "@/lib/fazendaSelecionada"
 import { useCriarFazenda } from "@/hooks/useCriarFazenda"
 import { useAtualizarEstadoFazenda, useEstadoFazenda } from "@/hooks/useEstadoFazenda"
 import { UFS } from "@/lib/estados"
@@ -290,6 +291,7 @@ function TipoPecuariaSection({
 export function ConfiguracaoFazendaPage() {
   const { data: fazendaAtual } = useFazendaAtual()
   const fazendasQuery = useFazendasDoUsuario()
+  const { selecionarFazenda } = useFazendaSelecionada()
   const somenteLeituraFazenda = fazendaAtual?.papel === "financeiro"
   const ehAdminDaFazendaAtual = fazendaAtual?.papel === "admin"
 
@@ -429,8 +431,26 @@ export function ConfiguracaoFazendaPage() {
 
       {fazendaAtual && (
         <div className="flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-sm sm:max-w-lg">
-          <span className="text-muted-foreground">Editando a fazenda:</span>
-          <span className="font-medium">{fazendaAtual.nome}</span>
+          <span className="shrink-0 text-muted-foreground">Editando a fazenda:</span>
+          {(fazendasQuery.data?.length ?? 0) <= 1 ? (
+            <span className="font-medium">{fazendaAtual.nome}</span>
+          ) : (
+            <Select
+              value={fazendaAtual.fazenda_id}
+              onValueChange={(v) => v && selecionarFazenda(v)}
+            >
+              <SelectTrigger className="h-7 flex-1 border-none bg-transparent px-1.5 font-medium shadow-none">
+                <SelectValue>{() => fazendaAtual.nome}</SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {fazendasQuery.data?.map((f) => (
+                  <SelectItem key={f.fazenda_id} value={f.fazenda_id}>
+                    {f.nome} — {PAPEL_LABELS[f.papel] ?? f.papel}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
         </div>
       )}
 
