@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { Link } from "react-router-dom"
+import { useNavigate } from "react-router-dom"
 import { DownloadIcon } from "lucide-react"
 import { useFazendaAtual } from "@/hooks/useFazendaAtual"
 import { useFluxoCaixa, type FluxoCaixaFiltro } from "@/hooks/useFluxoCaixa"
@@ -75,6 +75,7 @@ function exportarCsv(movimentos: MovimentoFluxoCaixa[]) {
 }
 
 export function FluxoCaixaPage() {
+  const navigate = useNavigate()
   const { data: fazenda } = useFazendaAtual()
   const [filtro, setFiltro] = useState<FluxoCaixaFiltro>({
     ano: null,
@@ -257,11 +258,13 @@ export function FluxoCaixaPage() {
             </TableHeader>
             <TableBody>
               {movimentos.map((movimento) => (
-                <TableRow key={`${movimento.origem}-${movimento.origem_id}`}>
+                <TableRow
+                  key={`${movimento.origem}-${movimento.origem_id}`}
+                  className="cursor-pointer"
+                  onClick={() => navigate(linkOrigem(movimento))}
+                >
                   <TableCell>
-                    <Link to={linkOrigem(movimento)} className="underline-offset-4 hover:underline">
-                      <TipoLancamentoBadge tipo={movimento.tipo} />
-                    </Link>
+                    <TipoLancamentoBadge tipo={movimento.tipo} />
                   </TableCell>
                   <TableCell>{formatData(movimento.data)}</TableCell>
                   <TableCell className="font-medium">{movimento.categoria}</TableCell>

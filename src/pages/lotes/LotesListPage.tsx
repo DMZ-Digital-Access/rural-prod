@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { Link } from "react-router-dom"
+import { useNavigate } from "react-router-dom"
 import { Tabs } from "@base-ui/react/tabs"
 import { useFazendaAtual } from "@/hooks/useFazendaAtual"
 import { useLotes } from "@/hooks/useLotes"
@@ -32,6 +32,7 @@ function formatGmd(kg: number | null) {
 }
 
 export function LotesListPage() {
+  const navigate = useNavigate()
   const { data: fazenda } = useFazendaAtual()
   const lotesQuery = useLotes(fazenda?.fazenda_id)
   const [aba, setAba] = useState<AbaLotes>("ativos")
@@ -104,15 +105,12 @@ export function LotesListPage() {
               </TableHeader>
               <TableBody>
                 {lotesFiltrados.map((lote) => (
-                  <TableRow key={lote.id}>
-                    <TableCell>
-                      <Link
-                        to={`/app/lotes/${lote.id}`}
-                        className="font-medium text-primary underline-offset-4 hover:underline"
-                      >
-                        {lote.nome}
-                      </Link>
-                    </TableCell>
+                  <TableRow
+                    key={lote.id}
+                    className="cursor-pointer"
+                    onClick={() => navigate(`/app/lotes/${lote.id}`)}
+                  >
+                    <TableCell className="font-medium">{lote.nome}</TableCell>
                     <TableCell>{formatNumero(lote.numero_animais_ativos)}</TableCell>
                     <TableCell className="hidden sm:table-cell">
                       {formatPeso(lote.peso_medio_kg)}
@@ -120,7 +118,10 @@ export function LotesListPage() {
                     <TableCell className="hidden md:table-cell">
                       {formatGmd(lote.gmd_medio_kg)}
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell
+                      className="text-right"
+                      onClick={(e) => e.stopPropagation()}
+                    >
                       <div className="flex justify-end gap-2">
                         <LoteFormDialog mode="editar" lote={lote} />
                         {lote.ativo ? (

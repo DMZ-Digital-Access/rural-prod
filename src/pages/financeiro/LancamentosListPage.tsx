@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { Link } from "react-router-dom"
+import { useNavigate } from "react-router-dom"
 import { ChevronLeftIcon, ChevronRightIcon, DownloadIcon } from "lucide-react"
 import { toast } from "sonner"
 import { useFazendaAtual } from "@/hooks/useFazendaAtual"
@@ -51,6 +51,7 @@ function formatData(data: string) {
 }
 
 export function LancamentosListPage() {
+  const navigate = useNavigate()
   const { data: fazenda } = useFazendaAtual()
   const somenteLeitura = fazenda?.papel === "financeiro"
 
@@ -288,15 +289,16 @@ export function LancamentosListPage() {
               </TableHeader>
               <TableBody>
                 {lancamentosQuery.data.dados.map((lancamento) => (
-                  <TableRow key={lancamento.id}>
+                  <TableRow
+                    key={lancamento.id}
+                    className="cursor-pointer"
+                    onClick={() => navigate(`/app/financeiro/lancamentos/${lancamento.id}`)}
+                  >
                     <TableCell>
-                      <Link
-                        to={`/app/financeiro/lancamentos/${lancamento.id}`}
-                        className="flex flex-wrap items-center gap-1.5 underline-offset-4 hover:underline"
-                      >
+                      <div className="flex flex-wrap items-center gap-1.5">
                         <TipoLancamentoBadge tipo={lancamento.tipo} />
                         <ValidacaoBadge validado={lancamento.validado_pelo_usuario} />
-                      </Link>
+                      </div>
                     </TableCell>
                     <TableCell className="font-medium">{lancamento.categoria}</TableCell>
                     <TableCell>{lancamento.descricao}</TableCell>

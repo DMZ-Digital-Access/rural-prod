@@ -1,6 +1,13 @@
 import { useMemo, useState } from "react"
 import { Link } from "react-router-dom"
-import { InfoIcon, SyringeIcon, TruckIcon, WeightIcon, ZapIcon } from "lucide-react"
+import {
+  ArrowRightLeftIcon,
+  InfoIcon,
+  SyringeIcon,
+  TruckIcon,
+  WeightIcon,
+  ZapIcon,
+} from "lucide-react"
 import {
   Bar,
   BarChart,
@@ -262,6 +269,19 @@ export function DashboardPage() {
               <p className="font-medium">Dia de Embarque</p>
               <p className="text-sm text-muted-foreground">
                 Registra o embarque de animais.
+              </p>
+            </div>
+          </Link>
+
+          <Link
+            to="/app/financeiro/transacoes"
+            className="flex items-center gap-3 rounded-xl border border-border bg-card p-4 transition-colors hover:border-foreground/30 hover:bg-muted"
+          >
+            <ArrowRightLeftIcon className="size-6 shrink-0 text-muted-foreground" />
+            <div>
+              <p className="font-medium">Transações</p>
+              <p className="text-sm text-muted-foreground">
+                Ver e registrar compra, venda e movimentação de animais.
               </p>
             </div>
           </Link>

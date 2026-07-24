@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { Link } from "react-router-dom"
+import { useNavigate } from "react-router-dom"
 import { DownloadIcon, FileTextIcon } from "lucide-react"
 import { toast } from "sonner"
 import { useFazendaAtual } from "@/hooks/useFazendaAtual"
@@ -52,6 +52,7 @@ function formatData(data: string) {
 const hoje = new Date()
 
 export function DocumentosFiscaisPage() {
+  const navigate = useNavigate()
   const { data: fazenda } = useFazendaAtual()
   // Ano/mês partem já preenchidos com o mês corrente (achado de JP,
   // 2026-07-22: "o botão baixar zip não está ativo" — o botão fica
@@ -226,20 +227,19 @@ export function DocumentosFiscaisPage() {
             </TableHeader>
             <TableBody>
               {lista.data.map((lancamento) => (
-                <TableRow key={lancamento.id}>
+                <TableRow
+                  key={lancamento.id}
+                  className="cursor-pointer"
+                  onClick={() => navigate(`/app/financeiro/lancamentos/${lancamento.id}`)}
+                >
                   <TableCell>
-                    <Link
-                      to={`/app/financeiro/lancamentos/${lancamento.id}`}
-                      className="underline-offset-4 hover:underline"
-                    >
-                      <TipoLancamentoBadge tipo={lancamento.tipo} />
-                    </Link>
+                    <TipoLancamentoBadge tipo={lancamento.tipo} />
                   </TableCell>
                   <TableCell>{formatData(lancamento.data_lancamento)}</TableCell>
                   <TableCell className="font-medium">{lancamento.categoria}</TableCell>
                   <TableCell className="hidden sm:table-cell">{lancamento.descricao}</TableCell>
                   <TableCell className="text-right">{formatMoeda(lancamento.valor)}</TableCell>
-                  <TableCell>
+                  <TableCell onClick={(e) => e.stopPropagation()}>
                     {lancamento.arquivo_path ? (
                       <Button
                         type="button"

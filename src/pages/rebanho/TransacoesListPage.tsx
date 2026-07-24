@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { Link } from "react-router-dom"
+import { useNavigate } from "react-router-dom"
 import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react"
 import { useFazendaAtual } from "@/hooks/useFazendaAtual"
 import { useEspecies } from "@/hooks/useEspecies"
@@ -13,6 +13,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -26,7 +27,7 @@ import {
 import { TipoOperacaoBadge } from "@/components/rebanho/TipoOperacaoBadge"
 import { StatusGtaBadge } from "@/components/rebanho/StatusGtaBadge"
 import { EntradaSaidaLoteDialog } from "@/pages/animais/EntradaSaidaLoteDialog"
-import type { TipoOperacaoTransacao } from "@/lib/types/rebanho"
+import type { TipoOperacaoTransacao, TransacaoComDetalhes } from "@/lib/types/rebanho"
 
 const PAGE_SIZE = 20
 
@@ -56,7 +57,38 @@ function anosDisponiveis() {
   return Array.from({ length: 6 }, (_, i) => anoAtual - i)
 }
 
+// Só operações de transporte de fato fazem uma GTA ter sentido — nascimento/
+// óbito/consumo acontecem dentro da própria fazenda, sem trânsito.
+const TIPOS_COM_TRANSPORTE = new Set<TipoOperacaoTransacao>([
+  "compra",
+  "venda",
+  "entrada_pastoreio",
+  "saida_pastoreio",
+])
+
+/**
+ * Pendências reais da transação (2026-07-24, pedido de JP) — Nota/Contranota
+ * a partir dos arquivos de fato anexados (não de um campo à parte que
+ * poderia ficar desatualizado), e GTA a partir das GTAs REALMENTE vinculadas
+ * (gtas.status_liberacao, embutido na consulta) — não do campo manual
+ * "Status GTA" da transação, que o usuário define à mão e pode ficar
+ * dessincronizado das GTAs de verdade.
+ */
+function calcularPendencias(transacao: TransacaoComDetalhes): string[] {
+  const pendencias: string[] = []
+  if (!transacao.arquivo_nota_path) pendencias.push("Nota")
+  if (!transacao.arquivo_contranota_path) pendencias.push("Contranota")
+  if (TIPOS_COM_TRANSPORTE.has(transacao.tipo_operacao)) {
+    const semGtaLiberada =
+      transacao.gtas.length === 0 ||
+      transacao.gtas.some((gta) => gta.status_liberacao === "pendente")
+    if (semGtaLiberada) pendencias.push("GTA")
+  }
+  return pendencias
+}
+
 export function TransacoesListPage() {
+  const navigate = useNavigate()
   const { data: fazenda } = useFazendaAtual()
   const especiesQuery = useEspecies()
 
@@ -253,19 +285,19 @@ export function TransacoesListPage() {
                     Valor da nota
                   </TableHead>
                   <TableHead className="hidden lg:table-cell">Status GTA</TableHead>
+                  <TableHead className="hidden md:table-cell">Pendências</TableHead>
                   <TableHead className="hidden xl:table-cell">Nº nota</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {transacoesQuery.data.dados.map((transacao) => (
-                  <TableRow key={transacao.id}>
+                  <TableRow
+                    key={transacao.id}
+                    className="cursor-pointer"
+                    onClick={() => navigate(`/app/financeiro/transacoes/${transacao.id}`)}
+                  >
                     <TableCell>
-                      <Link
-                        to={`/app/financeiro/transacoes/${transacao.id}`}
-                        className="underline-offset-4 hover:underline"
-                      >
-                        <TipoOperacaoBadge tipo={transacao.tipo_operacao} />
-                      </Link>
+                      <TipoOperacaoBadge tipo={transacao.tipo_operacao} />
                     </TableCell>
                     <TableCell className="font-medium">
                       {transacao.outra_parte}
@@ -282,6 +314,26 @@ export function TransacoesListPage() {
                     </TableCell>
                     <TableCell className="hidden lg:table-cell">
                       <StatusGtaBadge status={transacao.status_gta_transacao} />
+                    </TableCell>
+                    <TableCell className="hidden md:table-cell">
+                      {(() => {
+                        const pendencias = calcularPendencias(transacao)
+                        return pendencias.length === 0 ? (
+                          <span className="text-muted-foreground">—</span>
+                        ) : (
+                          <div className="flex flex-wrap gap-1">
+                            {pendencias.map((pendencia) => (
+                              <Badge
+                                key={pendencia}
+                                variant="outline"
+                                className="border-orange-600/20 bg-orange-600/10 text-orange-700 dark:border-orange-500/30 dark:bg-orange-500/15 dark:text-orange-400"
+                              >
+                                {pendencia}
+                              </Badge>
+                            ))}
+                          </div>
+                        )
+                      })()}
                     </TableCell>
                     <TableCell className="hidden xl:table-cell">
                       {transacao.numero_nota ?? "—"}

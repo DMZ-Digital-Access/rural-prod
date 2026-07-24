@@ -149,12 +149,17 @@ export type Transacao = {
   updated_at: string
 }
 
-/** transacoes + espécie relacionada — usado pela listagem (Fase 4, item 15). */
+export type StatusLiberacaoGta = "pendente" | "liberada"
+
+/** transacoes + espécie relacionada — usado pela listagem (Fase 4, item 15).
+ * `gtas` (2026-07-24, coluna Pendências) embute só status_liberacao de cada
+ * GTA vinculada — o suficiente pra saber se falta alguma liberar, sem
+ * buscar a lista completa de novo (já existe useGtasDaTransacao pro
+ * detalhe). */
 export type TransacaoComDetalhes = Transacao & {
   especies: { nome: string } | null
+  gtas: { status_liberacao: StatusLiberacaoGta }[]
 }
-
-export type StatusLiberacaoGta = "pendente" | "liberada"
 
 /** GTA vinculada a uma transação (spec: N GTAs por transação, uma por caminhão). */
 export type GtaResumo = {

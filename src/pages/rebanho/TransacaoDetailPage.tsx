@@ -39,6 +39,7 @@ import {
 import { TipoOperacaoBadge } from "@/components/rebanho/TipoOperacaoBadge"
 import { StatusGtaBadge } from "@/components/rebanho/StatusGtaBadge"
 import { StatusLiberacaoGtaBadge } from "@/components/rebanho/StatusLiberacaoGtaBadge"
+import { CriarGtaDialog } from "@/pages/gtas/CriarGtaDialog"
 import {
   atualizarTransacaoSchema,
   type AtualizarTransacaoFormValues,
@@ -279,12 +280,22 @@ export function TransacaoDetailPage() {
           </div>
 
           <div className="rounded-lg border border-border p-4">
-            <p className="mb-2 text-sm font-medium">
-              GTAs vinculadas
-              <span className="ml-1 font-normal text-muted-foreground">
-                (uma por caminhão de transporte)
-              </span>
-            </p>
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+              <p className="text-sm font-medium">
+                GTAs vinculadas
+                <span className="ml-1 font-normal text-muted-foreground">
+                  (uma por caminhão de transporte)
+                </span>
+              </p>
+              {!somenteLeitura && transacao && (
+                <CriarGtaDialog
+                  fazendaId={fazenda?.fazenda_id}
+                  transacaoId={transacao.id}
+                  especieId={transacao.especie_id}
+                  quantidadeAnimais={transacao.quantidade_animais}
+                />
+              )}
+            </div>
             {gtasQuery.isLoading && (
               <p className="text-sm text-muted-foreground">Carregando…</p>
             )}

@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { Link } from "react-router-dom"
+import { useNavigate } from "react-router-dom"
 import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react"
 import { useFazendaAtual } from "@/hooks/useFazendaAtual"
 import { useEspecies } from "@/hooks/useEspecies"
@@ -36,6 +36,7 @@ const statusLabels: Record<StatusLiberacaoGta, string> = {
 }
 
 export function GtasListPage() {
+  const navigate = useNavigate()
   const { data: fazenda } = useFazendaAtual()
   const especiesQuery = useEspecies()
   const somenteLeitura = fazenda?.papel === "financeiro"
@@ -189,15 +190,12 @@ export function GtasListPage() {
               </TableHeader>
               <TableBody>
                 {gtasQuery.data.dados.map((gta) => (
-                  <TableRow key={gta.id}>
-                    <TableCell>
-                      <Link
-                        to={`/app/rebanho/gtas/${gta.id}`}
-                        className="font-medium text-primary underline-offset-4 hover:underline"
-                      >
-                        {gta.numero_gta}
-                      </Link>
-                    </TableCell>
+                  <TableRow
+                    key={gta.id}
+                    className="cursor-pointer"
+                    onClick={() => navigate(`/app/rebanho/gtas/${gta.id}`)}
+                  >
+                    <TableCell className="font-medium">{gta.numero_gta}</TableCell>
                     <TableCell>
                       <StatusLiberacaoGtaBadge status={gta.status_liberacao} />
                     </TableCell>

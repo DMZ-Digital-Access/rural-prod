@@ -14,22 +14,40 @@ import { useCriarGta } from "@/hooks/useGtas"
 import { GtaForm } from "@/pages/gtas/GtaForm"
 import type { GtaFormValues } from "@/lib/validations/gtas"
 
-const valoresIniciais: GtaFormValues = {
-  numero_gta: "",
-  municipio_origem: "",
-  origem: "",
-  municipio_destino: "",
-  destino: "",
-  especie_id: "",
-  quantidade_animais: undefined as unknown as number,
-  status_liberacao: "pendente",
-  data_liberacao: null,
-  transacao_id: null,
-}
-
-export function CriarGtaDialog({ fazendaId }: { fazendaId: string | undefined }) {
+/**
+ * `transacaoId`/`especieId`/`quantidadeAnimais` (2026-07-24, pedido de JP:
+ * "facilitar a rota do usuário pro preenchimento completo de dados") —
+ * quando aberto a partir da própria página de detalhe da transação (seção
+ * "GTAs vinculadas"), pré-preenche o vínculo e os dados que a transação já
+ * tem, sem o usuário precisar redigitar. Mesmo componente/hooks de sempre
+ * (GtaForm/useCriarGta) — só os valores iniciais mudam.
+ */
+export function CriarGtaDialog({
+  fazendaId,
+  transacaoId,
+  especieId,
+  quantidadeAnimais,
+}: {
+  fazendaId: string | undefined
+  transacaoId?: string
+  especieId?: string
+  quantidadeAnimais?: number
+}) {
   const [open, setOpen] = useState(false)
   const criarGta = useCriarGta(fazendaId)
+
+  const valoresIniciais: GtaFormValues = {
+    numero_gta: "",
+    municipio_origem: "",
+    origem: "",
+    municipio_destino: "",
+    destino: "",
+    especie_id: especieId ?? "",
+    quantidade_animais: quantidadeAnimais ?? (undefined as unknown as number),
+    status_liberacao: "pendente",
+    data_liberacao: null,
+    transacao_id: transacaoId ?? null,
+  }
 
   async function onSubmit(values: GtaFormValues) {
     try {

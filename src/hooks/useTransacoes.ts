@@ -14,7 +14,8 @@ import type {
   SaidaAnimaisIndividuaisFormValues,
 } from "@/lib/validations/transacoes"
 
-const TRANSACOES_SELECT = "*, especies(nome)"
+const TRANSACOES_SELECT =
+  "*, especies(nome), gtas!gtas_transacao_id_fkey(status_liberacao)"
 
 /**
  * Lançamento agregado de Entradas/Saídas de Animais de Lote (ADR-0005) —
